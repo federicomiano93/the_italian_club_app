@@ -474,6 +474,15 @@ if ('serviceWorker' in navigator) {
           document.getElementById('update-banner').classList.add('visible');
         }
       });
+      // Select all on focus so typing replaces the zero
+document.querySelectorAll('input[type="number"]').forEach(input => {
+  input.addEventListener('focus', function() {
+    this.select();
+  });
+  input.addEventListener('click', function() {
+    this.select();
+  });
+});
     });
   });
 }
