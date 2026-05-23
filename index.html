@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#2D5016">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bakery">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Bakery Calculator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F5F2ED;
+    --surface: #FFFFFF;
+    --surface2: #F0EDE8;
+    --border: #E0DDD8;
+    --text: #1A1A18;
+    --text2: #6B6860;
+    --text3: #A09D98;
+    --accent: #2D5016;
+    --accent-light: #E8F0E0;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bot: env(safe-area-inset-bottom, 0px);
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Header */
+  header {
+    background: var(--accent);
+    padding: calc(14px + var(--safe-top)) 16px 14px;
+    flex-shrink: 0;
+  }
+  header h1 { font-size: 18px; font-weight: 600; color: #fff; letter-spacing: -0.3px; }
+  header p { font-size: 11px; color: rgba(255,255,255,0.55); margin-top: 1px; font-family: 'DM Mono', monospace; }
+
+  /* Update banner */
+  #update-banner {
+    display: none;
+    background: #8B3A0F;
+    color: #fff;
+    font-size: 13px;
+    padding: 10px 16px;
+    text-align: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  #update-banner.visible { display: block; }
+
+  /* Tab bar */
+  .tab-bar {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .tab {
+    flex: 1;
+    padding: 12px 8px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* Scroll area */
+  .scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(24px + var(--safe-bot));
+  }
+
+  .content { padding: 14px 16px; display: none; }
+  .content.active { display: block; }
+
+  /* Labels */
+  .section-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin: 18px 0 8px;
+    font-family: 'DM Mono', monospace;
+  }
+  .section-label:first-child { margin-top: 0; }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .card-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 10px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Product rows */
+  .product-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .product-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .product-label { flex: 1; font-size: 14px; color: var(--text); }
+
+  input[type="number"] {
+    width: 76px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 500;
+    font-family: 'DM Mono', monospace;
+    text-align: center;
+    -moz-appearance: textfield;
+    appearance: textfield;
+    transition: border-color 0.15s;
+    /* Bigger tap target */
+    min-height: 40px;
+  }
+  input[type="number"]:focus { outline: none; border-color: var(--accent); background: #fff; }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+  .unit { font-size: 11px; color: var(--text3); width: 20px; font-family: 'DM Mono', monospace; }
+
+  /* Param rows */
+  .param-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--accent-light);
+    border-radius: var(--radius-sm);
+    margin-bottom: 10px;
+  }
+  .param-label { flex: 1; font-size: 13px; color: var(--accent); font-weight: 500; }
+
+  /* Result */
+  .result-block { margin-top: 14px; display: none; }
+  .result-block.visible { display: block; }
+
+  .result-card {
+    background: var(--accent);
+    border-radius: var(--radius);
+    padding: 16px;
+    color: #fff;
+  }
+  .result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+  }
+  .result-header h3 { font-size: 14px; font-weight: 600; }
+  .result-badge { font-size: 11px; font-family: 'DM Mono', monospace; color: rgba(255,255,255,0.55); }
+
+  .ing-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .ing-row:last-child { border-bottom: none; }
+  .ing-name { font-size: 13px; color: rgba(255,255,255,0.72); }
+  .ing-val { font-size: 14px; font-weight: 500; font-family: 'DM Mono', monospace; }
+  .ing-kg { font-size: 10px; color: rgba(255,255,255,0.4); margin-left: 4px; }
+
+  .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .summary-item {
+    background: rgba(255,255,255,0.1);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+  }
+  .summary-item .s-label { font-size: 10px; color: rgba(255,255,255,0.45); margin-bottom: 2px; font-family: 'DM Mono', monospace; }
+  .summary-item .s-val { font-size: 20px; font-weight: 600; }
+  .summary-item .s-unit { font-size: 11px; color: rgba(255,255,255,0.45); margin-left: 2px; }
+
+  /* Reset button */
+  .reset-btn {
+    width: 100%;
+    margin-top: 14px;
+    padding: 11px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--text2);
+    cursor: pointer;
+    letter-spacing: 0.02em;
+  }
+  .reset-btn:active { background: var(--surface2); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Bakery Calculator</h1>
+  <p>Dough scaling from orders</p>
+</header>
+
+<div id="update-banner" onclick="applyUpdate()">
+  New version available — tap to update
+</div>
+
+<div class="tab-bar">
+  <button class="tab active" onclick="switchTab('focaccia')">Focaccia</button>
+  <button class="tab" onclick="switchTab('brioche')">Brioche</button>
+  <button class="tab" onclick="switchTab('sourdough')">Sourdough</button>
+</div>
+
+<div class="scroll-area">
+
+  <!-- FOCACCIA -->
+  <div class="content active" id="tab-focaccia">
+
+    <div class="section-label">Orders</div>
+
+    <div class="card">
+      <div class="card-title">Bakery</div>
+      <div class="product-row">
+        <span class="product-label">Pizze</span>
+        <input type="number" id="f-pizze" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
+        <span class="unit">pz</span>
+      </div>
+      <div class="product-row">
+        <span class="product-label">Focacce</span>
+        <input type="number" id="f-focacce" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
+        <span class="unit">pz</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Bone&amp;Block</div>
+      <div class="product-row">
+        <span class="product-label">Burger buns</span>
+        <input type="number" id="f-burgerbuns" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
+        <span class="unit">pz</span>
+      </div>
+      <div class="product-row">
+        <span class="product-label">Sub rolls</span>
+        <input type="number" id="f-subrolls" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
+        <span class="unit">pz</span>
+      </div>
+      <div class="product-row">
+        <span class="product-label">Ciabatta</span>
+        <input type="number" id="f-ciabatta" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
+        <span class="unit">pz</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Club Fish</div>
+      <div class="product-row">
+        <span class="product-label">Tray focaccia</span>
+        <input type="number" id="f-trayfocaccia" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
+        <span class="unit">g</span>
+      </div>
+      <div class="product-row">
+        <span class="product-label">Bun</span>
+        <input type="number" id="f-bun" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
+        <span class="unit">pz</span>
+      </div>
+      <div class="product-row">
+        <span class="product-label">Rolls</span>
+        <input type="number" id="f-rolls" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
+        <span class="unit">pz</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Cahita</div>
+      <div class="product-row">
+        <span class="product-label">Panini</span>
+        <input type="number" id="f-panini" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
+        <span class="unit">pz</span>
+      </div>
+    </div>
+
+    <div class="section-label">Parameters</div>
+    <div class="param-row">
+      <span class="param-label">Yeast %</span>
+      <input type="number" id="f-yeast-pct" value="0.65" min="0.1" max="3" step="0.05" inputmode="decimal" oninput="calcFocaccia()">
+      <span class="unit">%</span>
+    </div>
+
+    <div class="result-block" id="focaccia-result">
+      <div class="result-card">
+        <div class="result-header">
+          <h3>Focaccia dough</h3>
+          <span class="result-badge" id="f-badge"></span>
+        </div>
+        <div id="f-ingredients"></div>
+        <div class="summary-grid">
+          <div class="summary-item">
+            <div class="s-label">Total raw</div>
+            <div><span class="s-val" id="f-total">0</span> <span class="s-unit">g</span></div>
+          </div>
+          <div class="summary-item">
+            <div class="s-label">÷ 2</div>
+            <div><span class="s-val" id="f-half">0</span> <span class="s-unit">g</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="reset-btn" onclick="resetTab('focaccia')">Reset all fields</button>
+  </div>
+
+  <!-- BRIOCHE -->
+  <div class="content" id="tab-brioche">
+
+    <div class="section-label">Orders</div>
+
+    <div class="card">
+      <div class="card-title">Bone&amp;Block</div>
+      <div class="product-row">
+        <span class="product-label">Burger buns</span>
+        <input type="number" id="b-burgerbuns" value="0" min="0" inputmode="numeric" oninput="calcBrioche()">
+        <span class="unit">pz</span>
+      </div>
+      <div class="product-row">
+        <span class="product-label">Sub rolls</span>
+        <input type="number" id="b-subrolls" value="0" min="0" inputmode="numeric" oninput="calcBrioche()">
+        <span class="unit">pz</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Club Fish</div>
+      <div class="product-row">
+        <span class="product-label">Bun</span>
+        <input type="number" id="b-bun" value="0" min="0" inputmode="numeric" oninput="calcBrioche()">
+        <span class="unit">pz</span>
+      </div>
+      <div class="product-row">
+        <span class="product-label">Rolls</span>
+        <input type="number" id="b-rolls" value="0" min="0" inputmode="numeric" oninput="calcBrioche()">
+        <span class="unit">pz</span>
+      </div>
+    </div>
+
+    <div class="section-label">Parameters</div>
+    <div class="param-row">
+      <span class="param-label">Yeast %</span>
+      <input type="number" id="b-yeast-pct" value="4" min="0.1" max="6" step="0.1" inputmode="decimal" oninput="calcBrioche()">
+      <span class="unit">%</span>
+    </div>
+
+    <div class="result-block" id="brioche-result">
+      <div class="result-card">
+        <div class="result-header">
+          <h3>Brioche dough</h3>
+          <span class="result-badge" id="b-badge"></span>
+        </div>
+        <div id="b-ingredients"></div>
+        <div class="summary-grid">
+          <div class="summary-item">
+            <div class="s-label">Total raw</div>
+            <div><span class="s-val" id="b-total">0</span> <span class="s-unit">g</span></div>
+          </div>
+          <div class="summary-item">
+            <div class="s-label">÷ 2</div>
+            <div><span class="s-val" id="b-half">0</span> <span class="s-unit">g</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="reset-btn" onclick="resetTab('brioche')">Reset all fields</button>
+  </div>
+
+  <!-- SOURDOUGH -->
+  <div class="content" id="tab-sourdough">
+
+    <div class="section-label">Production</div>
+
+    <div class="card">
+      <div class="product-row">
+        <span class="product-label">Number of loaves</span>
+        <input type="number" id="s-loaves" value="0" min="0" inputmode="numeric" oninput="calcSourdough()">
+        <span class="unit">pz</span>
+      </div>
+      <div class="product-row">
+        <span class="product-label">Weight per loaf</span>
+        <input type="number" id="s-weight" value="905" min="100" step="5" inputmode="numeric" oninput="calcSourdough()">
+        <span class="unit">g</span>
+      </div>
+    </div>
+
+    <div class="section-label">Parameters</div>
+    <div class="param-row">
+      <span class="param-label">Starter %</span>
+      <input type="number" id="s-starter-pct" value="18" min="5" max="40" step="1" inputmode="numeric" oninput="calcSourdough()">
+      <span class="unit">%</span>
+    </div>
+
+    <div class="result-block" id="sourdough-result">
+      <div class="result-card">
+        <div class="result-header">
+          <h3>Sourdough bread</h3>
+          <span class="result-badge" id="s-badge"></span>
+        </div>
+        <div id="s-ingredients"></div>
+        <div class="summary-grid">
+          <div class="summary-item">
+            <div class="s-label">Total raw</div>
+            <div><span class="s-val" id="s-total">0</span> <span class="s-unit">g</span></div>
+          </div>
+          <div class="summary-item">
+            <div class="s-label">÷2 / ÷3</div>
+            <div><span class="s-val" id="s-div" style="font-size:13px; line-height:1.4">—</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="reset-btn" onclick="resetTab('sourdough')">Reset all fields</button>
+  </div>
+
+</div><!-- end scroll-area -->
+
+<script>
+// Service Worker registration
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then(reg => {
+    reg.addEventListener('updatefound', () => {
+      const newWorker = reg.installing;
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          document.getElementById('update-banner').classList.add('visible');
+        }
+      });
+    });
+  });
+}
+
+let newWorker;
+function applyUpdate() {
+  if (newWorker) newWorker.postMessage({ action: 'skipWaiting' });
+  window.location.reload();
+}
+
+// Tab switching
+function switchTab(name) {
+  document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach((el, i) => {
+    el.classList.toggle('active', ['focaccia','brioche','sourdough'][i] === name);
+  });
+  document.getElementById('tab-'+name).classList.add('active');
+  document.querySelector('.scroll-area').scrollTop = 0;
+}
+
+// Ingredient row helper
+function ing(name, grams) {
+  const kg = grams >= 1000 ? `<span class="ing-kg">${(grams/1000).toFixed(2)} kg</span>` : '';
+  return `<div class="ing-row"><span class="ing-name">${name}</span><span class="ing-val">${Math.round(grams)} g${kg}</span></div>`;
+}
+
+function showResult(id) { document.getElementById(id).classList.add('visible'); }
+function hideResult(id) { document.getElementById(id).classList.remove('visible'); }
+
+// Reset
+function resetTab(tab) {
+  document.querySelectorAll('#tab-'+tab+' input[type="number"]').forEach(input => {
+    const defaults = { 'f-yeast-pct':'0.65', 'b-yeast-pct':'4', 's-starter-pct':'18', 's-weight':'905' };
+    input.value = defaults[input.id] || '0';
+  });
+  if (tab === 'focaccia') calcFocaccia();
+  if (tab === 'brioche') calcBrioche();
+  if (tab === 'sourdough') calcSourdough();
+}
+
+// FOCACCIA
+function calcFocaccia() {
+  const pizze        = +document.getElementById('f-pizze').value || 0;
+  const focacce      = +document.getElementById('f-focacce').value || 0;
+  const burgerbuns   = +document.getElementById('f-burgerbuns').value || 0;
+  const subrolls     = +document.getElementById('f-subrolls').value || 0;
+  const ciabatta     = +document.getElementById('f-ciabatta').value || 0;
+  const tray         = +document.getElementById('f-trayfocaccia').value || 0;
+  const bun          = +document.getElementById('f-bun').value || 0;
+  const rolls        = +document.getElementById('f-rolls').value || 0;
+  const panini       = +document.getElementById('f-panini').value || 0;
+  const yeastPct     = +document.getElementById('f-yeast-pct').value || 0.65;
+
+  const total = pizze*201 + focacce*181 + burgerbuns*91 + subrolls*121 + ciabatta*151 + tray + bun*101 + rolls*101 + panini*131;
+  if (total === 0) { hideResult('focaccia-result'); return; }
+
+  const scale   = total / 1003.12;
+  const flu     = 278 * scale;
+  const flt     = 278 * scale;
+  const malt    = 3 * scale;
+  const sugar   = 8 * scale;
+  const salt    = 11 * scale;
+  const yeast   = 11.12 * (yeastPct / 0.65) * scale;
+  const oil     = 56 * scale;
+  const water1  = 334 * scale;
+  const water2  = 24 * scale;
+  const raw     = flu + flt + malt + sugar + salt + yeast + oil + water1 + water2;
+
+  document.getElementById('f-ingredients').innerHTML =
+    ing('Flour uniqua blu', flu) + ing('Flour T65', flt) +
+    ing('Malt', malt) + ing('Sugar', sugar) + ing('Salt', salt) +
+    ing('Yeast ('+yeastPct+'%)', yeast) + ing('Oil', oil) +
+    ing('1° Water', water1) + ing('2° Water', water2);
+
+  document.getElementById('f-badge').textContent = Math.round(raw) + ' g raw';
+  document.getElementById('f-total').textContent  = Math.round(raw);
+  document.getElementById('f-half').textContent   = Math.round(raw / 2);
+  showResult('focaccia-result');
+}
+
+// BRIOCHE
+function calcBrioche() {
+  const burgerbuns = +document.getElementById('b-burgerbuns').value || 0;
+  const subrolls   = +document.getElementById('b-subrolls').value || 0;
+  const bun        = +document.getElementById('b-bun').value || 0;
+  const rolls      = +document.getElementById('b-rolls').value || 0;
+  const yeastPct   = +document.getElementById('b-yeast-pct').value || 4;
+
+  const totalPcs = burgerbuns*20 + subrolls*20 + bun*10 + rolls*10;
+  if (totalPcs === 0) { hideResult('brioche-result'); return; }
+
+  const scale = totalPcs / 60;
+  const flour = 3185 * scale;
+  const yeast = 127.4 * (yeastPct / 4) * scale;
+  const water = 1575 * scale;
+  const raw   = flour + yeast + water;
+
+  document.getElementById('b-ingredients').innerHTML =
+    ing('Mella brioche pof', flour) +
+    ing('Yeast ('+yeastPct+'%)', yeast) +
+    ing('1° Water', water);
+
+  document.getElementById('b-badge').textContent = Math.round(raw) + ' g raw';
+  document.getElementById('b-total').textContent  = Math.round(raw);
+  document.getElementById('b-half').textContent   = Math.round(raw / 2);
+  showResult('brioche-result');
+}
+
+// SOURDOUGH
+function calcSourdough() {
+  const loaves     = +document.getElementById('s-loaves').value || 0;
+  const weight     = +document.getElementById('s-weight').value || 905;
+  const starterPct = +document.getElementById('s-starter-pct').value || 18;
+
+  if (loaves === 0) { hideResult('sourdough-result'); return; }
+
+  const target  = loaves * weight;
+  const scale   = target / 21720;
+  const flu     = 2560 * scale;
+  const flt     = 2560 * scale;
+  const flw     = 570 * scale;
+  const w1      = 3800 * scale;
+  const starter = 1024 * (starterPct / 18) * scale;
+  const malt    = 30 * scale;
+  const salt    = 124 * scale;
+  const w2      = 300 * scale;
+  const raw     = flu + flt + flw + w1 + starter + malt + salt + w2;
+
+  document.getElementById('s-ingredients').innerHTML =
+    ing('Flour uniqua blu', flu) + ing('Flour T65', flt) +
+    ing('Flour wholemeal', flw) + ing('1° Water', w1) +
+    ing('Starter ('+starterPct+'%)', starter) +
+    ing('Malt', malt) + ing('Salt', salt) + ing('2° Water', w2);
+
+  document.getElementById('s-badge').textContent  = Math.round(raw) + ' g raw';
+  document.getElementById('s-total').textContent  = Math.round(raw);
+  document.getElementById('s-div').textContent    = Math.round(raw/2) + ' / ' + Math.round(raw/3) + ' g';
+  showResult('sourdough-result');
+}
+</script>
+</body>
+</html>
