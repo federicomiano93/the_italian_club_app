@@ -464,6 +464,26 @@
 </div><!-- end scroll-area -->
 
 <script>
+// Clear zero on focus, restore if left empty
+const DEFAULTS = { 'f-yeast-pct':'0.65', 'b-yeast-pct':'4', 's-starter-pct':'18', 's-weight':'905' };
+document.querySelectorAll('input[type="number"]').forEach(input => {
+  input.addEventListener('focus', function() {
+    if (this.value === '0' || this.value === '') {
+      this.value = '';
+    } else {
+      this.select();
+    }
+  });
+  input.addEventListener('blur', function() {
+    if (this.value === '' || isNaN(parseFloat(this.value))) {
+      this.value = DEFAULTS[this.id] || '0';
+      if (this.id.startsWith('f-')) calcFocaccia();
+      else if (this.id.startsWith('b-')) calcBrioche();
+      else if (this.id.startsWith('s-')) calcSourdough();
+    }
+  });
+});
+
 // Service Worker registration
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').then(reg => {
@@ -474,15 +494,6 @@ if ('serviceWorker' in navigator) {
           document.getElementById('update-banner').classList.add('visible');
         }
       });
-      // Select all on focus so typing replaces the zero
-document.querySelectorAll('input[type="number"]').forEach(input => {
-  input.addEventListener('focus', function() {
-    this.select();
-  });
-  input.addEventListener('click', function() {
-    this.select();
-  });
-});
     });
   });
 }
