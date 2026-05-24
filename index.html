@@ -502,24 +502,39 @@ document.querySelectorAll('input[type="number"]').forEach(input => {
   });
 });
 
-// Service Worker registration
+// Service Worker registration with force-update for iOS
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').then(reg => {
+
+    // Check for update every 30 seconds (helps iOS)
+    setInterval(() => reg.update(), 30000);
+
+    const showBanner = () => document.getElementById('update-banner').classList.add('visible');
+
+    if (reg.waiting) showBanner();
+
     reg.addEventListener('updatefound', () => {
       const newWorker = reg.installing;
       newWorker.addEventListener('statechange', () => {
-        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-          document.getElementById('update-banner').classList.add('visible');
-        }
+        if (newWorker.state === 'installed') showBanner();
       });
     });
   });
+
+  // Reload when new SW takes control
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    window.location.reload();
+  });
 }
 
-let newWorker;
 function applyUpdate() {
-  if (newWorker) newWorker.postMessage({ action: 'skipWaiting' });
-  window.location.reload();
+  navigator.serviceWorker.getRegistration().then(reg => {
+    if (reg && reg.waiting) {
+      reg.waiting.postMessage({ action: 'skipWaiting' });
+    } else {
+      window.location.reload();
+    }
+  });
 }
 
 // Tab switching

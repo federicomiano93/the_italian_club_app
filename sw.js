@@ -1,5 +1,6 @@
-const CACHE_NAME = 'bakery-v8';
+const CACHE_NAME = 'bakery-v9';
 const ASSETS = [
+  '/',
   '/index.html',
   '/manifest.json',
   '/icons/icon-192.png',
@@ -17,12 +18,12 @@ self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', e => {
+  // Network first — always try to get fresh content
   e.respondWith(
     fetch(e.request)
       .then(res => {
@@ -32,4 +33,11 @@ self.addEventListener('fetch', e => {
       })
       .catch(() => caches.match(e.request))
   );
+});
+
+// Listen for skipWaiting message from client
+self.addEventListener('message', e => {
+  if (e.data && e.data.action === 'skipWaiting') {
+    self.skipWaiting();
+  }
 });
