@@ -1,3 +1,52 @@
+<!--
+  BAKERY CALCULATOR PWA
+  Repo:   https://github.com/federicomiano93/Bakery_calculator
+  Deploy: https://jade-chimera-c49cdb.netlify.app
+
+  ── FOCACCIA ──────────────────────────────────────────────
+  Clienti: Bakery, Bone&Block, Club Fish, Cahita
+  Pesi unitari:
+    Pizzas        201g
+    Focaccias     181g
+    Ciabatta      151g  (Bone&Block — NO burger buns, NO sub rolls)
+    Tray focaccia 1800g (Club Fish)
+    Buns          101g  (Club Fish)
+    Rolls         101g  (Club Fish)
+    Panini        131g  (Cahita)
+    Kg            1000g (extra dough diretto in kg)
+  Scala base: 1003.12g raw
+  Yeast default: 0.65%
+
+  ── BRIOCHE ───────────────────────────────────────────────
+  Clienti: Bone&Block, Club Fish
+  Pesi unitari:
+    Burger buns  81g   (Bone&Block)
+    Sub rolls    121g  (Bone&Block)
+    Buns         71g   (Club Fish)
+    Rolls        71g   (Club Fish)
+    Kg           1000g (extra dough diretto in kg)
+  Scala base: 4887.4g raw
+  Yeast default: 4%
+
+  ── SOURDOUGH ─────────────────────────────────────────────
+  Input: numero pagnotte + peso per pagnotta (default 905g)
+  Scala base: 10968g raw
+  Starter default: 18%
+  Ingredienti base (colonna gialla Excel):
+    Flour uniqua blu  2560g
+    Flour T65         2560g
+    Flour wholemeal    570g
+    1° Water          3800g
+    Sourdough starter 1024g
+    Malt                30g
+    Salt               124g
+    2° Water           300g
+
+  ── NOTE ──────────────────────────────────────────────────
+  Service worker: network-first, controlla aggiornamenti ogni 30s
+  Cache: bakery-v11
+  Icona: pagnotta su sfondo verde scuro, aggiornabile solo reinstallando
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
