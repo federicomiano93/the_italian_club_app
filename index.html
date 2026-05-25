@@ -184,21 +184,29 @@
   .product-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
     padding: 10px 0;
     border-bottom: 1px solid var(--border);
   }
   .product-row:last-child { border-bottom: none; padding-bottom: 0; }
   .product-label {
+    flex: 1;
     font-size: 17px;
     font-weight: 600;
     color: var(--text);
     letter-spacing: -0.2px;
   }
+  .qty-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 110px;
+    justify-content: flex-end;
+    flex-shrink: 0;
+  }
 
   input[type="number"] {
-    width: 84px;
+    width: 80px;
     padding: 10px 10px;
     border: 1.5px solid var(--border);
     border-radius: var(--radius-sm);
@@ -239,41 +247,41 @@
   .result-card {
     background: var(--accent);
     border-radius: var(--radius);
-    padding: 16px;
+    padding: 20px 20px 24px;
     color: #fff;
+    min-height: 80vh;
   }
   .result-header {
     display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 12px;
-    padding-bottom: 10px;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 14px;
     border-bottom: 1px solid rgba(255,255,255,0.15);
   }
-  .result-header h3 { font-size: 14px; font-weight: 600; }
-  .result-badge { font-size: 11px; font-family: 'DM Mono', monospace; color: rgba(255,255,255,0.55); }
+  .result-header h3 { font-size: 20px; font-weight: 700; }
+  .result-badge { display: none; }
 
   .ing-row {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
-    padding: 6px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    align-items: center;
+    padding: 13px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
   }
   .ing-row:last-child { border-bottom: none; }
-  .ing-name { font-size: 13px; color: rgba(255,255,255,0.72); }
-  .ing-val { font-size: 14px; font-weight: 500; font-family: 'DM Mono', monospace; }
-  .ing-kg { font-size: 10px; color: rgba(255,255,255,0.4); margin-left: 4px; }
+  .ing-name { font-size: 18px; font-weight: 500; color: rgba(255,255,255,0.85); }
+  .ing-val { font-size: 22px; font-weight: 700; font-family: 'DM Mono', monospace; }
+  .ing-kg { display: none; }
 
-  .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
   .summary-item {
-    background: rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.12);
     border-radius: var(--radius-sm);
-    padding: 10px 12px;
+    padding: 14px 16px;
   }
-  .summary-item .s-label { font-size: 10px; color: rgba(255,255,255,0.45); margin-bottom: 2px; font-family: 'DM Mono', monospace; }
-  .summary-item .s-val { font-size: 20px; font-weight: 600; }
-  .summary-item .s-unit { font-size: 11px; color: rgba(255,255,255,0.45); margin-left: 2px; }
+  .summary-item .s-label { font-size: 11px; color: rgba(255,255,255,0.5); margin-bottom: 4px; font-family: 'DM Mono', monospace; text-transform: uppercase; }
+  .summary-item .s-val { font-size: 26px; font-weight: 700; }
+  .summary-item .s-unit { font-size: 13px; color: rgba(255,255,255,0.5); margin-left: 2px; }
 
   /* Reset button */
   .reset-btn {
@@ -320,13 +328,11 @@
       <div class="card-title">Bakery</div>
       <div class="product-row">
         <span class="product-label">Pizzas</span>
-        <input type="number" id="f-pizze" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
-        <span class="unit">pz</span>
+        <div class="qty-group"><input type="number" id="f-pizze" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()"><span class="unit">pz</span></div>
       </div>
       <div class="product-row">
         <span class="product-label">Focaccias</span>
-        <input type="number" id="f-focacce" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
-        <span class="unit">pz</span>
+        <div class="qty-group"><input type="number" id="f-focacce" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()"><span class="unit">pz</span></div>
       </div>
     </div>
 
@@ -334,8 +340,7 @@
       <div class="card-title">Bone&amp;Block</div>
       <div class="product-row">
         <span class="product-label">Ciabatta</span>
-        <input type="number" id="f-ciabatta" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
-        <span class="unit">pz</span>
+        <div class="qty-group"><input type="number" id="f-ciabatta" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()"><span class="unit">pz</span></div>
       </div>
     </div>
 
@@ -343,18 +348,15 @@
       <div class="card-title">Club Fish</div>
       <div class="product-row">
         <span class="product-label">Tray focaccia</span>
-        <input type="number" id="f-trayfocaccia" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
-        <span class="unit">pz</span>
+        <div class="qty-group"><input type="number" id="f-trayfocaccia" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()"><span class="unit">pz</span></div>
       </div>
       <div class="product-row">
         <span class="product-label">Buns</span>
-        <input type="number" id="f-bun" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
-        <span class="unit">pz</span>
+        <div class="qty-group"><input type="number" id="f-bun" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()"><span class="unit">pz</span></div>
       </div>
       <div class="product-row">
         <span class="product-label">Rolls</span>
-        <input type="number" id="f-rolls" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
-        <span class="unit">pz</span>
+        <div class="qty-group"><input type="number" id="f-rolls" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()"><span class="unit">pz</span></div>
       </div>
     </div>
 
@@ -362,8 +364,7 @@
       <div class="card-title">Cahita</div>
       <div class="product-row">
         <span class="product-label">Panini</span>
-        <input type="number" id="f-panini" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
-        <span class="unit">pz</span>
+        <div class="qty-group"><input type="number" id="f-panini" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()"><span class="unit">pz</span></div>
       </div>
     </div>
 
@@ -371,16 +372,14 @@
       <div class="card-title">Extra dough</div>
       <div class="product-row">
         <span class="product-label">Kg</span>
-        <input type="number" id="f-kg" value="0" min="0" step="0.5" inputmode="decimal" oninput="calcFocaccia()">
-        <span class="unit">kg</span>
+        <div class="qty-group"><input type="number" id="f-kg" value="0" min="0" step="0.5" inputmode="decimal" oninput="calcFocaccia()"><span class="unit">kg</span></div>
       </div>
     </div>
 
     <div class="section-label">Parameters</div>
     <div class="param-row">
       <span class="param-label">Yeast %</span>
-      <input type="number" id="f-yeast-pct" value="0.65" min="0.1" max="3" step="0.05" inputmode="decimal" oninput="calcFocaccia()">
-      <span class="unit">%</span>
+      <div class="qty-group"><input type="number" id="f-yeast-pct" value="0.65" min="0.1" max="3" step="0.05" inputmode="decimal" oninput="calcFocaccia()"><span class="unit">%</span></div>
     </div>
 
     <div class="result-block" id="focaccia-result">
@@ -415,13 +414,11 @@
       <div class="card-title">Bone&amp;Block</div>
       <div class="product-row">
         <span class="product-label">Burger buns</span>
-        <input type="number" id="b-burgerbuns" value="0" min="0" inputmode="numeric" oninput="calcBrioche()">
-        <span class="unit">pz</span>
+        <div class="qty-group"><input type="number" id="b-burgerbuns" value="0" min="0" inputmode="numeric" oninput="calcBrioche()"><span class="unit">pz</span></div>
       </div>
       <div class="product-row">
         <span class="product-label">Sub rolls</span>
-        <input type="number" id="b-subrolls" value="0" min="0" inputmode="numeric" oninput="calcBrioche()">
-        <span class="unit">pz</span>
+        <div class="qty-group"><input type="number" id="b-subrolls" value="0" min="0" inputmode="numeric" oninput="calcBrioche()"><span class="unit">pz</span></div>
       </div>
     </div>
 
@@ -429,13 +426,11 @@
       <div class="card-title">Club Fish</div>
       <div class="product-row">
         <span class="product-label">Buns</span>
-        <input type="number" id="b-bun" value="0" min="0" inputmode="numeric" oninput="calcBrioche()">
-        <span class="unit">pz</span>
+        <div class="qty-group"><input type="number" id="b-bun" value="0" min="0" inputmode="numeric" oninput="calcBrioche()"><span class="unit">pz</span></div>
       </div>
       <div class="product-row">
         <span class="product-label">Rolls</span>
-        <input type="number" id="b-rolls" value="0" min="0" inputmode="numeric" oninput="calcBrioche()">
-        <span class="unit">pz</span>
+        <div class="qty-group"><input type="number" id="b-rolls" value="0" min="0" inputmode="numeric" oninput="calcBrioche()"><span class="unit">pz</span></div>
       </div>
     </div>
 
@@ -443,16 +438,14 @@
       <div class="card-title">Extra dough</div>
       <div class="product-row">
         <span class="product-label">Kg</span>
-        <input type="number" id="b-kg" value="0" min="0" step="0.5" inputmode="decimal" oninput="calcBrioche()">
-        <span class="unit">kg</span>
+        <div class="qty-group"><input type="number" id="b-kg" value="0" min="0" step="0.5" inputmode="decimal" oninput="calcBrioche()"><span class="unit">kg</span></div>
       </div>
     </div>
 
     <div class="section-label">Parameters</div>
     <div class="param-row">
       <span class="param-label">Yeast %</span>
-      <input type="number" id="b-yeast-pct" value="4" min="0.1" max="6" step="0.1" inputmode="decimal" oninput="calcBrioche()">
-      <span class="unit">%</span>
+      <div class="qty-group"><input type="number" id="b-yeast-pct" value="4" min="0.1" max="6" step="0.1" inputmode="decimal" oninput="calcBrioche()"><span class="unit">%</span></div>
     </div>
 
     <div class="result-block" id="brioche-result">
@@ -486,21 +479,18 @@
     <div class="card">
       <div class="product-row">
         <span class="product-label">Number of loaves</span>
-        <input type="number" id="s-loaves" value="0" min="0" inputmode="numeric" oninput="calcSourdough()">
-        <span class="unit">pz</span>
+        <div class="qty-group"><input type="number" id="s-loaves" value="0" min="0" inputmode="numeric" oninput="calcSourdough()"><span class="unit">pz</span></div>
       </div>
       <div class="product-row">
         <span class="product-label">Weight per loaf</span>
-        <input type="number" id="s-weight" value="905" min="100" step="5" inputmode="numeric" oninput="calcSourdough()">
-        <span class="unit">g</span>
+        <div class="qty-group"><input type="number" id="s-weight" value="905" min="100" step="5" inputmode="numeric" oninput="calcSourdough()"><span class="unit">g</span></div>
       </div>
     </div>
 
     <div class="section-label">Parameters</div>
     <div class="param-row">
       <span class="param-label">Starter %</span>
-      <input type="number" id="s-starter-pct" value="18" min="5" max="40" step="1" inputmode="numeric" oninput="calcSourdough()">
-      <span class="unit">%</span>
+      <div class="qty-group"><input type="number" id="s-starter-pct" value="18" min="5" max="40" step="1" inputmode="numeric" oninput="calcSourdough()"><span class="unit">%</span></div>
     </div>
 
     <div class="result-block" id="sourdough-result">
@@ -596,8 +586,7 @@ function switchTab(name) {
 
 // Ingredient row helper
 function ing(name, grams) {
-  const kg = grams >= 1000 ? `<span class="ing-kg">${(grams/1000).toFixed(2)} kg</span>` : '';
-  return `<div class="ing-row"><span class="ing-name">${name}</span><span class="ing-val">${Math.round(grams)} g${kg}</span></div>`;
+  return `<div class="ing-row"><span class="ing-name">${name}</span><span class="ing-val">${Math.round(grams)} g</span></div>`;
 }
 
 function showResult(id) { document.getElementById(id).classList.add('visible'); }
