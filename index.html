@@ -120,35 +120,43 @@
     margin-bottom: 10px;
   }
   .card-title {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text3);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
     text-transform: uppercase;
-    letter-spacing: 0.07em;
-    margin-bottom: 10px;
-    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+    font-family: 'DM Sans', sans-serif;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--accent-light);
   }
 
   /* Product rows */
   .product-row {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 7px 0;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 0;
     border-bottom: 1px solid var(--border);
   }
   .product-row:last-child { border-bottom: none; padding-bottom: 0; }
-  .product-label { flex: 1; font-size: 14px; color: var(--text); }
+  .product-label {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.2px;
+  }
 
   input[type="number"] {
-    width: 76px;
-    padding: 8px 10px;
-    border: 1px solid var(--border);
+    width: 84px;
+    padding: 10px 10px;
+    border: 1.5px solid var(--border);
     border-radius: var(--radius-sm);
     background: var(--surface2);
     color: var(--text);
-    font-size: 15px;
-    font-weight: 500;
+    font-size: 18px;
+    font-weight: 600;
     font-family: 'DM Mono', monospace;
     text-align: center;
     -moz-appearance: textfield;
@@ -275,16 +283,6 @@
 
     <div class="card">
       <div class="card-title">Bone&amp;Block</div>
-      <div class="product-row">
-        <span class="product-label">Burger buns</span>
-        <input type="number" id="f-burgerbuns" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
-        <span class="unit">pz</span>
-      </div>
-      <div class="product-row">
-        <span class="product-label">Sub rolls</span>
-        <input type="number" id="f-subrolls" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
-        <span class="unit">pz</span>
-      </div>
       <div class="product-row">
         <span class="product-label">Ciabatta</span>
         <input type="number" id="f-ciabatta" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()">
@@ -571,8 +569,6 @@ function resetTab(tab) {
 function calcFocaccia() {
   const pizze        = +document.getElementById('f-pizze').value || 0;
   const focacce      = +document.getElementById('f-focacce').value || 0;
-  const burgerbuns   = +document.getElementById('f-burgerbuns').value || 0;
-  const subrolls     = +document.getElementById('f-subrolls').value || 0;
   const ciabatta     = +document.getElementById('f-ciabatta').value || 0;
   const tray         = +document.getElementById("f-trayfocaccia").value || 0;
   const bun          = +document.getElementById('f-bun').value || 0;
@@ -581,7 +577,7 @@ function calcFocaccia() {
   const yeastPct     = +document.getElementById('f-yeast-pct').value || 0.65;
 
   const kg_f        = +document.getElementById('f-kg').value || 0;
-  const total = pizze*201 + focacce*181 + burgerbuns*91 + subrolls*121 + ciabatta*151 + tray*1800 + bun*101 + rolls*101 + panini*131 + kg_f*1000;
+  const total = pizze*201 + focacce*181 + ciabatta*151 + tray*1800 + bun*101 + rolls*101 + panini*131 + kg_f*1000;
   if (total === 0) { hideResult('focaccia-result'); return; }
 
   const scale   = total / 1003.12;
