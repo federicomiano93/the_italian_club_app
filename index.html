@@ -113,6 +113,18 @@
   }
   #update-banner.visible { display: block; }
 
+  /* Yeast reminder banner */
+  #yeast-banner {
+    background: #7A5200;
+    color: #fff;
+    font-size: 13px;
+    padding: 10px 16px;
+    text-align: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  #yeast-banner.hidden { display: none; }
+
   /* Tab bar */
   .tab-bar {
     display: flex;
@@ -313,6 +325,10 @@
   <button class="tab active" onclick="switchTab('focaccia')">Focaccia</button>
   <button class="tab" onclick="switchTab('brioche')">Brioche</button>
   <button class="tab" onclick="switchTab('sourdough')">Sourdough</button>
+</div>
+
+<div id="yeast-banner" onclick="this.classList.add('hidden')">
+  Check yeast % before calculating — tap to dismiss
 </div>
 
 <div class="scroll-area">
