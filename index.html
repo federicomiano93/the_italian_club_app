@@ -10,8 +10,6 @@
     Focaccias     181g
     Ciabatta      151g  (Bone&Block — NO burger buns, NO sub rolls)
     Tray focaccia 1800g (Club Fish)
-    Buns          101g  (Club Fish)
-    Rolls         101g  (Club Fish)
     Panini        131g  (Cahita)
     Kg            1000g (extra dough diretto in kg)
   Scala base: 1003.12g raw
@@ -44,7 +42,7 @@
 
   ── NOTE ──────────────────────────────────────────────────
   Service worker: network-first, controlla aggiornamenti ogni 30s
-  Cache: bakery-v11
+  Cache: bakery-v15
   Icona: pagnotta su sfondo verde scuro, aggiornabile solo reinstallando
 -->
 <!DOCTYPE html>
@@ -350,14 +348,6 @@
         <span class="product-label">Tray focaccia</span>
         <div class="qty-group"><input type="number" id="f-trayfocaccia" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()"><span class="unit">pz</span></div>
       </div>
-      <div class="product-row">
-        <span class="product-label">Buns</span>
-        <div class="qty-group"><input type="number" id="f-bun" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()"><span class="unit">pz</span></div>
-      </div>
-      <div class="product-row">
-        <span class="product-label">Rolls</span>
-        <div class="qty-group"><input type="number" id="f-rolls" value="0" min="0" inputmode="numeric" oninput="calcFocaccia()"><span class="unit">pz</span></div>
-      </div>
     </div>
 
     <div class="card">
@@ -609,13 +599,11 @@ function calcFocaccia() {
   const focacce      = +document.getElementById('f-focacce').value || 0;
   const ciabatta     = +document.getElementById('f-ciabatta').value || 0;
   const tray         = +document.getElementById("f-trayfocaccia").value || 0;
-  const bun          = +document.getElementById('f-bun').value || 0;
-  const rolls        = +document.getElementById('f-rolls').value || 0;
   const panini       = +document.getElementById('f-panini').value || 0;
   const yeastPct     = +document.getElementById('f-yeast-pct').value || 0.65;
 
   const kg_f        = +document.getElementById('f-kg').value || 0;
-  const total = pizze*201 + focacce*181 + ciabatta*151 + tray*1800 + bun*101 + rolls*101 + panini*131 + kg_f*1000;
+  const total = pizze*201 + focacce*181 + ciabatta*151 + tray*1800 + panini*131 + kg_f*1000;
   if (total === 0) { hideResult('focaccia-result'); return; }
 
   const scale   = total / 1003.12;
