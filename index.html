@@ -12,7 +12,7 @@
     Tray focaccia 1800g (Club Fish)
     Panini        131g  (Cahita)
     Kg            1000g (extra dough diretto in kg)
-  Scala base: 1003.12g raw
+  Scala base: 995.6g raw
   Yeast default: 0.65%
 
   ── BRIOCHE ───────────────────────────────────────────────
@@ -606,13 +606,13 @@ function calcFocaccia() {
   const total = pizze*201 + focacce*181 + ciabatta*151 + tray*1800 + panini*131 + kg_f*1000;
   if (total === 0) { hideResult('focaccia-result'); return; }
 
-  const scale   = total / 1003.12;
+  const scale   = total / 995.6;
   const flu     = 278 * scale;
   const flt     = 278 * scale;
   const malt    = 3 * scale;
   const sugar   = 8 * scale;
   const salt    = 11 * scale;
-  const yeast   = 11.12 * (yeastPct / 0.65) * scale;
+  const yeast   = 3.6 * (yeastPct / 0.65) * scale;
   const oil     = 56 * scale;
   const water1  = 334 * scale;
   const water2  = 24 * scale;
