@@ -42,7 +42,7 @@
 
   ── NOTE ──────────────────────────────────────────────────
   Service worker: network-first, controlla aggiornamenti ogni 30s
-  Cache: bakery-v23
+  Cache: bakery-v24
   Icona: pagnotta su sfondo verde scuro, aggiornabile solo reinstallando
 -->
 <!DOCTYPE html>
@@ -371,6 +371,9 @@
     letter-spacing: 0.02em;
   }
   .copy-btn:active { background: var(--accent-light); }
+
+  .wa-btn { display: none; margin-top: 14px; }
+  .wa-btn.visible { display: block; }
 </style>
 </head>
 <body>
@@ -459,6 +462,7 @@
       </div>
     </div>
 
+    <button class="copy-btn wa-btn" id="f-wa-btn" onclick="shareWhatsApp('focaccia')">Share order via WhatsApp</button>
     <div class="result-block" id="focaccia-result">
       <div class="result-card">
         <div class="result-header">
@@ -525,6 +529,7 @@
       </div>
     </div>
 
+    <button class="copy-btn wa-btn" id="b-wa-btn" onclick="shareWhatsApp('brioche')">Share order via WhatsApp</button>
     <div class="result-block" id="brioche-result">
       <div class="result-card">
         <div class="result-header">
@@ -698,6 +703,7 @@ function resetTab(tab) {
     const defaults = { 'f-yeast-pct':'0.65', 'b-yeast-pct':'4', 's-starter-pct':'18', 's-weight':'905', 'f-kg':'0', 'b-kg':'0' };
     input.value = defaults[input.id] || '0';
   });
+  clearQty(tab);
   if (tab === 'focaccia') calcFocaccia();
   if (tab === 'brioche') calcBrioche();
   if (tab === 'sourdough') calcSourdough();
@@ -714,7 +720,7 @@ function calcFocaccia() {
 
   const kg_f        = +document.getElementById('f-kg').value || 0;
   const total = pizze*201 + focacce*181 + ciabatta*151 + tray*1800 + panini*131 + kg_f*1000;
-  if (total === 0) { hideResult('focaccia-result'); return; }
+  if (total === 0) { hideResult('focaccia-result'); document.getElementById('f-wa-btn').classList.remove('visible'); return; }
 
   const yeastBase      = (278 + 278) * (yeastPct / 100);
   const provisionalTotal = 278 + 278 + 3 + 8 + 11 + yeastBase + 56 + 334 + 24;
@@ -734,6 +740,7 @@ function calcFocaccia() {
   document.getElementById('f-badge').textContent = Math.round(raw) + ' g raw';
   document.getElementById('f-total').textContent  = Math.round(raw);
   document.getElementById('f-half').textContent   = Math.round(raw / 2);
+  document.getElementById('f-wa-btn').classList.add('visible');
   showResult('focaccia-result');
 }
 
@@ -747,7 +754,7 @@ function calcBrioche() {
 
   const kg_b      = +document.getElementById('b-kg').value || 0;
   const totalPcs = burgerbuns*81 + subrolls*121 + bun*71 + rolls*71 + kg_b*1000;
-  if (totalPcs === 0) { hideResult('brioche-result'); return; }
+  if (totalPcs === 0) { hideResult('brioche-result'); document.getElementById('b-wa-btn').classList.remove('visible'); return; }
 
   const yeastBase      = 127.4 * (yeastPct / 4);
   const provisionalTotal = 3185 + yeastBase + 1575;
@@ -766,6 +773,7 @@ function calcBrioche() {
   document.getElementById('b-badge').textContent = Math.round(raw) + ' g raw';
   document.getElementById('b-total').textContent  = Math.round(raw);
   document.getElementById('b-half').textContent   = Math.round(raw / 2);
+  document.getElementById('b-wa-btn').classList.add('visible');
   showResult('brioche-result');
 }
 
@@ -864,6 +872,69 @@ function copyRecipe(tab) {
     setTimeout(() => { btn.textContent = 'Copy to clipboard'; }, 2000);
   });
 }
+
+// ── WhatsApp share ────────────────────────────────────────────────────────────
+const WA_PRODUCTS = {
+  focaccia: [
+    ['f-pizze',        'Pizzas'],
+    ['f-focacce',      'Focaccias'],
+    ['f-ciabatta',     'Ciabatta'],
+    ['f-trayfocaccia', 'Tray focaccia'],
+    ['f-panini',       'Panini'],
+    ['f-kg',           'Extra kg'],
+  ],
+  brioche: [
+    ['b-burgerbuns', 'Burger buns'],
+    ['b-subrolls',   'Sub rolls'],
+    ['b-bun',        'Buns'],
+    ['b-rolls',      'Rolls'],
+    ['b-kg',         'Extra kg'],
+  ],
+};
+
+function shareWhatsApp(tab) {
+  const title = tab === 'focaccia' ? 'Focaccia order' : 'Brioche order';
+  const lines = WA_PRODUCTS[tab]
+    .map(([id, label]) => ({ label, val: +document.getElementById(id).value || 0 }))
+    .filter(p => p.val > 0)
+    .map(p => `- ${p.label}: ${p.val}`);
+  if (!lines.length) return;
+  const text = `📋 *${title}*\n` + lines.join('\n');
+  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+}
+
+// ── localStorage persistence ──────────────────────────────────────────────────
+const QTY_IDS = {
+  focaccia: ['f-pizze','f-focacce','f-ciabatta','f-trayfocaccia','f-panini','f-kg'],
+  brioche:  ['b-burgerbuns','b-subrolls','b-bun','b-rolls','b-kg'],
+  sourdough:['s-loaves','s-weight'],
+};
+
+function saveQty(tab) {
+  QTY_IDS[tab].forEach(id => localStorage.setItem(id, document.getElementById(id).value));
+}
+
+function clearQty(tab) {
+  QTY_IDS[tab].forEach(id => localStorage.removeItem(id));
+}
+
+function restoreAndInit() {
+  // Restore saved quantities
+  Object.values(QTY_IDS).flat().forEach(id => {
+    const val = localStorage.getItem(id);
+    if (val !== null) document.getElementById(id).value = val;
+  });
+  // Attach save-on-input listeners (in addition to existing oninput calc handlers)
+  Object.entries(QTY_IDS).forEach(([tab, ids]) => {
+    ids.forEach(id => document.getElementById(id).addEventListener('input', () => saveQty(tab)));
+  });
+  // Trigger calcs so results appear immediately if values were saved
+  calcFocaccia();
+  calcBrioche();
+  calcSourdough();
+}
+
+restoreAndInit();
 </script>
 </body>
 </html>
