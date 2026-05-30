@@ -42,7 +42,7 @@
 
   ── NOTE ──────────────────────────────────────────────────
   Service worker: network-first, controlla aggiornamenti ogni 30s
-  Cache: bakery-v21
+  Cache: bakery-v22
   Icona: pagnotta su sfondo verde scuro, aggiornabile solo reinstallando
 -->
 <!DOCTYPE html>
@@ -698,7 +698,7 @@ function calcFocaccia() {
   const total = pizze*201 + focacce*181 + ciabatta*151 + tray*1800 + panini*131 + kg_f*1000;
   if (total === 0) { hideResult('focaccia-result'); return; }
 
-  const yeastBase      = 3.6 * (yeastPct / 0.65);
+  const yeastBase      = (278 + 278) * (yeastPct / 100);
   const provisionalTotal = 278 + 278 + 3 + 8 + 11 + yeastBase + 56 + 334 + 24;
   const factor = total / provisionalTotal;
 
@@ -760,7 +760,7 @@ function calcSourdough() {
   if (loaves === 0) { hideResult('sourdough-result'); return; }
 
   const target  = loaves * weight;
-  const starterBase    = 1024 * (starterPct / 18);
+  const starterBase    = (2560 + 2560 + 570) * (starterPct / 100);
   const provisionalTotal = 2560 + 2560 + 570 + 3900 + starterBase + 30 + 124 + 200;
   const factor = target / provisionalTotal;
 
