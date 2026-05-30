@@ -659,6 +659,18 @@ function ing(name, grams) {
   return `<div class="ing-row"><span class="ing-name">${name}</span><span class="ing-val">${Math.round(grams)} g</span></div>`;
 }
 
+// Round an array of gram values so their displayed integers sum exactly to Math.round(total).
+// Assigns any ±1-2g rounding residual to the largest ingredient.
+function fixRounding(amounts, total) {
+  const rounded = amounts.map(Math.round);
+  const diff = Math.round(total) - rounded.reduce((a, b) => a + b, 0);
+  if (diff !== 0) {
+    const maxIdx = rounded.indexOf(Math.max(...rounded));
+    rounded[maxIdx] += diff;
+  }
+  return rounded;
+}
+
 function showResult(id) { document.getElementById(id).classList.add('visible'); }
 function hideResult(id) { document.getElementById(id).classList.remove('visible'); }
 
@@ -686,17 +698,13 @@ function calcFocaccia() {
   const total = pizze*201 + focacce*181 + ciabatta*151 + tray*1800 + panini*131 + kg_f*1000;
   if (total === 0) { hideResult('focaccia-result'); return; }
 
-  const scale   = total / 995.6;
-  const flu     = 278 * scale;
-  const flt     = 278 * scale;
-  const malt    = 3 * scale;
-  const sugar   = 8 * scale;
-  const salt    = 11 * scale;
-  const yeast   = 3.6 * (yeastPct / 0.65) * scale;
-  const oil     = 56 * scale;
-  const water1  = 334 * scale;
-  const water2  = 24 * scale;
-  const raw     = flu + flt + malt + sugar + salt + yeast + oil + water1 + water2;
+  const yeastBase      = 3.6 * (yeastPct / 0.65);
+  const provisionalTotal = 278 + 278 + 3 + 8 + 11 + yeastBase + 56 + 334 + 24;
+  const factor = total / provisionalTotal;
+
+  const baseAmounts = [278, 278, 3, 8, 11, yeastBase, 56, 334, 24].map(v => v * factor);
+  const raw = total; // exact by construction
+  const [flu, flt, malt, sugar, salt, yeast, oil, water1, water2] = fixRounding(baseAmounts, raw);
 
   document.getElementById('f-ingredients').innerHTML =
     ing('Flour uniqua blue', flu) + ing('Flour T65', flt) +
@@ -723,11 +731,13 @@ function calcBrioche() {
   const totalPcs = burgerbuns*81 + subrolls*121 + bun*71 + rolls*71 + kg_b*1000;
   if (totalPcs === 0) { hideResult('brioche-result'); return; }
 
-  const scale = totalPcs / 4887.4;
-  const flour = 3185 * scale;
-  const yeast = 127.4 * (yeastPct / 4) * scale;
-  const water = 1575 * scale;
-  const raw   = flour + yeast + water;
+  const yeastBase      = 127.4 * (yeastPct / 4);
+  const provisionalTotal = 3185 + yeastBase + 1575;
+  const factor = totalPcs / provisionalTotal;
+
+  const baseAmounts = [3185, yeastBase, 1575].map(v => v * factor);
+  const raw = totalPcs; // exact by construction
+  const [flour, yeast, water] = fixRounding(baseAmounts, raw);
 
   document.getElementById('b-ingredients').innerHTML =
     ing('Mella brioche pof', flour) +
@@ -750,16 +760,13 @@ function calcSourdough() {
   if (loaves === 0) { hideResult('sourdough-result'); return; }
 
   const target  = loaves * weight;
-  const scale   = target / 10968;
-  const flu     = 2560 * scale;
-  const flt     = 2560 * scale;
-  const flw     = 570 * scale;
-  const w1      = 3900 * scale;
-  const starter = 1024 * (starterPct / 18) * scale;
-  const malt    = 30 * scale;
-  const salt    = 124 * scale;
-  const w2      = 200 * scale;
-  const raw     = flu + flt + flw + w1 + starter + malt + salt + w2;
+  const starterBase    = 1024 * (starterPct / 18);
+  const provisionalTotal = 2560 + 2560 + 570 + 3900 + starterBase + 30 + 124 + 200;
+  const factor = target / provisionalTotal;
+
+  const baseAmounts = [2560, 2560, 570, 3900, starterBase, 30, 124, 200].map(v => v * factor);
+  const raw = target; // exact by construction
+  const [flu, flt, flw, w1, starter, malt, salt, w2] = fixRounding(baseAmounts, raw);
 
   document.getElementById('s-ingredients').innerHTML =
     ing('Flour uniqua blue', flu) + ing('Flour T65', flt) +
