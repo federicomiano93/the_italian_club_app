@@ -42,7 +42,7 @@
 
   ── NOTE ──────────────────────────────────────────────────
   Service worker: network-first, controlla aggiornamenti ogni 30s
-  Cache: bakery-v22
+  Cache: bakery-v23
   Icona: pagnotta su sfondo verde scuro, aggiornabile solo reinstallando
 -->
 <!DOCTYPE html>
@@ -356,6 +356,21 @@
     letter-spacing: 0.02em;
   }
   .reset-btn:active { background: var(--surface2); }
+
+  .copy-btn {
+    width: 100%;
+    margin: 12px 0 4px;
+    padding: 11px;
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--accent);
+    cursor: pointer;
+    letter-spacing: 0.02em;
+  }
+  .copy-btn:active { background: var(--accent-light); }
 </style>
 </head>
 <body>
@@ -451,6 +466,7 @@
           <span class="result-badge" id="f-badge"></span>
         </div>
         <div id="f-ingredients"></div>
+        <button class="copy-btn" id="f-copy-btn" onclick="copyRecipe('focaccia')">Copy to clipboard</button>
         <div class="summary-grid">
           <div class="summary-item">
             <div class="s-label">Total raw</div>
@@ -516,6 +532,7 @@
           <span class="result-badge" id="b-badge"></span>
         </div>
         <div id="b-ingredients"></div>
+        <button class="copy-btn" id="b-copy-btn" onclick="copyRecipe('brioche')">Copy to clipboard</button>
         <div class="summary-grid">
           <div class="summary-item">
             <div class="s-label">Total raw</div>
@@ -561,6 +578,7 @@
           <span class="result-badge" id="s-badge"></span>
         </div>
         <div id="s-ingredients"></div>
+        <button class="copy-btn" id="s-copy-btn" onclick="copyRecipe('sourdough')">Copy to clipboard</button>
         <div class="summary-grid">
           <div class="summary-item">
             <div class="s-label">Total raw</div>
@@ -778,6 +796,73 @@ function calcSourdough() {
   document.getElementById('s-total').textContent  = Math.round(raw);
   document.getElementById('s-div').textContent    = Math.round(raw/2) + ' / ' + Math.round(raw/3) + ' g';
   showResult('sourdough-result');
+}
+
+function copyRecipe(tab) {
+  const SEP = '─'.repeat(29);
+  const btn = document.getElementById(tab[0] + '-copy-btn');
+
+  function fmtLine(name, val) {
+    return (name + ':').padEnd(22) + String(val).padStart(5) + ' g';
+  }
+
+  function readIngredients(prefix, pctName, pctVal) {
+    const lines = [];
+    document.querySelectorAll('#' + prefix + '-ingredients .ing-row').forEach(row => {
+      let name = row.querySelector('.ing-name').textContent.trim();
+      const val = parseInt(row.querySelector('.ing-val').textContent, 10);
+      if (pctName && name === pctName) name += ' (' + pctVal + '%)';
+      lines.push(fmtLine(name, val));
+    });
+    return lines;
+  }
+
+  let text = '';
+
+  if (tab === 'focaccia') {
+    const total = parseInt(document.getElementById('f-total').textContent, 10);
+    const half  = parseInt(document.getElementById('f-half').textContent, 10);
+    const pct   = document.getElementById('f-yeast-display').textContent;
+    text = [
+      'FOCACCIA DOUGH — ' + (total / 1000).toFixed(1) + ' kg',
+      SEP,
+      ...readIngredients('f', 'Yeast', pct),
+      SEP,
+      fmtLine('Total raw', total),
+      fmtLine('÷ 2', half),
+    ].join('\n');
+
+  } else if (tab === 'brioche') {
+    const total = parseInt(document.getElementById('b-total').textContent, 10);
+    const half  = parseInt(document.getElementById('b-half').textContent, 10);
+    const pct   = document.getElementById('b-yeast-display').textContent;
+    text = [
+      'BRIOCHE DOUGH — ' + (total / 1000).toFixed(1) + ' kg',
+      SEP,
+      ...readIngredients('b', 'Yeast', pct),
+      SEP,
+      fmtLine('Total raw', total),
+      fmtLine('÷ 2', half),
+    ].join('\n');
+
+  } else if (tab === 'sourdough') {
+    const total = parseInt(document.getElementById('s-total').textContent, 10);
+    const div   = document.getElementById('s-div').textContent.trim();
+    const pct   = document.getElementById('s-starter-pct').value;
+    text = [
+      'SOURDOUGH BREAD — ' + (total / 1000).toFixed(1) + ' kg',
+      SEP,
+      ...readIngredients('s', 'Starter', pct),
+      SEP,
+      fmtLine('Total raw', total),
+      '÷2 / ÷3:' + ' '.repeat(14) + div,
+    ].join('\n');
+  }
+
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied ✓';
+    setTimeout(() => { btn.textContent = 'Copy to clipboard'; }, 2000);
+  });
 }
 </script>
 </body>
