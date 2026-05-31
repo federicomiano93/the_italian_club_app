@@ -42,7 +42,7 @@
 
   ── NOTE ──────────────────────────────────────────────────
   Service worker: network-first, controlla aggiornamenti ogni 30s
-  Cache: bakery-v35
+  Cache: bakery-v36
   Icona: pagnotta su sfondo verde scuro, aggiornabile solo reinstallando
 -->
 <!DOCTYPE html>
@@ -989,11 +989,14 @@ function calcBrioche() {
   if (target === 0) { hideResult('brioche-result'); document.getElementById('b-confirm-btn').classList.remove('visible'); return; }
 
   const R = RECIPES.brioche;
-  const scale = target / recipeTotal(R);
-  const flour = R.flour * scale;
-  const yeast = R.yeast * (yeastPct / 4) * scale;
-  const water = R.water * scale;
-  const raw   = flour + yeast + water;
+  const yeastBase       = R.yeast * (yeastPct / 4);
+  const provisionalTotal = R.flour + yeastBase + R.water;
+  const factor = target / provisionalTotal;
+
+  const flour = R.flour * factor;
+  const yeast = yeastBase * factor;
+  const water = R.water * factor;
+  const raw   = target; // exact by construction
 
   const [fl, ys, wt] = fixRounding([flour, yeast, water], raw);
 
@@ -1018,16 +1021,19 @@ function calcSourdough() {
 
   const target = loaves * weight;
   const R = RECIPES.sourdough;
-  const scale = target / recipeTotal(R);
-  const flourBlu   = R.flourBlu   * scale;
-  const flourT65   = R.flourT65   * scale;
-  const flourWhole = R.flourWhole * scale;
-  const water1     = R.water1     * scale;
-  const starter    = R.starter    * (starterPct / 18) * scale;
-  const malt       = R.malt       * scale;
-  const salt       = R.salt       * scale;
-  const water2     = R.water2     * scale;
-  const raw = flourBlu + flourT65 + flourWhole + water1 + starter + malt + salt + water2;
+  const starterBase      = R.starter * (starterPct / 18);
+  const provisionalTotal = R.flourBlu + R.flourT65 + R.flourWhole + R.water1 + starterBase + R.malt + R.salt + R.water2;
+  const factor = target / provisionalTotal;
+
+  const flourBlu   = R.flourBlu   * factor;
+  const flourT65   = R.flourT65   * factor;
+  const flourWhole = R.flourWhole * factor;
+  const water1     = R.water1     * factor;
+  const starter    = starterBase  * factor;
+  const malt       = R.malt       * factor;
+  const salt       = R.salt       * factor;
+  const water2     = R.water2     * factor;
+  const raw = target; // exact by construction
 
   const [flu, flt, flw, w1, st, mlt, slt, w2] = fixRounding(
     [flourBlu, flourT65, flourWhole, water1, starter, malt, salt, water2], raw
