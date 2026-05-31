@@ -42,7 +42,7 @@
 
   ── NOTE ──────────────────────────────────────────────────
   Service worker: network-first, controlla aggiornamenti ogni 30s
-  Cache: bakery-v29
+  Cache: bakery-v30
   Icona: pagnotta su sfondo verde scuro, aggiornabile solo reinstallando
 -->
 <!DOCTYPE html>
@@ -500,6 +500,49 @@
     font-family: 'DM Mono', monospace;
   }
 
+  /* Confirm & Save button */
+  .confirm-btn {
+    width: 100%;
+    margin-top: 12px;
+    padding: 11px;
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    color: var(--accent);
+    cursor: pointer;
+    letter-spacing: 0.02em;
+  }
+  .confirm-btn:active { background: var(--accent-light); }
+  .confirm-btn:disabled { opacity: 0.6; cursor: default; }
+
+  /* Log tab */
+  .log-empty {
+    text-align: center;
+    color: var(--text3);
+    font-size: 14px;
+    padding: 40px 20px;
+    line-height: 1.5;
+  }
+  .log-timestamp {
+    font-size: 12px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    margin-bottom: 8px;
+    padding-top: 4px;
+  }
+  .log-pre {
+    font-family: monospace;
+    font-size: small;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    padding: 10px;
+    white-space: pre-wrap;
+    color: var(--text);
+    margin-top: 6px;
+  }
+
 </style>
 </head>
 <body>
@@ -531,6 +574,7 @@
   <button class="tab active" onclick="switchTab('focaccia')">Focaccia</button>
   <button class="tab" onclick="switchTab('brioche')">Brioche</button>
   <button class="tab" onclick="switchTab('sourdough')">Sourdough</button>
+  <button class="tab" onclick="switchTab('log')">Log</button>
 </div>
 
 <div id="yeast-banner" onclick="this.classList.add('hidden')">
@@ -611,6 +655,7 @@
             <div><span class="s-val" id="f-half">0</span> <span class="s-unit">g</span></div>
           </div>
         </div>
+        <button class="confirm-btn" id="f-confirm-btn" onclick="confirmAndSave('focaccia')">Confirm &amp; Save</button>
       </div>
     </div>
 
@@ -677,6 +722,7 @@
             <div><span class="s-val" id="b-half">0</span> <span class="s-unit">g</span></div>
           </div>
         </div>
+        <button class="confirm-btn" id="b-confirm-btn" onclick="confirmAndSave('brioche')">Confirm &amp; Save</button>
       </div>
     </div>
 
@@ -723,10 +769,16 @@
             <div><span class="s-val" id="s-div" style="font-size:13px; line-height:1.4">—</span></div>
           </div>
         </div>
+        <button class="confirm-btn" id="s-confirm-btn" onclick="confirmAndSave('sourdough')">Confirm &amp; Save</button>
       </div>
     </div>
 
     <button class="reset-btn" onclick="resetTab('sourdough')">Reset all fields</button>
+  </div>
+
+  <!-- LOG -->
+  <div class="content" id="tab-log">
+    <div id="log-content"></div>
   </div>
 
   <div class="recipe-footer">
@@ -811,10 +863,11 @@ function applyUpdate() {
 function switchTab(name) {
   document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab').forEach((el, i) => {
-    el.classList.toggle('active', ['focaccia','brioche','sourdough'][i] === name);
+    el.classList.toggle('active', ['focaccia','brioche','sourdough','log'][i] === name);
   });
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelector('.scroll-area').scrollTop = 0;
+  if (name === 'log') renderLog();
 }
 
 // Ingredient row helper
@@ -1029,6 +1082,118 @@ function copyRecipe(tab) {
     btn.textContent = 'Copied ✓';
     setTimeout(() => { btn.textContent = 'Copy recipe'; }, 2000);
   });
+}
+
+// ── Production log ────────────────────────────────────────────────────────────
+function logTimestamp() {
+  const now = new Date();
+  const DAY = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const MON = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const d = String(now.getDate()).padStart(2,'0');
+  const t = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+  return { date: `${DAY[now.getDay()]} ${d} ${MON[now.getMonth()]}`, time: t };
+}
+
+function buildFocacciaLog() {
+  const { date, time } = logTimestamp();
+  const pizze    = +document.getElementById('f-pizze').value || 0;
+  const focacce  = +document.getElementById('f-focacce').value || 0;
+  const ciabatta = +document.getElementById('f-ciabatta').value || 0;
+  const tray     = +document.getElementById('f-trayfocaccia').value || 0;
+  const panini   = +document.getElementById('f-panini').value || 0;
+  const kg_f     = +document.getElementById('f-kg').value || 0;
+  const total    = parseInt(document.getElementById('f-total').textContent, 10);
+
+  function row(label, val, unit) {
+    return ('  ' + label + ':').padEnd(22) + String(val).padStart(4) + ' ' + unit;
+  }
+  const lines = [`📅 ${date} — ${time}`, '', 'FOCACCIA — production log'];
+
+  const bakery = [];
+  if (pizze > 0)   bakery.push(row('Pizzas', pizze, 'pz'));
+  if (focacce > 0) bakery.push(row('Focaccias', focacce, 'pz'));
+  if (bakery.length) { lines.push('', 'Bakery:', ...bakery); }
+  if (ciabatta > 0) lines.push('', 'Bone&Block:', row('Ciabatta', ciabatta, 'pz'));
+  if (tray > 0)     lines.push('', 'Club Fish:', row('Tray focaccia', tray, 'pz'));
+  if (panini > 0)   lines.push('', 'Cahita:', row('Panini', panini, 'pz'));
+  if (kg_f > 0)     lines.push('', ('Extra dough:').padEnd(20) + String(kg_f).padStart(6) + ' kg');
+  lines.push('', ('Total raw dough:').padEnd(20) + total.toLocaleString('en-GB').padStart(6) + ' g');
+
+  return { date, time, text: lines.join('\n') };
+}
+
+function buildLogText(tab) {
+  const { date, time } = logTimestamp();
+  const SEP = '─'.repeat(29);
+  function fmtLine(name, val) { return (name + ':').padEnd(22) + String(val).padStart(5) + ' g'; }
+  function readIng(prefix, pctName, pctVal) {
+    const lines = [];
+    document.querySelectorAll('#' + prefix + '-ingredients .ing-row').forEach(row => {
+      let name = row.querySelector('.ing-name').textContent.trim();
+      const val = parseInt(row.querySelector('.ing-val').textContent, 10);
+      if (pctName && name === pctName) name += ' (' + pctVal + '%)';
+      lines.push(fmtLine(name, val));
+    });
+    return lines;
+  }
+  let body = '';
+  if (tab === 'brioche') {
+    const total = parseInt(document.getElementById('b-total').textContent, 10);
+    const half  = parseInt(document.getElementById('b-half').textContent, 10);
+    const pct   = document.getElementById('b-yeast-display').textContent;
+    body = ['BRIOCHE DOUGH — ' + (total/1000).toFixed(1) + ' kg', SEP,
+      ...readIng('b', 'Yeast', pct), SEP, fmtLine('Total raw', total), fmtLine('÷ 2', half)].join('\n');
+  } else {
+    const total = parseInt(document.getElementById('s-total').textContent, 10);
+    const div   = document.getElementById('s-div').textContent.trim();
+    const pct   = document.getElementById('s-starter-pct').value;
+    body = ['SOURDOUGH BREAD — ' + (total/1000).toFixed(1) + ' kg', SEP,
+      ...readIng('s', 'Starter', pct), SEP, fmtLine('Total raw', total),
+      '÷2 / ÷3:' + ' '.repeat(14) + div].join('\n');
+  }
+  return { date, time, text: `📅 ${date} — ${time}\n\n${body}` };
+}
+
+function confirmAndSave(tab) {
+  let record;
+  if (tab === 'focaccia') {
+    const { date, time, text } = buildFocacciaLog();
+    record = { date, time, dough: 'Focaccia', text };
+  } else {
+    const { date, time, text } = buildLogText(tab);
+    record = { date, time, dough: tab === 'brioche' ? 'Brioche' : 'Sourdough', text };
+  }
+
+  let log = [];
+  try { log = JSON.parse(localStorage.getItem('bakery-log') || '[]'); } catch(e) {}
+  log = log.filter(r => r.dough !== record.dough);
+  log.push(record);
+  if (log.length > 3) log = log.slice(-3);
+  localStorage.setItem('bakery-log', JSON.stringify(log));
+
+  const btn = document.getElementById(tab[0] + '-confirm-btn');
+  btn.textContent = 'Saved!';
+  btn.disabled = true;
+  setTimeout(() => { btn.textContent = 'Confirm & Save'; btn.disabled = false; }, 2000);
+}
+
+function renderLog() {
+  const container = document.getElementById('log-content');
+  let log = [];
+  try { log = JSON.parse(localStorage.getItem('bakery-log') || '[]'); } catch(e) {}
+  if (log.length === 0) {
+    container.innerHTML = '<p class="log-empty">No records yet. Calculate and confirm a dough to save it here.</p>';
+    return;
+  }
+  const ORDER = ['Focaccia', 'Brioche', 'Sourdough'];
+  const sorted = ORDER.map(d => log.find(r => r.dough === d)).filter(Boolean);
+  container.innerHTML = sorted.map(r =>
+    `<div class="card">
+      <div class="card-title">${r.dough}</div>
+      <div class="log-timestamp">📅 ${r.date} — ${r.time}</div>
+      <pre class="log-pre">${r.text}</pre>
+    </div>`
+  ).join('');
 }
 
 // ── WhatsApp market order (header button) ────────────────────────────────────
