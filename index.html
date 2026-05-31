@@ -42,7 +42,7 @@
 
   ── NOTE ──────────────────────────────────────────────────
   Service worker: network-first, controlla aggiornamenti ogni 30s
-  Cache: bakery-v38
+  Cache: bakery-v39
   Icona: pagnotta su sfondo verde scuro, aggiornabile solo reinstallando
 -->
 <!DOCTYPE html>
@@ -1228,6 +1228,7 @@ function renderLog() {
   container.innerHTML = sorted.map(r =>
     `<div class="card">
       <div class="card-title">${r.dough}</div>
+      <div class="log-timestamp">📅 ${r.date} — ${r.time}</div>
       <pre class="log-pre">${r.text}</pre>
     </div>`
   ).join('');
