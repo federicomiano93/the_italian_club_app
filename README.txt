@@ -2,7 +2,6 @@
 
 ## Files
 ```
-bakery-pwa/
 ├── index.html      ← main app
 ├── manifest.json   ← PWA config
 ├── sw.js           ← service worker (offline + auto-update)
@@ -11,12 +10,11 @@ bakery-pwa/
     └── icon-512.png
 ```
 
-## Deploy on Netlify (free, 5 minutes)
+## Deploy
+Hosted on GitHub Pages:
+https://federicomiano93.github.io/Bakery_calculator/
 
-1. Go to https://netlify.com and sign up (free)
-2. Click "Add new site" → "Deploy manually"
-3. Drag the entire `bakery-pwa` folder onto the page
-4. Done — you get a link like `https://your-name.netlify.app`
+Updates are deployed automatically on every push to the main branch.
 
 ## Install on iPhone
 1. Open the link in Safari (must be Safari, not Chrome)
@@ -32,9 +30,9 @@ bakery-pwa/
 4. Confirm
 
 ## Update the app
-1. Edit `index.html` with your changes
-2. Go to Netlify → your site → "Deploys" → drag the folder again
-3. All installed users see the update automatically next time they open the app
+1. Edit index.html with your changes
+2. Push to GitHub — the live site updates automatically
+3. All installed users see the update next time they open the app
    (a banner appears at the top saying "New version available")
 
 ## Works offline
