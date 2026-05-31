@@ -42,7 +42,7 @@
 
   ── NOTE ──────────────────────────────────────────────────
   Service worker: network-first, controlla aggiornamenti ogni 30s
-  Cache: bakery-v36
+  Cache: bakery-v37
   Icona: pagnotta su sfondo verde scuro, aggiornabile solo reinstallando
 -->
 <!DOCTYPE html>
@@ -756,6 +756,11 @@
   <!-- SOURDOUGH -->
   <div class="content" id="tab-sourdough">
 
+    <div class="param-row">
+      <span class="param-label">Starter %</span>
+      <div class="qty-group"><input type="number" id="s-starter-pct" value="18" min="5" max="40" step="1" inputmode="numeric" oninput="calcSourdough()"><span class="unit">%</span></div>
+    </div>
+
     <div class="section-label">Production</div>
 
     <div class="card">
@@ -767,12 +772,6 @@
         <span class="product-label">Weight per loaf</span>
         <div class="qty-group"><input type="number" id="s-weight" value="905" min="100" step="5" inputmode="numeric" oninput="calcSourdough()"><span class="unit">g</span></div>
       </div>
-    </div>
-
-    <div class="section-label">Parameters</div>
-    <div class="param-row">
-      <span class="param-label">Starter %</span>
-      <div class="qty-group"><input type="number" id="s-starter-pct" value="18" min="5" max="40" step="1" inputmode="numeric" oninput="calcSourdough()"><span class="unit">%</span></div>
     </div>
 
     <button class="confirm-btn-primary" id="s-confirm-btn" onclick="confirmAndSave('sourdough')">✓ Confirm &amp; Save</button>
