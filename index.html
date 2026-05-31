@@ -42,7 +42,7 @@
 
   ── NOTE ──────────────────────────────────────────────────
   Service worker: network-first, controlla aggiornamenti ogni 30s
-  Cache: bakery-v34
+  Cache: bakery-v35
   Icona: pagnotta su sfondo verde scuro, aggiornabile solo reinstallando
 -->
 <!DOCTYPE html>
@@ -430,7 +430,7 @@
   .recipe-content { padding: 14px 16px; }
 
   .recipe-card {
-    background: #FBF8F3;
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 12px 14px;
@@ -727,6 +727,8 @@
       </div>
     </div>
 
+    <button class="confirm-btn-primary" id="b-confirm-btn" onclick="confirmAndSave('brioche')">✓ Confirm &amp; Save</button>
+
     <div class="result-block" id="brioche-result">
       <div class="result-card">
         <div class="result-header">
@@ -745,7 +747,6 @@
             <div><span class="s-val" id="b-half">0</span> <span class="s-unit">g</span></div>
           </div>
         </div>
-        <button class="confirm-btn" id="b-confirm-btn" onclick="confirmAndSave('brioche')">Confirm &amp; Save</button>
       </div>
     </div>
 
@@ -774,6 +775,8 @@
       <div class="qty-group"><input type="number" id="s-starter-pct" value="18" min="5" max="40" step="1" inputmode="numeric" oninput="calcSourdough()"><span class="unit">%</span></div>
     </div>
 
+    <button class="confirm-btn-primary" id="s-confirm-btn" onclick="confirmAndSave('sourdough')">✓ Confirm &amp; Save</button>
+
     <div class="result-block" id="sourdough-result">
       <div class="result-card">
         <div class="result-header">
@@ -792,7 +795,6 @@
             <div><span class="s-val" id="s-div" style="font-size:13px; line-height:1.4">—</span></div>
           </div>
         </div>
-        <button class="confirm-btn" id="s-confirm-btn" onclick="confirmAndSave('sourdough')">Confirm &amp; Save</button>
       </div>
     </div>
 
@@ -984,7 +986,7 @@ function calcBrioche() {
   const kg_b       = +document.getElementById('b-kg').value || 0;
 
   const target = burgerbuns*81 + subrolls*121 + bun*71 + rolls*71 + kg_b*1000;
-  if (target === 0) { hideResult('brioche-result'); return; }
+  if (target === 0) { hideResult('brioche-result'); document.getElementById('b-confirm-btn').classList.remove('visible'); return; }
 
   const R = RECIPES.brioche;
   const scale = target / recipeTotal(R);
@@ -1002,6 +1004,7 @@ function calcBrioche() {
   document.getElementById('b-badge').textContent = Math.round(raw) + ' g raw';
   document.getElementById('b-total').textContent  = Math.round(raw);
   document.getElementById('b-half').textContent   = Math.round(raw / 2);
+  document.getElementById('b-confirm-btn').classList.add('visible');
   showResult('brioche-result');
 }
 
@@ -1011,7 +1014,7 @@ function calcSourdough() {
   const weight     = +document.getElementById('s-weight').value || 905;
   const starterPct = +document.getElementById('s-starter-pct').value || 18;
 
-  if (loaves === 0) { hideResult('sourdough-result'); return; }
+  if (loaves === 0) { hideResult('sourdough-result'); document.getElementById('s-confirm-btn').classList.remove('visible'); return; }
 
   const target = loaves * weight;
   const R = RECIPES.sourdough;
@@ -1039,6 +1042,7 @@ function calcSourdough() {
   document.getElementById('s-badge').textContent  = Math.round(raw) + ' g raw';
   document.getElementById('s-total').textContent  = Math.round(raw);
   document.getElementById('s-div').textContent    = Math.round(raw/2) + ' / ' + Math.round(raw/3) + ' g';
+  document.getElementById('s-confirm-btn').classList.add('visible');
   showResult('sourdough-result');
 }
 
@@ -1181,7 +1185,7 @@ function buildLogText(tab) {
 
 function confirmAndSave(tab) {
   const btn = document.getElementById(tab[0] + '-confirm-btn');
-  const saveLabel = tab === 'focaccia' ? '✓ Confirm & Save' : 'Confirm & Save';
+  const saveLabel = '✓ Confirm & Save';
 
   // In "Modify" mode: revert to save mode without saving
   if (btn.dataset.saved === '1') {
