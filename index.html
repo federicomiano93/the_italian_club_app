@@ -42,7 +42,7 @@
 
   ── NOTE ──────────────────────────────────────────────────
   Service worker: network-first, controlla aggiornamenti ogni 30s
-  Cache: bakery-v33
+  Cache: bakery-v34
   Icona: pagnotta su sfondo verde scuro, aggiornabile solo reinstallando
 -->
 <!DOCTYPE html>
@@ -915,6 +915,7 @@ function hideResult(id) { document.getElementById(id).classList.remove('visible'
 
 // Reset
 function resetTab(tab) {
+  if (!confirm('Reset all fields?')) return;
   document.querySelectorAll('#tab-'+tab+' input[type="number"]').forEach(input => {
     const defaults = { 'f-yeast-pct':'0.65', 'b-yeast-pct':'4', 's-starter-pct':'18', 's-weight':'905', 'f-kg':'0', 'b-kg':'0' };
     input.value = defaults[input.id] || '0';
