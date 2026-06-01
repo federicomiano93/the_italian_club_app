@@ -1,7 +1,14 @@
-const CACHE_NAME = 'bakery-v50';
+const CACHE_NAME = 'bakery-v51';
 const ASSETS = [
   './',
   './index.html',
+  './style.css',
+  './js/app.js',
+  './js/firebase.js',
+  './js/recipes.js',
+  './js/calc.js',
+  './js/log.js',
+  './js/whatsapp.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png'
