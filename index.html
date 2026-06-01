@@ -42,7 +42,7 @@
 
   ── NOTE ──────────────────────────────────────────────────
   Service worker: network-first, controlla aggiornamenti ogni 30s
-  Cache: bakery-v40
+  Cache: bakery-v41
   Icona: pagnotta su sfondo verde scuro, aggiornabile solo reinstallando
 -->
 <!DOCTYPE html>
@@ -813,7 +813,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
-  import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+  import { getFirestore, enableIndexedDbPersistence, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
 
   const firebaseConfig = {
     apiKey: "REVOKED_API_KEY",
@@ -826,6 +826,7 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
+  enableIndexedDbPersistence(db).catch(() => {});
 
   window.saveLogToFirestore = async function(record) {
     try {
