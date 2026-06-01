@@ -42,7 +42,7 @@
 
   ── NOTE ──────────────────────────────────────────────────
   Service worker: network-first, controlla aggiornamenti ogni 30s
-  Cache: bakery-v47
+  Cache: bakery-v48
   Icona: pagnotta su sfondo verde scuro, aggiornabile solo reinstallando
 -->
 <!DOCTYPE html>
@@ -157,9 +157,9 @@
     border: none;
     border-bottom: 2px solid transparent;
     font-family: 'DM Sans', sans-serif;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 500;
-    color: var(--text2);
+    color: var(--text);
     cursor: pointer;
     transition: all 0.15s;
   }
@@ -316,7 +316,7 @@
     width: 100%;
     margin-top: 14px;
     padding: 11px;
-    background: transparent;
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     font-family: 'DM Sans', sans-serif;
@@ -348,7 +348,7 @@
     padding: 20px 0 10px;
   }
   .recipe-footer-btn {
-    background: var(--surface);
+    background: transparent;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     color: var(--text2);
@@ -980,6 +980,7 @@ function switchTab(name) {
   });
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelector('.scroll-area').scrollTop = 0;
+  document.querySelector('.recipe-footer').style.display = name === 'log' ? 'none' : '';
   if (name === 'log') renderLog();
 }
 
