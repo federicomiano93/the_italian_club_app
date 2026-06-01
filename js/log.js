@@ -100,22 +100,29 @@ export function confirmAndSave(tab) {
 }
 
 function parseLogText(text) {
-  let html = '';
+  const frag = document.createDocumentFragment();
   for (const line of (text || '').split('\n')) {
     if (!line.trim()) continue;
+    const div = document.createElement('div');
     if (/^[A-Za-z&].+:$/.test(line)) {
-      html += `<div class="log-customer">${line.slice(0, -1)}</div>`;
+      div.className = 'log-customer';
+      div.textContent = line.slice(0, -1);
     } else {
+      div.className = 'log-item';
       const t = line.trim();
       const ci = t.lastIndexOf(': ');
       if (ci !== -1) {
-        html += `<div class="log-item">${t.slice(0, ci + 2)}<strong>${t.slice(ci + 2)}</strong></div>`;
+        div.appendChild(document.createTextNode(t.slice(0, ci + 2)));
+        const strong = document.createElement('strong');
+        strong.textContent = t.slice(ci + 2);
+        div.appendChild(strong);
       } else {
-        html += `<div class="log-item">${t}</div>`;
+        div.textContent = t;
       }
     }
+    frag.appendChild(div);
   }
-  return html;
+  return frag;
 }
 
 export function getLog() {
@@ -132,17 +139,44 @@ export function renderLog() {
   }
   const ORDER = ['Focaccia', 'Brioche', 'Sourdough'];
   const sorted = ORDER.map(d => log.find(r => r.dough === d)).filter(Boolean);
-  container.innerHTML = sorted.map(r =>
-    `<div class="card">
-      <div class="card-title">${r.dough}</div>
-      <div class="log-timestamp">📅 ${r.date} — ${r.time}</div>
-      <div class="log-body">${parseLogText(r.text)}</div>
-      <div class="log-actions">
-        <button class="log-edit-btn" data-dough="${r.dough}">Edit</button>
-        <button class="log-delete-btn" data-dough="${r.dough}">Delete</button>
-      </div>
-    </div>`
-  ).join('');
+  container.textContent = '';
+  for (const r of sorted) {
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const title = document.createElement('div');
+    title.className = 'card-title';
+    title.textContent = r.dough;
+    card.appendChild(title);
+
+    const ts = document.createElement('div');
+    ts.className = 'log-timestamp';
+    ts.textContent = `📅 ${r.date} — ${r.time}`;
+    card.appendChild(ts);
+
+    const body = document.createElement('div');
+    body.className = 'log-body';
+    body.appendChild(parseLogText(r.text));
+    card.appendChild(body);
+
+    const actions = document.createElement('div');
+    actions.className = 'log-actions';
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'log-edit-btn';
+    editBtn.dataset.dough = r.dough;
+    editBtn.textContent = 'Edit';
+    actions.appendChild(editBtn);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'log-delete-btn';
+    deleteBtn.dataset.dough = r.dough;
+    deleteBtn.textContent = 'Delete';
+    actions.appendChild(deleteBtn);
+
+    card.appendChild(actions);
+    container.appendChild(card);
+  }
 }
 
 function deleteLog(dough) {
