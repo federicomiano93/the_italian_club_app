@@ -2,9 +2,17 @@
 
 ## Files
 ```
-├── index.html      ← main app
-├── manifest.json   ← PWA config
-├── sw.js           ← service worker (offline + auto-update)
+├── index.html          ← HTML structure only
+├── style.css           ← all CSS
+├── js/
+│   ├── app.js          ← entry point: service worker, tab switching, event listeners
+│   ├── firebase.js     ← Firebase init + Firestore (save/delete/sync log)
+│   ├── recipes.js      ← recipe data (RECIPES) + recipe overlay UI
+│   ├── calc.js         ← calcFocaccia, calcBrioche, calcSourdough, copyRecipe
+│   ├── log.js          ← production log: save, render, delete
+│   └── whatsapp.js     ← Duke Street Market WhatsApp order
+├── sw.js               ← service worker (offline cache + auto-update)
+├── manifest.json       ← PWA config
 └── icons/
     ├── icon-192.png
     └── icon-512.png
@@ -30,10 +38,12 @@ Updates are deployed automatically on every push to the main branch.
 4. Confirm
 
 ## Update the app
-1. Edit index.html with your changes
-2. Push to GitHub — the live site updates automatically
-3. All installed users see the update next time they open the app
+1. Edit the relevant file in js/ or style.css
+2. Bump the cache version in sw.js (CACHE_NAME = 'bakery-vXX') and update the comment in index.html
+3. Push to GitHub — the live site updates automatically
+4. All installed users see the update next time they open the app
    (a banner appears at the top saying "New version available")
 
 ## Works offline
 Once installed, the app works without internet connection.
+The service worker uses a network-first strategy and pre-caches all JS and CSS files on install.
