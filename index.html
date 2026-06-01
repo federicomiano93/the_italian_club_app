@@ -42,7 +42,7 @@
 
   ── NOTE ──────────────────────────────────────────────────
   Service worker: network-first, controlla aggiornamenti ogni 30s
-  Cache: bakery-v39
+  Cache: bakery-v40
   Icona: pagnotta su sfondo verde scuro, aggiornabile solo reinstallando
 -->
 <!DOCTYPE html>
@@ -811,6 +811,38 @@
 
 </div><!-- end scroll-area -->
 
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+  import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "REVOKED_API_KEY",
+    authDomain: "bakery-app-ebf90.firebaseapp.com",
+    projectId: "bakery-app-ebf90",
+    storageBucket: "bakery-app-ebf90.firebasestorage.app",
+    messagingSenderId: "27778450817",
+    appId: "1:27778450817:web:74e1bab55d10c3f9279480"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  window.saveLogToFirestore = async function(record) {
+    try {
+      await setDoc(doc(db, 'log', record.dough.toLowerCase()), record);
+    } catch(e) {
+      console.error('Firestore save error:', e);
+    }
+  };
+
+  onSnapshot(collection(db, 'log'), (snapshot) => {
+    const log = [];
+    snapshot.forEach(d => log.push(d.data()));
+    window.firestoreLog = log;
+    if (window.logTabActive && typeof renderLog === 'function') renderLog();
+  });
+</script>
+
 <script>
 // Recipe base values — loaded from localStorage, falling back to defaults
 const RECIPE_DEFAULTS = {
@@ -885,6 +917,7 @@ function applyUpdate() {
 
 // Tab switching
 function switchTab(name) {
+  window.logTabActive = (name === 'log');
   document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab').forEach((el, i) => {
     el.classList.toggle('active', ['focaccia','brioche','sourdough','log'][i] === name);
@@ -1205,6 +1238,7 @@ function confirmAndSave(tab) {
   log.push(record);
   if (log.length > 3) log = log.slice(-3);
   localStorage.setItem('bakery-log', JSON.stringify(log));
+  if (window.saveLogToFirestore) window.saveLogToFirestore(record);
 
   btn.textContent = 'Saved!';
   btn.disabled = true;
@@ -1218,7 +1252,11 @@ function confirmAndSave(tab) {
 function renderLog() {
   const container = document.getElementById('log-content');
   let log = [];
-  try { log = JSON.parse(localStorage.getItem('bakery-log') || '[]'); } catch(e) {}
+  if (window.firestoreLog && window.firestoreLog.length > 0) {
+    log = window.firestoreLog;
+  } else {
+    try { log = JSON.parse(localStorage.getItem('bakery-log') || '[]'); } catch(e) {}
+  }
   if (log.length === 0) {
     container.innerHTML = '<p class="log-empty">No records yet. Calculate and confirm a dough to save it here.</p>';
     return;
