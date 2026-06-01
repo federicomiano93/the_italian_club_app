@@ -42,7 +42,7 @@
 
   ── NOTE ──────────────────────────────────────────────────
   Service worker: network-first, controlla aggiornamenti ogni 30s
-  Cache: bakery-v41
+  Cache: bakery-v42
   Icona: pagnotta su sfondo verde scuro, aggiornabile solo reinstallando
 -->
 <!DOCTYPE html>
@@ -840,7 +840,7 @@
     const log = [];
     snapshot.forEach(d => log.push(d.data()));
     window.firestoreLog = log;
-    if (window.logTabActive && typeof renderLog === 'function') renderLog();
+    if (typeof renderLog === 'function') renderLog();
   });
 </script>
 
@@ -918,7 +918,6 @@ function applyUpdate() {
 
 // Tab switching
 function switchTab(name) {
-  window.logTabActive = (name === 'log');
   document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab').forEach((el, i) => {
     el.classList.toggle('active', ['focaccia','brioche','sourdough','log'][i] === name);
