@@ -42,7 +42,7 @@
 
   ── NOTE ──────────────────────────────────────────────────
   Service worker: network-first, controlla aggiornamenti ogni 30s
-  Cache: bakery-v45
+  Cache: bakery-v46
   Icona: pagnotta su sfondo verde scuro, aggiornabile solo reinstallando
 -->
 <!DOCTYPE html>
@@ -1063,6 +1063,7 @@ function calcFocaccia() {
   const fbtn = document.getElementById('f-confirm-btn');
   fbtn.textContent = '✓ Confirm';
   fbtn.dataset.saved = '';
+  fbtn.dataset.mode = '';
   fbtn.disabled = false;
   fbtn.classList.add('visible');
   hideResult('focaccia-result');
@@ -1102,6 +1103,7 @@ function calcBrioche() {
   const bbtn = document.getElementById('b-confirm-btn');
   bbtn.textContent = '✓ Confirm';
   bbtn.dataset.saved = '';
+  bbtn.dataset.mode = '';
   bbtn.disabled = false;
   bbtn.classList.add('visible');
   hideResult('brioche-result');
@@ -1147,6 +1149,7 @@ function calcSourdough() {
   const sbtn = document.getElementById('s-confirm-btn');
   sbtn.textContent = '✓ Confirm';
   sbtn.dataset.saved = '';
+  sbtn.dataset.mode = '';
   sbtn.disabled = false;
   sbtn.classList.add('visible');
   hideResult('sourdough-result');
@@ -1283,6 +1286,14 @@ function buildLogText(tab) {
 function confirmAndSave(tab) {
   const btn = document.getElementById(tab[0] + '-confirm-btn');
 
+  // Edit mode: hide recipe, revert to Confirm
+  if (btn.dataset.mode === 'edit') {
+    hideResult(tab + '-result');
+    btn.textContent = '✓ Confirm';
+    btn.dataset.mode = '';
+    return;
+  }
+
   showResult(tab + '-result');
 
   let record;
@@ -1305,9 +1316,10 @@ function confirmAndSave(tab) {
   btn.textContent = 'Saved!';
   btn.disabled = true;
   setTimeout(() => {
-    btn.textContent = '✓ Confirm';
+    btn.textContent = 'Edit';
+    btn.dataset.mode = 'edit';
     btn.disabled = false;
-  }, 1500);
+  }, 1000);
 }
 
 function parseLogText(text) {
