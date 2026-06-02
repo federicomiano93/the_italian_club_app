@@ -1,0 +1,21 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /log/{dough} {
+      allow read: if true;
+
+      allow write: if dough in ['focaccia', 'brioche', 'sourdough']
+        && request.resource.data.keys().hasOnly(['dough', 'date', 'time', 'text'])
+        && request.resource.data.dough is string
+        && request.resource.data.dough in ['Focaccia', 'Brioche', 'Sourdough']
+        && request.resource.data.date is string
+        && request.resource.data.date.size() < 50
+        && request.resource.data.time is string
+        && request.resource.data.time.size() < 10
+        && request.resource.data.text is string
+        && request.resource.data.text.size() < 2000;
+
+      allow delete: if dough in ['focaccia', 'brioche', 'sourdough'];
+    }
+  }
+}
