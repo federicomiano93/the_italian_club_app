@@ -59,9 +59,19 @@ A CSP meta tag in index.html restricts what the browser can load:
 - Styles/Fonts: only from this domain + Google Fonts
 - Everything else (inline eval, unknown origins) is blocked by the browser
 
+### Firebase Anonymous Auth
+The app signs in anonymously on startup (`signInAnonymously`) — no login
+screen, no email required. Every device gets a silent auth token which is
+required by the Firestore rules to write or delete data. Unauthenticated
+REST API calls from outside the app are rejected with 403.
+
+Anonymous Auth must be enabled in the Firebase Console:
+Authentication → Sign-in method → Anonymous → Enable.
+
 ### Firestore Security Rules
 `firestore.rules` is deployed via Firebase CLI and enforced server-side.
-Writes to the `log` collection are accepted only if:
+All writes and deletes require a valid auth token (`request.auth != null`).
+Writes are also accepted only if:
 - Document ID is one of: `focaccia`, `brioche`, `sourdough`
 - Fields are exactly: `dough`, `date`, `time`, `text` (no extras)
 - `dough` value is one of: `Focaccia`, `Brioche`, `Sourdough`
@@ -71,6 +81,11 @@ To update and redeploy the rules:
 ```
 firebase deploy --only firestore:rules
 ```
+
+### Service Worker — no cross-origin caching
+The fetch handler skips caching for any request outside the app's own
+origin (Firebase SDK CDN, Firestore API, Google Fonts). This prevents a
+compromised CDN response from being persisted in the offline cache.
 
 ### XSS Prevention
 All Firestore data rendered in the Log tab uses DOM API methods
