@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bakery-v51';
+const CACHE_NAME = 'bakery-v52';
 const ASSETS = [
   './',
   './index.html',
@@ -30,7 +30,12 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Network first — always try to get fresh content
+  // Never cache cross-origin requests (Firebase SDK CDN, Firestore API, etc.)
+  if (new URL(e.request.url).origin !== self.location.origin) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
+  // Network first for same-origin assets — always try to get fresh content
   e.respondWith(
     fetch(e.request)
       .then(res => {
