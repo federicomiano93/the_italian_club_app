@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bakery-v52';
+const CACHE_NAME = 'bakery-v53';
 const ASSETS = [
   './',
   './index.html',
@@ -47,8 +47,9 @@ self.addEventListener('fetch', e => {
   );
 });
 
-// Listen for skipWaiting message from client
+// Listen for skipWaiting message from client — e.source must exist (same-origin client only)
 self.addEventListener('message', e => {
+  if (!e.source) return;
   if (e.data && e.data.action === 'skipWaiting') {
     self.skipWaiting();
   }

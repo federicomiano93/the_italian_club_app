@@ -138,7 +138,7 @@ export function renderLog() {
     return;
   }
   const ORDER = ['Focaccia', 'Brioche', 'Sourdough'];
-  const sorted = ORDER.map(d => log.find(r => r.dough === d)).filter(Boolean);
+  const sorted = ORDER.map(d => log.find(r => r.dough === d)).filter(Boolean).filter(r => ORDER.includes(r.dough));
   container.textContent = '';
   for (const r of sorted) {
     const card = document.createElement('div');
