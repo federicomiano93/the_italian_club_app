@@ -4,7 +4,8 @@ service cloud.firestore {
     match /log/{dough} {
       allow read: if true;
 
-      allow write: if dough in ['focaccia', 'brioche', 'sourdough']
+      allow write: if request.auth != null
+        && dough in ['focaccia', 'brioche', 'sourdough']
         && request.resource.data.keys().hasOnly(['dough', 'date', 'time', 'text'])
         && request.resource.data.dough is string
         && request.resource.data.dough in ['Focaccia', 'Brioche', 'Sourdough']
@@ -15,7 +16,8 @@ service cloud.firestore {
         && request.resource.data.text is string
         && request.resource.data.text.size() < 2000;
 
-      allow delete: if false;
+      allow delete: if request.auth != null
+        && dough in ['focaccia', 'brioche', 'sourdough'];
     }
   }
 }
