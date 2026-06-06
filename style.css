@@ -242,8 +242,7 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 .ing-kg { display: none; }
 
 .ing-separator {
-  height: 1px;
-  background: rgba(255,255,255,0.08);
+  border-top: 1px solid var(--border);
   margin: 4px 0 0;
 }
 .total-dough-row {
@@ -256,21 +255,55 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 .total-dough-val { font-size: 26px; font-weight: 700; color: var(--accent); font-family: 'DM Mono', monospace; }
 .total-dough-unit { font-size: 13px; color: var(--text3); margin-left: 2px; }
 
-.panini-div-input {
-  width: 44px;
+.panini-box {
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 16px 20px 18px;
+  margin-top: 10px;
+  text-align: center;
+}
+.panini-box-title {
   font-size: 11px;
   font-family: 'DM Mono', monospace;
-  color: var(--text);
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--text3);
-  border-radius: 0;
-  padding: 0 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text3);
+  margin-bottom: 6px;
+}
+.panini-box-total {
+  font-size: 36px;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: 14px;
+}
+.panini-box-total .panini-unit { font-size: 15px; color: var(--text3); margin-left: 3px; font-weight: 400; }
+.panini-box-divider-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.panini-div-sym { font-size: 20px; font-weight: 700; color: var(--text3); line-height: 1; }
+.panini-div-input {
+  width: 52px;
+  height: 40px;
+  font-size: 20px;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  color: var(--accent);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   text-align: center;
   -moz-appearance: textfield;
 }
 .panini-div-input::-webkit-outer-spin-button,
 .panini-div-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.panini-div-eq { font-size: 18px; color: var(--text3); }
+.panini-split-val { font-size: 26px; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--accent); }
+.panini-split-unit { font-size: 13px; color: var(--text3); }
 
 .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
 .summary-item {
