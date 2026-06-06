@@ -162,12 +162,11 @@ export function calcSourdough() {
   hideResult('sourdough-result');
 }
 
-export function copyRecipe(tab) {
-  const SEP = '─'.repeat(29);
-  const btn = document.getElementById(tab[0] + '-copy-btn');
+function buildRecipeText(tab) {
+  const SEP = '─'.repeat(25);
 
   function fmtLine(name, val) {
-    return (name + ':').padEnd(22) + String(val).padStart(5) + ' g';
+    return name.padEnd(20) + String(val).padStart(5) + ' g';
   }
 
   function readIngredients(prefix, pctName, pctVal) {
@@ -181,44 +180,47 @@ export function copyRecipe(tab) {
     return lines;
   }
 
-  let text = '';
-
   if (tab === 'focaccia') {
-    const total = parseInt(document.getElementById('f-total').textContent, 10);
-    const pct   = document.getElementById('f-yeast-display').textContent;
-    text = [
-      'FOCACCIA DOUGH — ' + (total / 1000).toFixed(1) + ' kg',
-      SEP,
+    const total  = parseInt(document.getElementById('f-total').textContent, 10);
+    const panini = parseInt(document.getElementById('f-panini-total').textContent, 10);
+    const pct    = document.getElementById('f-yeast-display').textContent;
+    const lines  = [
+      'FOCACCIA DOUGH  ' + (total / 1000).toFixed(1) + ' kg',
       ...readIngredients('f', 'Yeast', pct),
-      SEP,
       fmtLine('Total dough', total),
-    ].join('\n');
+    ];
+    if (panini > 0) { lines.push(SEP); lines.push(fmtLine('Panini', panini)); }
+    return lines.join('\n');
 
   } else if (tab === 'brioche') {
     const total = parseInt(document.getElementById('b-total').textContent, 10);
     const pct   = document.getElementById('b-yeast-display').textContent;
-    text = [
-      'BRIOCHE DOUGH — ' + (total / 1000).toFixed(1) + ' kg',
-      SEP,
+    return [
+      'BRIOCHE DOUGH  ' + (total / 1000).toFixed(1) + ' kg',
       ...readIngredients('b', 'Yeast', pct),
-      SEP,
       fmtLine('Total dough', total),
     ].join('\n');
 
   } else if (tab === 'sourdough') {
     const total = parseInt(document.getElementById('s-total').textContent, 10);
     const pct   = document.getElementById('s-starter-pct').value;
-    text = [
-      'SOURDOUGH BREAD — ' + (total / 1000).toFixed(1) + ' kg',
-      SEP,
+    return [
+      'SOURDOUGH BREAD  ' + (total / 1000).toFixed(1) + ' kg',
       ...readIngredients('s', 'Starter', pct),
-      SEP,
       fmtLine('Total dough', total),
     ].join('\n');
   }
+  return '';
+}
 
-  navigator.clipboard.writeText(text).then(() => {
+export function copyRecipe(tab) {
+  const btn = document.getElementById(tab[0] + '-copy-btn');
+  navigator.clipboard.writeText(buildRecipeText(tab)).then(() => {
     btn.textContent = 'Copied ✓';
     setTimeout(() => { btn.textContent = 'Copy recipe'; }, 2000);
   });
+}
+
+export function shareRecipeWA(tab) {
+  window.open('https://wa.me/?text=' + encodeURIComponent(buildRecipeText(tab)), '_blank');
 }

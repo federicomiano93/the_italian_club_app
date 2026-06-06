@@ -1,5 +1,5 @@
 import './firebase.js';
-import { calcFocaccia, calcBrioche, calcSourdough, copyRecipe } from './calc.js';
+import { calcFocaccia, calcBrioche, calcSourdough, copyRecipe, shareRecipeWA } from './calc.js';
 import { confirmAndSave, renderLog } from './log.js';
 import { openRecipes, saveRecipes, closeRecipes } from './recipes.js';
 import { shareMarketOrder, closeLoafModal, sendWithLoaves } from './whatsapp.js';
@@ -165,6 +165,9 @@ document.getElementById('s-confirm-btn').addEventListener('click', () => confirm
 document.getElementById('f-copy-btn').addEventListener('click', () => copyRecipe('focaccia'));
 document.getElementById('b-copy-btn').addEventListener('click', () => copyRecipe('brioche'));
 document.getElementById('s-copy-btn').addEventListener('click', () => copyRecipe('sourdough'));
+document.getElementById('f-wa-recipe-btn').addEventListener('click', () => shareRecipeWA('focaccia'));
+document.getElementById('b-wa-recipe-btn').addEventListener('click', () => shareRecipeWA('brioche'));
+document.getElementById('s-wa-recipe-btn').addEventListener('click', () => shareRecipeWA('sourdough'));
 
 document.querySelectorAll('.reset-btn').forEach((btn, i) => {
   const tabs = ['focaccia','brioche','sourdough'];

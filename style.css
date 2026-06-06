@@ -333,6 +333,21 @@ input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 }
 .reset-btn:active { background: var(--surface2); }
 
+.copy-row { display: flex; gap: 8px; align-items: center; margin: 12px 0 4px; }
+.copy-row .copy-btn { flex: 1; margin: 0; }
+.copy-wa-btn {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  background: #25D366;
+  border: none;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.copy-wa-btn:active { background: #1da851; }
 .copy-btn {
   width: 100%;
   margin: 12px 0 4px;
