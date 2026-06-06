@@ -63,8 +63,8 @@ export function calcFocaccia() {
   document.getElementById('f-total').textContent  = Math.round(target);
   const paniniDough = panini * 131;
   document.getElementById('f-panini-total').textContent = Math.round(paniniDough);
-  const paniniDiv = +document.getElementById('f-panini-div').value || 1;
-  document.getElementById('f-panini-split').textContent = Math.round(paniniDough / paniniDiv);
+  const paniniDiv = +document.getElementById('f-panini-div').value || 0;
+  document.getElementById('f-panini-split').textContent = paniniDiv > 0 ? Math.round(paniniDough / paniniDiv) : 0;
   const fbtn = document.getElementById('f-confirm-btn');
   fbtn.textContent = '✓ Confirm';
   fbtn.dataset.saved = '';
