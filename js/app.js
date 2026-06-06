@@ -51,7 +51,7 @@ function switchTab(name) {
 function resetTab(tab) {
   if (!confirm('Reset all fields?')) return;
   document.querySelectorAll('#tab-'+tab+' input[type="number"]').forEach(input => {
-    const defaults = { 'f-yeast-pct':'0.65', 'b-yeast-pct':'4', 's-starter-pct':'18', 's-weight':'905', 'f-kg':'0', 'b-kg':'0', 'f-panini-div':'0' };
+    const defaults = { 'f-yeast-pct':'0.65', 'b-yeast-pct':'4', 's-starter-pct':'18', 's-weight':'905', 'f-kg':'0', 'b-kg':'0', 'f-panini-div':'0', 'b-dough-div':'0', 's-dough-div':'0' };
     input.value = defaults[input.id] || '0';
   });
   clearQty(tab);
@@ -89,7 +89,7 @@ function restoreAndInit() {
 }
 
 // ── Input focus/blur ──────────────────────────────────────────────────────────
-const DEFAULTS = { 'f-yeast-pct':'0.65', 'b-yeast-pct':'4', 's-starter-pct':'18', 's-weight':'905', 'f-panini-div':'0' };
+const DEFAULTS = { 'f-yeast-pct':'0.65', 'b-yeast-pct':'4', 's-starter-pct':'18', 's-weight':'905', 'f-panini-div':'0', 'b-dough-div':'0', 's-dough-div':'0' };
 
 document.querySelectorAll('input[type="number"]').forEach(input => {
   input.addEventListener('focus', function() {
@@ -122,6 +122,22 @@ document.getElementById('f-panini-div').addEventListener('focus', () => {
   setTimeout(() => {
     document.getElementById('f-panini-div').scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, 300);
+});
+document.getElementById('b-dough-div').addEventListener('input', () => {
+  const total = +document.getElementById('b-total').textContent || 0;
+  const div   = +document.getElementById('b-dough-div').value || 0;
+  document.getElementById('b-dough-split').textContent = div > 0 ? Math.round(total / div) : 0;
+});
+document.getElementById('b-dough-div').addEventListener('focus', () => {
+  setTimeout(() => { document.getElementById('b-dough-div').scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 300);
+});
+document.getElementById('s-dough-div').addEventListener('input', () => {
+  const total = +document.getElementById('s-total').textContent || 0;
+  const div   = +document.getElementById('s-dough-div').value || 0;
+  document.getElementById('s-dough-split').textContent = div > 0 ? Math.round(total / div) : 0;
+});
+document.getElementById('s-dough-div').addEventListener('focus', () => {
+  setTimeout(() => { document.getElementById('s-dough-div').scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 300);
 });
 ['b-yeast-pct','b-burgerbuns','b-subrolls','b-bun','b-rolls','b-kg'].forEach(id => {
   document.getElementById(id).addEventListener('input', calcBrioche);

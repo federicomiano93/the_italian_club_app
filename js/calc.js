@@ -103,7 +103,9 @@ export function calcBrioche() {
   document.getElementById('b-yeast-display').textContent = yeastPct;
   document.getElementById('b-badge').textContent = Math.round(raw) + ' g raw';
   document.getElementById('b-total').textContent  = Math.round(raw);
-  document.getElementById('b-half').textContent   = Math.round(raw / 2);
+  document.getElementById('b-dough-display').textContent = Math.round(raw);
+  const bDoughDiv = +document.getElementById('b-dough-div').value || 0;
+  document.getElementById('b-dough-split').textContent = bDoughDiv > 0 ? Math.round(raw / bDoughDiv) : 0;
   const bbtn = document.getElementById('b-confirm-btn');
   bbtn.textContent = '✓ Confirm';
   bbtn.dataset.saved = '';
@@ -148,7 +150,9 @@ export function calcSourdough() {
 
   document.getElementById('s-badge').textContent  = Math.round(raw) + ' g raw';
   document.getElementById('s-total').textContent  = Math.round(raw);
-  document.getElementById('s-div').textContent    = Math.round(raw/2) + ' / ' + Math.round(raw/3) + ' g';
+  document.getElementById('s-dough-display').textContent = Math.round(raw);
+  const sDoughDiv = +document.getElementById('s-dough-div').value || 0;
+  document.getElementById('s-dough-split').textContent = sDoughDiv > 0 ? Math.round(raw / sDoughDiv) : 0;
   const sbtn = document.getElementById('s-confirm-btn');
   sbtn.textContent = '✓ Confirm';
   sbtn.dataset.saved = '';
@@ -192,28 +196,24 @@ export function copyRecipe(tab) {
 
   } else if (tab === 'brioche') {
     const total = parseInt(document.getElementById('b-total').textContent, 10);
-    const half  = parseInt(document.getElementById('b-half').textContent, 10);
     const pct   = document.getElementById('b-yeast-display').textContent;
     text = [
       'BRIOCHE DOUGH — ' + (total / 1000).toFixed(1) + ' kg',
       SEP,
       ...readIngredients('b', 'Yeast', pct),
       SEP,
-      fmtLine('Total dough raw', total),
-      fmtLine('÷ 2', half),
+      fmtLine('Total dough', total),
     ].join('\n');
 
   } else if (tab === 'sourdough') {
     const total = parseInt(document.getElementById('s-total').textContent, 10);
-    const div   = document.getElementById('s-div').textContent.trim();
     const pct   = document.getElementById('s-starter-pct').value;
     text = [
       'SOURDOUGH BREAD — ' + (total / 1000).toFixed(1) + ' kg',
       SEP,
       ...readIngredients('s', 'Starter', pct),
       SEP,
-      fmtLine('Total dough raw', total),
-      '÷2 / ÷3:' + ' '.repeat(14) + div,
+      fmtLine('Total dough', total),
     ].join('\n');
   }
 

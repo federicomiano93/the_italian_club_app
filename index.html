@@ -235,15 +235,21 @@
           <span class="result-badge" id="b-badge"></span>
         </div>
         <div id="b-ingredients"></div>
+        <div class="ing-separator"></div>
+        <div class="total-dough-row">
+          <span class="total-dough-label">Total dough</span>
+          <span><span class="total-dough-val" id="b-total">0</span> <span class="total-dough-unit">g</span></span>
+        </div>
         <button class="copy-btn" id="b-copy-btn">Copy recipe</button>
-        <div class="summary-grid">
-          <div class="summary-item">
-            <div class="s-label">Total dough raw</div>
-            <div><span class="s-val" id="b-total">0</span> <span class="s-unit">g</span></div>
-          </div>
-          <div class="summary-item">
-            <div class="s-label">÷ 2</div>
-            <div><span class="s-val" id="b-half">0</span> <span class="s-unit">g</span></div>
+        <div class="panini-box">
+          <div class="panini-box-title">Dough</div>
+          <div class="panini-box-total"><span id="b-dough-display">0</span><span class="panini-unit">g</span></div>
+          <div class="panini-box-divider-row">
+            <span class="panini-div-sym">÷</span>
+            <input type="number" id="b-dough-div" min="0" max="20" value="0" inputmode="numeric" class="panini-div-input">
+            <span class="panini-div-eq">=</span>
+            <span class="panini-split-val" id="b-dough-split">0</span>
+            <span class="panini-split-unit">g</span>
           </div>
         </div>
       </div>
@@ -282,15 +288,21 @@
           <span class="result-badge" id="s-badge"></span>
         </div>
         <div id="s-ingredients"></div>
+        <div class="ing-separator"></div>
+        <div class="total-dough-row">
+          <span class="total-dough-label">Total dough</span>
+          <span><span class="total-dough-val" id="s-total">0</span> <span class="total-dough-unit">g</span></span>
+        </div>
         <button class="copy-btn" id="s-copy-btn">Copy recipe</button>
-        <div class="summary-grid">
-          <div class="summary-item">
-            <div class="s-label">Total dough raw</div>
-            <div><span class="s-val" id="s-total">0</span> <span class="s-unit">g</span></div>
-          </div>
-          <div class="summary-item">
-            <div class="s-label">÷2 / ÷3</div>
-            <div><span class="s-val" id="s-div">—</span></div>
+        <div class="panini-box">
+          <div class="panini-box-title">Dough</div>
+          <div class="panini-box-total"><span id="s-dough-display">0</span><span class="panini-unit">g</span></div>
+          <div class="panini-box-divider-row">
+            <span class="panini-div-sym">÷</span>
+            <input type="number" id="s-dough-div" min="0" max="20" value="0" inputmode="numeric" class="panini-div-input">
+            <span class="panini-div-eq">=</span>
+            <span class="panini-split-val" id="s-dough-split">0</span>
+            <span class="panini-split-unit">g</span>
           </div>
         </div>
       </div>
