@@ -8,9 +8,9 @@
 │   ├── app.js          ← entry point: service worker, tab switching, event listeners
 │   ├── firebase.js     ← Firebase init + Firestore (save/delete/sync log)
 │   ├── recipes.js      ← recipe data (RECIPES) + recipe overlay UI
-│   ├── calc.js         ← calcFocaccia, calcBrioche, calcSourdough, copyRecipe
+│   ├── calc.js         ← calcFocaccia, calcBrioche, calcSourdough, copyRecipe, shareRecipeWA
 │   ├── log.js          ← production log: save, render, delete
-│   └── whatsapp.js     ← Duke Street Market WhatsApp order
+│   └── whatsapp.js     ← Duke Street Market order modal + WhatsApp send
 ├── sw.js               ← service worker (offline cache + auto-update)
 ├── manifest.json       ← PWA config
 ├── firestore.rules     ← Firestore security rules
@@ -48,7 +48,9 @@ Updates are deployed automatically on every push to the main branch.
 
 ## Works offline
 Once installed, the app works without internet connection.
-The service worker uses a network-first strategy and pre-caches all JS and CSS files on install.
+The service worker uses a cache-first strategy with background update (stale-while-revalidate):
+it serves the cached version immediately on every load (no white screen on poor connections),
+then fetches from the network in background to keep the cache fresh.
 
 ## Security
 
