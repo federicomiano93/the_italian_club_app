@@ -163,19 +163,23 @@ export function calcSourdough() {
 }
 
 function buildRecipeText(tab) {
-  const SEP = '─'.repeat(25);
+  const SEP = '─'.repeat(22);
 
   function fmtLine(name, val) {
-    return name.padEnd(20) + String(val).padStart(5) + ' g';
+    return name.padEnd(10) + String(val).padStart(5) + ' g';
   }
 
-  function readIngredients(prefix, pctName, pctVal) {
+  function readIngredients(prefix) {
     const lines = [];
     document.querySelectorAll('#' + prefix + '-ingredients .ing-row').forEach(row => {
-      let name = row.querySelector('.ing-name').textContent.trim();
-      const val = parseInt(row.querySelector('.ing-val').textContent, 10);
-      if (pctName && name === pctName) name += ' (' + pctVal + '%)';
-      lines.push(fmtLine(name, val));
+      const name = row.querySelector('.ing-name').textContent.trim();
+      const val  = parseInt(row.querySelector('.ing-val').textContent, 10);
+      if (name === 'Flour uniqua blue') {
+        lines.push('Flour uniqua');
+        lines.push(fmtLine('blue', val));
+      } else {
+        lines.push(fmtLine(name, val));
+      }
     });
     return lines;
   }
@@ -183,31 +187,28 @@ function buildRecipeText(tab) {
   if (tab === 'focaccia') {
     const total  = parseInt(document.getElementById('f-total').textContent, 10);
     const panini = parseInt(document.getElementById('f-panini-total').textContent, 10);
-    const pct    = document.getElementById('f-yeast-display').textContent;
     const lines  = [
       'FOCACCIA DOUGH  ' + (total / 1000).toFixed(1) + ' kg',
-      ...readIngredients('f', 'Yeast', pct),
-      fmtLine('Total dough', total),
+      SEP,
+      ...readIngredients('f'),
     ];
     if (panini > 0) { lines.push(SEP); lines.push(fmtLine('Panini', panini)); }
     return lines.join('\n');
 
   } else if (tab === 'brioche') {
     const total = parseInt(document.getElementById('b-total').textContent, 10);
-    const pct   = document.getElementById('b-yeast-display').textContent;
     return [
       'BRIOCHE DOUGH  ' + (total / 1000).toFixed(1) + ' kg',
-      ...readIngredients('b', 'Yeast', pct),
-      fmtLine('Total dough', total),
+      SEP,
+      ...readIngredients('b'),
     ].join('\n');
 
   } else if (tab === 'sourdough') {
     const total = parseInt(document.getElementById('s-total').textContent, 10);
-    const pct   = document.getElementById('s-starter-pct').value;
     return [
       'SOURDOUGH BREAD  ' + (total / 1000).toFixed(1) + ' kg',
-      ...readIngredients('s', 'Starter', pct),
-      fmtLine('Total dough', total),
+      SEP,
+      ...readIngredients('s'),
     ].join('\n');
   }
   return '';
