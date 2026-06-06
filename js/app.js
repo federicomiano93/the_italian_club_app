@@ -118,6 +118,11 @@ document.getElementById('f-panini-div').addEventListener('input', () => {
   const div   = +document.getElementById('f-panini-div').value || 1;
   document.getElementById('f-panini-split').textContent = Math.round(total / div);
 });
+document.getElementById('f-panini-div').addEventListener('focus', () => {
+  setTimeout(() => {
+    document.getElementById('f-panini-div').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 300);
+});
 ['b-yeast-pct','b-burgerbuns','b-subrolls','b-bun','b-rolls','b-kg'].forEach(id => {
   document.getElementById(id).addEventListener('input', calcBrioche);
 });
