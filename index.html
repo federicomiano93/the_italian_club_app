@@ -161,15 +161,20 @@
           <span class="result-badge" id="f-badge"></span>
         </div>
         <div id="f-ingredients"></div>
+        <div class="ing-separator"></div>
+        <div class="total-dough-row">
+          <span class="total-dough-label">Total dough</span>
+          <span><span class="total-dough-val" id="f-total">0</span> <span class="total-dough-unit">g</span></span>
+        </div>
         <button class="copy-btn" id="f-copy-btn">Copy recipe</button>
         <div class="summary-grid">
           <div class="summary-item">
-            <div class="s-label">Total dough raw</div>
-            <div><span class="s-val" id="f-total">0</span> <span class="s-unit">g</span></div>
+            <div class="s-label">Panini dough</div>
+            <div><span class="s-val" id="f-panini-total">0</span> <span class="s-unit">g</span></div>
           </div>
           <div class="summary-item">
-            <div class="s-label">÷ 2</div>
-            <div><span class="s-val" id="f-half">0</span> <span class="s-unit">g</span></div>
+            <div class="s-label">Panini ÷ <input type="number" id="f-panini-div" min="1" max="20" value="2" inputmode="numeric" class="panini-div-input"></div>
+            <div><span class="s-val" id="f-panini-split">0</span> <span class="s-unit">g</span></div>
           </div>
         </div>
       </div>

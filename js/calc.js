@@ -61,7 +61,10 @@ export function calcFocaccia() {
   document.getElementById('f-yeast-display').textContent = yeastPct;
   document.getElementById('f-badge').textContent = Math.round(target) + ' g raw';
   document.getElementById('f-total').textContent  = Math.round(target);
-  document.getElementById('f-half').textContent   = Math.round(target / 2);
+  const paniniDough = panini * 131;
+  document.getElementById('f-panini-total').textContent = Math.round(paniniDough);
+  const paniniDiv = +document.getElementById('f-panini-div').value || 1;
+  document.getElementById('f-panini-split').textContent = Math.round(paniniDough / paniniDiv);
   const fbtn = document.getElementById('f-confirm-btn');
   fbtn.textContent = '✓ Confirm';
   fbtn.dataset.saved = '';
@@ -178,15 +181,13 @@ export function copyRecipe(tab) {
 
   if (tab === 'focaccia') {
     const total = parseInt(document.getElementById('f-total').textContent, 10);
-    const half  = parseInt(document.getElementById('f-half').textContent, 10);
     const pct   = document.getElementById('f-yeast-display').textContent;
     text = [
       'FOCACCIA DOUGH — ' + (total / 1000).toFixed(1) + ' kg',
       SEP,
       ...readIngredients('f', 'Yeast', pct),
       SEP,
-      fmtLine('Total dough raw', total),
-      fmtLine('÷ 2', half),
+      fmtLine('Total dough', total),
     ].join('\n');
 
   } else if (tab === 'brioche') {

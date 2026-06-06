@@ -51,7 +51,7 @@ function switchTab(name) {
 function resetTab(tab) {
   if (!confirm('Reset all fields?')) return;
   document.querySelectorAll('#tab-'+tab+' input[type="number"]').forEach(input => {
-    const defaults = { 'f-yeast-pct':'0.65', 'b-yeast-pct':'4', 's-starter-pct':'18', 's-weight':'905', 'f-kg':'0', 'b-kg':'0' };
+    const defaults = { 'f-yeast-pct':'0.65', 'b-yeast-pct':'4', 's-starter-pct':'18', 's-weight':'905', 'f-kg':'0', 'b-kg':'0', 'f-panini-div':'2' };
     input.value = defaults[input.id] || '0';
   });
   clearQty(tab);
@@ -89,7 +89,7 @@ function restoreAndInit() {
 }
 
 // ── Input focus/blur ──────────────────────────────────────────────────────────
-const DEFAULTS = { 'f-yeast-pct':'0.65', 'b-yeast-pct':'4', 's-starter-pct':'18', 's-weight':'905' };
+const DEFAULTS = { 'f-yeast-pct':'0.65', 'b-yeast-pct':'4', 's-starter-pct':'18', 's-weight':'905', 'f-panini-div':'2' };
 
 document.querySelectorAll('input[type="number"]').forEach(input => {
   input.addEventListener('focus', function() {
@@ -112,6 +112,11 @@ document.querySelectorAll('input[type="number"]').forEach(input => {
 // ── Calc input listeners ──────────────────────────────────────────────────────
 ['f-yeast-pct','f-pizze','f-focacce','f-ciabatta','f-trayfocaccia','f-panini','f-kg'].forEach(id => {
   document.getElementById(id).addEventListener('input', calcFocaccia);
+});
+document.getElementById('f-panini-div').addEventListener('input', () => {
+  const total = +document.getElementById('f-panini-total').textContent || 0;
+  const div   = +document.getElementById('f-panini-div').value || 1;
+  document.getElementById('f-panini-split').textContent = Math.round(total / div);
 });
 ['b-yeast-pct','b-burgerbuns','b-subrolls','b-bun','b-rolls','b-kg'].forEach(id => {
   document.getElementById(id).addEventListener('input', calcBrioche);
