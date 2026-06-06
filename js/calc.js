@@ -166,7 +166,7 @@ function buildRecipeText(tab) {
   const SEP = '─'.repeat(22);
 
   function fmtLine(name, val) {
-    return name.padEnd(10) + String(val).padStart(5) + ' g';
+    return (name + ':').padEnd(11) + String(val).padStart(5) + ' g';
   }
 
   function readIngredients(prefix) {
