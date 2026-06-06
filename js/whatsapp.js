@@ -2,31 +2,31 @@ const MARKET_CLIENTS = [
   {
     name: 'Bone&Block',
     products: [
-      ['f-ciabatta',   'Ciabatta'],
-      ['b-burgerbuns', 'Seeded burger buns'],
-      ['b-subrolls',   'Brioche rolls'],
+      ['om-ciabatta',   'Ciabatta'],
+      ['om-burgerbuns', 'Seeded burger buns'],
+      ['om-subrolls',   'Brioche rolls'],
     ],
   },
   {
     name: 'Club Fish',
     products: [
-      ['f-trayfocaccia', 'Tray focaccia'],
-      ['b-bun',          'Buns'],
-      ['b-rolls',        'Rolls'],
+      ['om-trayfocaccia', 'Tray focaccia'],
+      ['om-bun',          'Buns'],
+      ['om-rolls',        'Rolls'],
+      ['om-loaves',       'Loaf of bread'],
     ],
   },
   {
     name: 'Cahita',
     products: [
-      ['f-panini', 'Panini'],
+      ['om-panini', 'Panini'],
     ],
   },
 ];
 
 export function shareMarketOrder() {
-  document.getElementById('loaf-qty-input').value = '0';
+  document.querySelectorAll('.order-qty-input').forEach(input => { input.value = '0'; });
   document.getElementById('loaf-modal').classList.add('visible');
-  setTimeout(() => { document.getElementById('loaf-qty-input').select(); }, 100);
 }
 
 export function closeLoafModal() {
@@ -34,7 +34,6 @@ export function closeLoafModal() {
 }
 
 export function sendWithLoaves() {
-  const loaves = +document.getElementById('loaf-qty-input').value || 0;
   closeLoafModal();
 
   const sections = MARKET_CLIENTS
@@ -43,7 +42,6 @@ export function sendWithLoaves() {
         .map(([id, label]) => ({ label, val: +document.getElementById(id).value || 0 }))
         .filter(p => p.val > 0)
         .map(p => `- ${p.label}: ${p.val}`);
-      if (client.name === 'Club Fish' && loaves > 0) lines.push(`- Loaf of bread: ${loaves}`);
       return lines.length ? `*${client.name}*\n` + lines.join('\n') : null;
     })
     .filter(Boolean);
