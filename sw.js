@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bakery-v76';
+const CACHE_NAME = 'bakery-v77';
 const ASSETS = [
   './',
   './index.html',
@@ -15,8 +15,11 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', e => {
+  // Cache assets one-by-one — if one fails, installation still succeeds
   e.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then(cache =>
+      Promise.allSettled(ASSETS.map(url => cache.add(url)))
+    )
   );
   self.skipWaiting();
 });
@@ -35,19 +38,23 @@ self.addEventListener('fetch', e => {
     e.respondWith(fetch(e.request));
     return;
   }
-  // Network first for same-origin assets — always try to get fresh content
+  // Cache-first with background update: serve cached version immediately,
+  // fetch from network in background to keep cache fresh.
+  // This prevents white screens on poor connections.
   e.respondWith(
-    fetch(e.request)
-      .then(res => {
-        const clone = res.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+    caches.match(e.request).then(cached => {
+      const networkFetch = fetch(e.request).then(res => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+        }
         return res;
-      })
-      .catch(() => caches.match(e.request))
+      }).catch(() => cached);
+      return cached || networkFetch;
+    })
   );
 });
 
-// Listen for skipWaiting message from client — e.source must exist (same-origin client only)
 self.addEventListener('message', e => {
   if (!e.source) return;
   if (e.data && e.data.action === 'skipWaiting') {
