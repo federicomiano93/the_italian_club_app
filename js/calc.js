@@ -185,7 +185,7 @@ export function copyRecipe(tab) {
       SEP,
       ...readIngredients('f', 'Yeast', pct),
       SEP,
-      fmtLine('Total raw', total),
+      fmtLine('Total dough raw', total),
       fmtLine('÷ 2', half),
     ].join('\n');
 
@@ -198,7 +198,7 @@ export function copyRecipe(tab) {
       SEP,
       ...readIngredients('b', 'Yeast', pct),
       SEP,
-      fmtLine('Total raw', total),
+      fmtLine('Total dough raw', total),
       fmtLine('÷ 2', half),
     ].join('\n');
 
@@ -211,7 +211,7 @@ export function copyRecipe(tab) {
       SEP,
       ...readIngredients('s', 'Starter', pct),
       SEP,
-      fmtLine('Total raw', total),
+      fmtLine('Total dough raw', total),
       '÷2 / ÷3:' + ' '.repeat(14) + div,
     ].join('\n');
   }
