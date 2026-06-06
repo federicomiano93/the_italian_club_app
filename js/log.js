@@ -1,5 +1,5 @@
 import { showResult, hideResult } from './calc.js';
-import { saveLogToFirestore, deleteLogFromFirestore } from './firebase.js';
+import { saveLogToFirestore, deleteLogFromFirestore, saveDailyEntry } from './firebase.js';
 
 function logTimestamp() {
   const now = new Date();
@@ -8,6 +8,57 @@ function logTimestamp() {
   const d = String(now.getDate()).padStart(2,'0');
   const t = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
   return { date: `${DAY[now.getDay()]} ${d} ${MON[now.getMonth()]}`, time: t };
+}
+
+function isoDate() {
+  const n = new Date();
+  return n.getFullYear() + '-' +
+    String(n.getMonth() + 1).padStart(2, '0') + '-' +
+    String(n.getDate()).padStart(2, '0');
+}
+
+function buildDailyEntry(tab, record) {
+  const base = {
+    date_iso:       isoDate(),
+    date:           record.date,
+    time:           record.time,
+    dough:          record.dough,
+    pizzas:         '',
+    focaccias:      '',
+    ciabatta:       '',
+    tray_focaccia:  '',
+    panini:         '',
+    extra_kg_f:     '',
+    burger_buns:    '',
+    sub_rolls:      '',
+    buns:           '',
+    rolls:          '',
+    extra_kg_b:     '',
+    loaves:         '',
+    loaf_weight_g:  '',
+    total_g:        '',
+  };
+  if (tab === 'focaccia') {
+    base.pizzas        = +document.getElementById('f-pizze').value        || 0;
+    base.focaccias     = +document.getElementById('f-focacce').value      || 0;
+    base.ciabatta      = +document.getElementById('f-ciabatta').value     || 0;
+    base.tray_focaccia = +document.getElementById('f-trayfocaccia').value || 0;
+    base.panini        = +document.getElementById('f-panini').value       || 0;
+    base.extra_kg_f    = +document.getElementById('f-kg').value           || 0;
+    base.total_g       = parseInt(document.getElementById('f-total').textContent, 10) || 0;
+  } else if (tab === 'brioche') {
+    base.burger_buns = +document.getElementById('b-burgerbuns').value || 0;
+    base.sub_rolls   = +document.getElementById('b-subrolls').value   || 0;
+    base.buns        = +document.getElementById('b-bun').value        || 0;
+    base.rolls       = +document.getElementById('b-rolls').value      || 0;
+    base.extra_kg_b  = +document.getElementById('b-kg').value         || 0;
+    base.total_g     = parseInt(document.getElementById('b-total').textContent, 10) || 0;
+  } else if (tab === 'sourdough') {
+    base.loaves       = +document.getElementById('s-loaves').value || 0;
+    base.loaf_weight_g = +document.getElementById('s-weight').value || 905;
+    base.total_g      = parseInt(document.getElementById('s-total').textContent, 10) || 0;
+  }
+  return base;
 }
 
 function buildFocacciaLog() {
@@ -93,6 +144,7 @@ export function confirmAndSave(tab) {
   if (log.length > 3) log = log.slice(-3);
   localStorage.setItem('bakery-log', JSON.stringify(log));
   saveLogToFirestore(record);
+  saveDailyEntry(buildDailyEntry(tab, record));
 
   btn.textContent = 'Saved!';
   btn.disabled = true;
