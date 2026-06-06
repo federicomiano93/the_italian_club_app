@@ -65,9 +65,13 @@ export function confirmAndSave(tab) {
   const btn = document.getElementById(tab[0] + '-confirm-btn');
 
   if (btn.dataset.mode === 'edit') {
+    if (!confirm('Edit recipe? The result will be hidden.')) return;
     hideResult(tab + '-result');
     btn.textContent = '✓ Confirm';
     btn.dataset.mode = '';
+    btn.dataset.saved = '';
+    btn.disabled = false;
+    btn.classList.add('visible');
     return;
   }
 

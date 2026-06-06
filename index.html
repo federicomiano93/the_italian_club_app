@@ -124,7 +124,7 @@
       <div class="card-title">Bone&amp;Block</div>
       <div class="product-row">
         <span class="product-label">Ciabatta <span class="product-weight">(150g)</span></span>
-        <div class="qty-group"><input type="number" id="f-ciabatta" value="0" min="0" inputmode="numeric"><span class="unit">pz</span></div>
+        <div class="qty-group"><select id="f-ciabatta" class="qty-select"><option value="0">0</option><option value="20">20</option><option value="40">40</option><option value="60">60</option><option value="80">80</option><option value="100">100</option></select><span class="unit">pz</span></div>
       </div>
     </div>
 
@@ -180,6 +180,11 @@
             <span class="panini-split-val" id="f-panini-split">0</span>
             <span class="panini-split-unit">g</span>
           </div>
+        </div>
+        <div class="panini-box" id="f-ciabatta-box" style="display:none">
+          <div class="panini-box-title">Ciabatta</div>
+          <div class="ciabatta-count"><span id="f-ciabatta-boxes">0</span><span class="ciabatta-count-unit"> box</span></div>
+          <div class="ciabatta-sub">3000g each box</div>
         </div>
       </div>
     </div>

@@ -29,7 +29,15 @@ export function calcFocaccia() {
   const kg_f     = +document.getElementById('f-kg').value || 0;
 
   const target = pizze*201 + focacce*181 + ciabatta*151 + tray*1800 + panini*131 + kg_f*1000;
-  if (target === 0) { hideResult('focaccia-result'); document.getElementById('f-confirm-btn').classList.remove('visible'); return; }
+  if (target === 0) {
+    hideResult('focaccia-result');
+    const fbtn0 = document.getElementById('f-confirm-btn');
+    fbtn0.classList.remove('visible');
+    fbtn0.dataset.mode = '';
+    fbtn0.textContent = '✓ Confirm';
+    fbtn0.disabled = false;
+    return;
+  }
 
   const R = RECIPES.focaccia;
   const base_total = recipeTotal(R);
@@ -65,13 +73,23 @@ export function calcFocaccia() {
   document.getElementById('f-panini-total').textContent = Math.round(paniniDough);
   const paniniDiv = +document.getElementById('f-panini-div').value || 0;
   document.getElementById('f-panini-split').textContent = paniniDiv > 0 ? Math.round(paniniDough / paniniDiv) : 0;
+  const ciabattaBoxes = ciabatta / 20;
+  const cbEl = document.getElementById('f-ciabatta-box');
+  if (ciabatta > 0) {
+    document.getElementById('f-ciabatta-boxes').textContent = ciabattaBoxes;
+    cbEl.style.display = '';
+  } else {
+    cbEl.style.display = 'none';
+  }
   const fbtn = document.getElementById('f-confirm-btn');
-  fbtn.textContent = '✓ Confirm';
-  fbtn.dataset.saved = '';
-  fbtn.dataset.mode = '';
-  fbtn.disabled = false;
-  fbtn.classList.add('visible');
-  hideResult('focaccia-result');
+  if (fbtn.dataset.mode !== 'edit') {
+    fbtn.textContent = '✓ Confirm';
+    fbtn.dataset.saved = '';
+    fbtn.dataset.mode = '';
+    fbtn.disabled = false;
+    fbtn.classList.add('visible');
+    hideResult('focaccia-result');
+  }
 }
 
 export function calcBrioche() {
@@ -83,7 +101,15 @@ export function calcBrioche() {
   const kg_b       = +document.getElementById('b-kg').value || 0;
 
   const target = burgerbuns*81 + subrolls*121 + bun*71 + rolls*71 + kg_b*1000;
-  if (target === 0) { hideResult('brioche-result'); document.getElementById('b-confirm-btn').classList.remove('visible'); return; }
+  if (target === 0) {
+    hideResult('brioche-result');
+    const bbtn0 = document.getElementById('b-confirm-btn');
+    bbtn0.classList.remove('visible');
+    bbtn0.dataset.mode = '';
+    bbtn0.textContent = '✓ Confirm';
+    bbtn0.disabled = false;
+    return;
+  }
 
   const R = RECIPES.brioche;
   const yeastBase       = R.yeast * (yeastPct / 4);
@@ -107,12 +133,14 @@ export function calcBrioche() {
   const bDoughDiv = +document.getElementById('b-dough-div').value || 0;
   document.getElementById('b-dough-split').textContent = bDoughDiv > 0 ? Math.round(raw / bDoughDiv) : 0;
   const bbtn = document.getElementById('b-confirm-btn');
-  bbtn.textContent = '✓ Confirm';
-  bbtn.dataset.saved = '';
-  bbtn.dataset.mode = '';
-  bbtn.disabled = false;
-  bbtn.classList.add('visible');
-  hideResult('brioche-result');
+  if (bbtn.dataset.mode !== 'edit') {
+    bbtn.textContent = '✓ Confirm';
+    bbtn.dataset.saved = '';
+    bbtn.dataset.mode = '';
+    bbtn.disabled = false;
+    bbtn.classList.add('visible');
+    hideResult('brioche-result');
+  }
 }
 
 export function calcSourdough() {
@@ -120,7 +148,15 @@ export function calcSourdough() {
   const weight     = +document.getElementById('s-weight').value || 905;
   const starterPct = +document.getElementById('s-starter-pct').value || 18;
 
-  if (loaves === 0) { hideResult('sourdough-result'); document.getElementById('s-confirm-btn').classList.remove('visible'); return; }
+  if (loaves === 0) {
+    hideResult('sourdough-result');
+    const sbtn0 = document.getElementById('s-confirm-btn');
+    sbtn0.classList.remove('visible');
+    sbtn0.dataset.mode = '';
+    sbtn0.textContent = '✓ Confirm';
+    sbtn0.disabled = false;
+    return;
+  }
 
   const target = loaves * weight;
   const R = RECIPES.sourdough;
@@ -154,12 +190,14 @@ export function calcSourdough() {
   const sDoughDiv = +document.getElementById('s-dough-div').value || 0;
   document.getElementById('s-dough-split').textContent = sDoughDiv > 0 ? Math.round(raw / sDoughDiv) : 0;
   const sbtn = document.getElementById('s-confirm-btn');
-  sbtn.textContent = '✓ Confirm';
-  sbtn.dataset.saved = '';
-  sbtn.dataset.mode = '';
-  sbtn.disabled = false;
-  sbtn.classList.add('visible');
-  hideResult('sourdough-result');
+  if (sbtn.dataset.mode !== 'edit') {
+    sbtn.textContent = '✓ Confirm';
+    sbtn.dataset.saved = '';
+    sbtn.dataset.mode = '';
+    sbtn.disabled = false;
+    sbtn.classList.add('visible');
+    hideResult('sourdough-result');
+  }
 }
 
 function buildRecipeText(tab) {

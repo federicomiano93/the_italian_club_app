@@ -195,6 +195,41 @@ input[type="number"]:focus { outline: none; border-color: var(--accent); backgro
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 
+select.qty-select {
+  width: 80px;
+  padding: 10px 6px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 600;
+  font-family: 'DM Mono', monospace;
+  text-align: center;
+  transition: border-color 0.15s;
+  min-height: 40px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+select.qty-select:focus { outline: none; border-color: var(--accent); background: #fff; }
+
+.ciabatta-count {
+  font-size: 36px;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.ciabatta-count-unit { font-size: 15px; color: var(--text3); font-weight: 400; }
+.ciabatta-sub {
+  font-size: 13px;
+  font-family: 'DM Mono', monospace;
+  color: var(--text3);
+  letter-spacing: 0.3px;
+}
+
 .unit { font-size: 11px; color: var(--text3); width: 20px; font-family: 'DM Mono', monospace; }
 
 /* Param rows */

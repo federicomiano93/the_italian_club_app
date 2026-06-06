@@ -54,6 +54,7 @@ function resetTab(tab) {
     const defaults = { 'f-yeast-pct':'0.65', 'b-yeast-pct':'4', 's-starter-pct':'18', 's-weight':'905', 'f-kg':'0', 'b-kg':'0', 'f-panini-div':'0', 'b-dough-div':'0', 's-dough-div':'0' };
     input.value = defaults[input.id] || '0';
   });
+  document.querySelectorAll('#tab-'+tab+' select.qty-select').forEach(sel => { sel.value = '0'; });
   clearQty(tab);
   if (tab === 'focaccia') calcFocaccia();
   if (tab === 'brioche') calcBrioche();
@@ -81,7 +82,11 @@ function restoreAndInit() {
     if (val !== null) document.getElementById(id).value = val;
   });
   Object.entries(QTY_IDS).forEach(([tab, ids]) => {
-    ids.forEach(id => document.getElementById(id).addEventListener('input', () => saveQty(tab)));
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      const evt = el.tagName === 'SELECT' ? 'change' : 'input';
+      el.addEventListener(evt, () => saveQty(tab));
+    });
   });
   calcFocaccia();
   calcBrioche();
@@ -110,9 +115,10 @@ document.querySelectorAll('input[type="number"]').forEach(input => {
 });
 
 // ── Calc input listeners ──────────────────────────────────────────────────────
-['f-yeast-pct','f-pizze','f-focacce','f-ciabatta','f-trayfocaccia','f-panini','f-kg'].forEach(id => {
+['f-yeast-pct','f-pizze','f-focacce','f-trayfocaccia','f-panini','f-kg'].forEach(id => {
   document.getElementById(id).addEventListener('input', calcFocaccia);
 });
+document.getElementById('f-ciabatta').addEventListener('change', calcFocaccia);
 document.getElementById('f-panini-div').addEventListener('input', () => {
   const total = +document.getElementById('f-panini-total').textContent || 0;
   const div   = +document.getElementById('f-panini-div').value || 0;
