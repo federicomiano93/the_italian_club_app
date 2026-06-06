@@ -5,11 +5,11 @@
 ├── index.html          ← HTML structure only
 ├── style.css           ← all CSS
 ├── js/
-│   ├── app.js          ← entry point: service worker, tab switching, event listeners
-│   ├── firebase.js     ← Firebase init + Firestore (save/delete/sync log)
+│   ├── app.js          ← entry point: service worker, tab switching, event listeners, localStorage
+│   ├── firebase.js     ← Firebase init + Firestore (save/delete/sync log + daily-logs)
 │   ├── recipes.js      ← recipe data (RECIPES) + recipe overlay UI
 │   ├── calc.js         ← calcFocaccia, calcBrioche, calcSourdough, copyRecipe, shareRecipeWA
-│   ├── log.js          ← production log: save, render, delete
+│   ├── log.js          ← production log: save, render, delete, daily CSV entry
 │   └── whatsapp.js     ← Duke Street Market order modal + WhatsApp send
 ├── sw.js               ← service worker (offline cache + auto-update)
 ├── manifest.json       ← PWA config
@@ -41,7 +41,7 @@ Updates are deployed automatically on every push to the main branch.
 
 ## Update the app
 1. Edit the relevant file in js/ or style.css
-2. Bump the cache version in sw.js (CACHE_NAME = 'bakery-vXX') and update the comment in index.html
+2. Bump the cache version in sw.js (CACHE_NAME = 'bakery-vXX')
 3. Push to GitHub — the live site updates automatically
 4. All installed users see the update next time they open the app
    (a banner appears at the top saying "New version available")
@@ -51,6 +51,57 @@ Once installed, the app works without internet connection.
 The service worker uses a cache-first strategy with background update (stale-while-revalidate):
 it serves the cached version immediately on every load (no white screen on poor connections),
 then fetches from the network in background to keep the cache fresh.
+
+## Focaccia tab
+
+### Ciabatta (Bone&Block)
+- Quantity is selected via a dropdown: 0 / 20 / 40 / 60 / 80 / 100 pz
+- Rule: 20 ciabatta = 1 box = 3000g of dough
+- After confirming, the result card shows a "Ciabatta" box with the number of boxes
+  and "3000g each box"
+
+### Confirm / Edit flow
+- After clicking **Confirm**, the recipe result stays visible on screen
+- If you change quantities, the recipe updates in real-time without saving to the log again
+- Clicking **Edit** asks for confirmation before hiding the result and returning to edit mode
+- If all quantities are cleared, the result hides automatically and the button resets
+
+## Production Log
+
+### Current session log (Log tab)
+Each Confirm saves the latest entry for that dough type to:
+- `localStorage` (offline backup)
+- Firestore collection `log/{dough}` (synced across devices)
+
+Only the most recent confirmation per dough type is kept in the Log tab display.
+
+### Daily production log (Firestore)
+Every Confirm also writes a structured entry to:
+- Firestore collection `daily-logs/{YYYY-MM-DD}`
+
+Each day is a single document. Each dough type is a field within that document.
+Re-confirming (after Edit) overwrites only that dough's field for the day — other doughs are untouched.
+
+Document structure:
+```
+daily-logs/
+  2026-06-06:
+    date: "2026-06-06"
+    focaccia:
+      date_iso, date, time, dough
+      pizzas, focaccias, ciabatta, tray_focaccia, panini, extra_kg_f
+      total_g
+    brioche:
+      date_iso, date, time, dough
+      burger_buns, sub_rolls, buns, rolls, extra_kg_b
+      total_g
+    sourdough:
+      date_iso, date, time, dough
+      loaves, loaf_weight_g
+      total_g
+```
+
+Non-applicable fields for a dough type are stored as empty string "".
 
 ## Security
 
@@ -64,20 +115,24 @@ A CSP meta tag in index.html restricts what the browser can load:
 ### Firebase Anonymous Auth
 The app signs in anonymously on startup (`signInAnonymously`) — no login
 screen, no email required. Every device gets a silent auth token which is
-required by the Firestore rules to write or delete data. Unauthenticated
-REST API calls from outside the app are rejected with 403.
+required by the Firestore rules to read or write data. Unauthenticated
+REST API calls from outside the app are rejected.
 
 Anonymous Auth must be enabled in the Firebase Console:
 Authentication → Sign-in method → Anonymous → Enable.
 
 ### Firestore Security Rules
 `firestore.rules` is deployed via Firebase CLI and enforced server-side.
-All writes and deletes require a valid auth token (`request.auth != null`).
-Writes are also accepted only if:
+
+**log collection** — all writes and deletes require a valid auth token.
+Writes are accepted only if:
 - Document ID is one of: `focaccia`, `brioche`, `sourdough`
 - Fields are exactly: `dough`, `date`, `time`, `text` (no extras)
 - `dough` value is one of: `Focaccia`, `Brioche`, `Sourdough`
 - `date` < 50 chars, `time` < 10 chars, `text` < 2000 chars
+
+**daily-logs collection** — all reads and writes require a valid auth token.
+Document ID must match the format `YYYY-MM-DD`.
 
 To update and redeploy the rules:
 ```
