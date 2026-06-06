@@ -206,6 +206,7 @@ select.qty-select {
   font-weight: 600;
   font-family: 'DM Mono', monospace;
   text-align: center;
+  text-align-last: center;
   transition: border-color 0.15s;
   min-height: 40px;
   cursor: pointer;
