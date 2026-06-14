@@ -6,7 +6,8 @@
 ├── style.css           ← all CSS
 ├── js/
 │   ├── app.js          ← entry point: service worker, tab switching, event listeners, localStorage
-│   ├── firebase.js     ← Firebase init + Firestore (save/delete/sync log + daily-logs)
+│   ├── firebase.example.js ← template for firebase.js (placeholders only, safe to commit)
+│   ├── firebase.js     ← Firebase init + Firestore (save/delete/sync log + daily-logs) — gitignored, real keys
 │   ├── recipes.js      ← recipe data (RECIPES) + recipe overlay UI
 │   ├── calc.js         ← calcFocaccia, calcBrioche, calcSourdough, copyRecipe, shareRecipeWA
 │   ├── log.js          ← production log: save, render, delete, daily CSV entry
@@ -19,6 +20,29 @@
     ├── icon-192.png
     └── icon-512.png
 ```
+
+## Setup (first run / after clone)
+`js/firebase.js` holds the real Firebase keys and is gitignored, so it is
+NOT present after cloning. Recreate it from the template:
+
+1. Copy `js/firebase.example.js` to `js/firebase.js`
+2. Replace the placeholder values in `firebaseConfig` with the real keys
+   from the Firebase Console (Project settings → Your apps)
+3. Leave the rest of the file unchanged
+
+`js/firebase.example.js` is a complete, working template (safe to commit):
+it contains the full Firebase setup — app initialization, anonymous auth,
+the real-time `log` listener (populates `window.firestoreLog` and dispatches
+the `firestore-log-updated` event), and the `saveLogToFirestore` /
+`deleteLogFromFirestore` / `saveDailyEntry` exports. Only the `firebaseConfig`
+values are placeholders.
+
+Local testing needs a local server (service worker and Firebase do not work
+from `file://`):
+```
+npx http-server . -p 8765
+```
+then open http://localhost:8765/
 
 ## Deploy
 Hosted on GitHub Pages:
