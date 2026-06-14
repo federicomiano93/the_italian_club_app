@@ -1,5 +1,7 @@
 firebase-config.js
-js/firebase.js
+# js/firebase.js is intentionally committed so GitHub Pages can serve it.
+# The Firebase web config is public by design; the API key is restricted to
+# the app domain in Google Cloud Console. Do not re-add it to .gitignore.
 .env
 node_modules/
 CLAUDE.md
