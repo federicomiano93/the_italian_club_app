@@ -1,0 +1,100 @@
+// firebase.example.js — Firebase setup template
+//
+// Copy this file to js/firebase.js and replace the placeholder config values
+// with your real Firebase keys (from the Firebase Console).
+// js/firebase.js is excluded from Git via .gitignore — never commit it.
+//
+// This module:
+//   1. Initializes Firebase and signs the user in anonymously
+//   2. Mirrors the `log` collection in real time into window.firestoreLog
+//      and notifies the app via a `firestore-log-updated` event
+//   3. Exports helpers to persist / remove log and daily-log entries
+//
+// Public API consumed by the rest of the app:
+//   - saveLogToFirestore(record)      → js/log.js
+//   - deleteLogFromFirestore(dough)   → js/log.js
+//   - saveDailyEntry(entry)           → js/log.js
+//   - side-effect `import './firebase.js'` for init → js/app.js
+
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import {
+  getAuth,
+  signInAnonymously,
+  onAuthStateChanged,
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import {
+  getFirestore,
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+// ── Configuration (placeholders only — fill these in js/firebase.js) ──────────
+export const firebaseConfig = {
+  apiKey: "AIzaSyCIy5dRbE9Ce_mJQ4-r7QuSOquKpgkwoMo",
+  authDomain: "bakery-app-ebf90.firebaseapp.com",
+  projectId: "bakery-app-ebf90",
+  storageBucket: "bakery-app-ebf90.firebasestorage.app",
+  messagingSenderId: "27778450817",
+  appId: "1:27778450817:web:74e1bab55d10c3f9279480"
+};
+
+// ── Initialization ────────────────────────────────────────────────────────────
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// Firestore Security Rules require an authenticated user (request.auth != null),
+// so we sign in anonymously and only start reading once auth is ready.
+signInAnonymously(auth).catch(err => {
+  console.error('Anonymous sign-in failed:', err);
+});
+
+// ── Real-time log listener ──────────────────────────────────────────────────
+// Mirrors the `log` collection into window.firestoreLog and notifies the app.
+// Each document id is the lowercase dough name ('focaccia' | 'brioche' | 'sourdough')
+// and holds { dough, date, time, text } — see firestore.rules.
+onAuthStateChanged(auth, user => {
+  if (!user) return;
+  onSnapshot(
+    collection(db, 'log'),
+    snapshot => {
+      window.firestoreLog = snapshot.docs.map(d => d.data());
+      document.dispatchEvent(new CustomEvent('firestore-log-updated'));
+    },
+    err => { console.error('Log listener failed:', err); }
+  );
+});
+
+// ── Write helpers ─────────────────────────────────────────────────────────────
+
+// Current-session log: one document per dough type, overwritten on each confirm.
+// record = { dough: 'Focaccia' | 'Brioche' | 'Sourdough', date, time, text }
+export function saveLogToFirestore(record) {
+  const id = record.dough.toLowerCase();
+  return setDoc(doc(db, 'log', id), record)
+    .catch(err => { console.error('saveLogToFirestore failed:', err); });
+}
+
+// Removes the current-session log entry for a dough type.
+// dough = 'Focaccia' | 'Brioche' | 'Sourdough'
+export function deleteLogFromFirestore(dough) {
+  const id = dough.toLowerCase();
+  return deleteDoc(doc(db, 'log', id))
+    .catch(err => { console.error('deleteLogFromFirestore failed:', err); });
+}
+
+// Daily production log: one document per day (entry.date_iso, 'YYYY-MM-DD'),
+// keyed by dough type so confirming one dough never overwrites the others.
+// Re-confirming the same dough on the same day updates its sub-entry (merge).
+// entry = buildDailyEntry(...) from js/log.js (includes entry.dough + entry.date_iso)
+export function saveDailyEntry(entry) {
+  const key = entry.dough.toLowerCase();
+  return setDoc(
+    doc(db, 'daily-logs', entry.date_iso),
+    { [key]: entry },
+    { merge: true }
+  ).catch(err => { console.error('saveDailyEntry failed:', err); });
+}
