@@ -1,6 +1,6 @@
 // firebase.example.js — configuration template
-// Copy this file to firebase-config.js and fill in your real values.
-// firebase-config.js is excluded from Git via .gitignore — never commit it.
+// Copy this file to js/firebase.js and fill in your real values.
+// js/firebase.js is excluded from Git via .gitignore — never commit it.
 
 export const firebaseConfig = {
   apiKey: "YOUR_API_KEY",
