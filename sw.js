@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v99';
+const CACHE_NAME = 'theitalianclub-v100';
 const ASSETS = [
   './',
   './index.html',
@@ -58,6 +58,22 @@ self.addEventListener('fetch', e => {
   // Never cache cross-origin requests (Firebase SDK CDN, Firestore API, etc.)
   if (new URL(e.request.url).origin !== self.location.origin) {
     e.respondWith(fetch(e.request));
+    return;
+  }
+
+  // Install guide assets: always network-first (fresh from server), falling back
+  // to cache only when offline. Avoids serving a stale guide after an update.
+  const p = new URL(e.request.url).pathname;
+  if (p.endsWith('/install-guide.html') || p.endsWith('/qr.png') || p.endsWith('/js/install-guide.js')) {
+    e.respondWith(
+      fetch(e.request, { cache: 'no-store' }).then(res => {
+        if (res.ok) {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+        }
+        return res;
+      }).catch(() => caches.match(e.request))
+    );
     return;
   }
   // Cache-first with background update: serve cached version immediately,
