@@ -1,0 +1,64 @@
+<!--
+  THE ITALIAN CLUB PWA — Home
+  Landing screen: two large cards (Orders, Calculator).
+  start_url of the PWA (see manifest.json). Reuses style.css; new styles in orders.css.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com; img-src 'self' data:; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#2D5016">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Italian Club">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="orders.css">
+<title>The Italian Club</title>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>The Italian Club</h1>
+    <p>Home</p>
+  </div>
+</header>
+
+<div class="scroll-area">
+  <nav class="home-grid" aria-label="Main sections">
+
+    <a class="home-card" href="orders.html">
+      <span class="home-card-icon" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 4h6a1 1 0 0 1 1 1v0a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v0a1 1 0 0 1 1-1z"/>
+          <path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+          <path d="M9 11h6M9 15h6"/>
+        </svg>
+      </span>
+      <span class="home-card-title">Orders</span>
+      <span class="home-card-sub">Suppliers &amp; weekly order</span>
+    </a>
+
+    <a class="home-card" href="index.html">
+      <span class="home-card-icon" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="5" y="3" width="14" height="18" rx="2"/>
+          <path d="M8 7h8M8 11h2M11 11h2M14 11h2M8 15h2M11 15h2M14 15v2"/>
+        </svg>
+      </span>
+      <span class="home-card-title">Calculator</span>
+      <span class="home-card-sub">Dough scaling</span>
+    </a>
+
+  </nav>
+</div>
+
+<script type="module" src="js/orders/boot.js"></script>
+</body>
+</html>

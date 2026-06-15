@@ -100,3 +100,27 @@ export function saveDailyEntry(entry) {
     { merge: true }
   ).catch(err => { console.error('saveDailyEntry failed:', err); });
 }
+
+// ── Orders system (js/orders/*) ──────────────────────────────────────────────
+// The supplier-order feature has its own data layer, js/orders/firebase-orders.js,
+// which reuses THIS app + anonymous auth (it imports firebaseConfig from here).
+// It adds NO export here. Firestore collections it uses, every document carrying
+// bakery: "main" (validated in firestore.rules):
+//   - suppliers/{id}          { name, category, deliveryDays[], phone, email,
+//                               notifyHoursBefore, active }
+//   - ingredients/{id}        { name, supplierId, category, unit, active }
+//   - drafts/current          { weekId, entries:{ id:{ qty, stock } }, updatedAt }
+//   - orders-history/{weekId} { weekStart, createdAt, quantities:{id:qty}, stock:{id:qty} }
+//
+// ── Push notifications (Firebase Cloud Messaging) — FUTURE / server step ──────
+// Client-side alerts (js/orders/notifications.js) already work while the app is
+// OPEN. Pushing to staff with the app CLOSED needs the server step, deferred for
+// now. When adding it:
+//   1. Firebase Console → Cloud Messaging: enable it and create a Web Push
+//      certificate (VAPID key pair); keep the PUBLIC vapid key for the client.
+//   2. Add a service worker firebase-messaging-sw.js (background receive) that
+//      initializes this firebaseConfig and uses getMessaging()/onBackgroundMessage.
+//   3. Client: getToken(messaging, { vapidKey }) and store it in a Firestore
+//      collection (e.g. fcm-tokens/{token} with bakery:"main") + a matching rule.
+//   4. Server (Cloud Functions, Blaze plan) on a schedule: send the order-due,
+//      bank-holiday and delivery-conflict messages to the stored tokens.

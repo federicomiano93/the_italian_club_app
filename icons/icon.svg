@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- The Italian Club app icon: plate (restaurant) + wheat ear (bakery) +
+       tricolour (Italy), on the brand dark green. Source for icon-192/512.png. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#356019"/>
+      <stop offset="1" stop-color="#233E11"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- Plate ring (restaurant) -->
+  <circle cx="256" cy="226" r="142" fill="none" stroke="#F3ECDA" stroke-width="13" opacity="0.92"/>
+
+  <!-- Wheat ear (bakery) -->
+  <g stroke="#F3ECDA" stroke-width="9" stroke-linecap="round" fill="none">
+    <line x1="256" y1="312" x2="256" y2="150"/>
+    <path d="M256 150 q 12 -14 0 -34 q -12 20 0 34"/>
+    <path d="M256 172 q 28 -5 36 -29"/>
+    <path d="M256 172 q -28 -5 -36 -29"/>
+    <path d="M256 202 q 30 -3 40 -27"/>
+    <path d="M256 202 q -30 -3 -40 -27"/>
+    <path d="M256 232 q 31 -1 42 -25"/>
+    <path d="M256 232 q -31 -1 -42 -25"/>
+    <path d="M256 262 q 31 1 43 -23"/>
+    <path d="M256 262 q -31 1 -43 -23"/>
+  </g>
+
+  <!-- Tricolour (Italy) -->
+  <g>
+    <rect x="194" y="392" width="34" height="42" rx="11" fill="#1FA35A"/>
+    <rect x="239" y="392" width="34" height="42" rx="11" fill="#F3ECDA"/>
+    <rect x="284" y="392" width="34" height="42" rx="11" fill="#CC3B30"/>
+  </g>
+</svg>
