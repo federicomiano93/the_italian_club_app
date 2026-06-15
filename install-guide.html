@@ -104,6 +104,32 @@
     cursor: pointer;
   }
   .install-now-btn:active { background: #244011; }
+  .safari-warning {
+    background: #FFF4E0;
+    border: 1px solid #E8C98A;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    font-size: 15px;
+    color: #6B4E16;
+  }
+  .safari-warning strong { font-weight: 700; }
+  .safari-warning-how { display: block; margin-top: 8px; }
+  .copy-link-btn {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    padding: 12px;
+    background: #2D5016;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .copy-link-btn:active { background: #244011; }
   .steps h2 {
     font-size: 18px; font-weight: 700; color: #2D5016; margin-bottom: 12px;
     display: flex; align-items: center; gap: 8px;
@@ -147,6 +173,14 @@
 
     <div class="steps" data-os="ios" hidden>
       <h2>📱 iPhone / iPad</h2>
+      <div class="safari-warning" id="ios-safari-notice" hidden>
+        <strong>Open this page in Safari to install.</strong>
+        On iPhone the app can only be added to the Home Screen from Safari —
+        other browsers (like Chrome) cannot install it.
+        <span class="safari-warning-how">Tap the <strong>•••</strong> menu and choose
+        <strong>“Open in Safari”</strong>, or copy the link and paste it in Safari.</span>
+        <button type="button" class="copy-link-btn" id="copy-link-btn">Copy link</button>
+      </div>
       <ol>
         <li>Open the link in <strong>Safari</strong> (it must be Safari).</li>
         <li>Tap the <strong>Share</strong> button (the square with an up arrow).</li>
