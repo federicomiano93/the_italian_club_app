@@ -1,4 +1,4 @@
-# Bakery Calculator — PWA
+# The Italian Club — PWA
 
 ## Files
 ```
@@ -46,7 +46,7 @@ then open http://localhost:8765/
 
 ## Deploy
 Hosted on GitHub Pages:
-https://federicomiano93.github.io/Bakery_calculator/
+https://federicomiano93.github.io/the_italian_club_app/
 
 Updates are deployed automatically on every push to the main branch.
 
@@ -65,7 +65,7 @@ Updates are deployed automatically on every push to the main branch.
 
 ## Update the app
 1. Edit the relevant file in js/ or style.css
-2. Bump the cache version in sw.js (CACHE_NAME = 'bakery-vXX')
+2. Bump the cache version in sw.js (CACHE_NAME = 'theitalianclub-vXX')
 3. Push to GitHub — the live site updates automatically
 4. All installed users see the update next time they open the app
    (a banner appears at the top saying "New version available")

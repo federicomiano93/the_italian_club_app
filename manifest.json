@@ -1,6 +1,6 @@
 {
-  "name": "Bakery Calculator",
-  "short_name": "Bakery",
+  "name": "The Italian Club",
+  "short_name": "Italian Club",
   "description": "Dough scaling calculator from production orders",
   "start_url": "./",
   "display": "standalone",
