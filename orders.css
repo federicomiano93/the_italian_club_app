@@ -95,20 +95,7 @@
 /* ── Empty state / seed (test scaffolding) ────────────────────────────────── */
 .empty-state { text-align: center; padding: 40px 20px; }
 .empty-title { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
-.empty-sub { font-size: 14px; color: var(--text3); line-height: 1.5; margin-bottom: 18px; }
-.seed-btn {
-  padding: 13px 22px;
-  background: var(--accent);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  color: #fff;
-  cursor: pointer;
-}
-.seed-btn:active { background: #1e3810; }
-.seed-btn:disabled { opacity: 0.6; cursor: default; }
+.empty-sub { font-size: 14px; color: var(--text3); line-height: 1.5; }
 
 /* ── Supplier card (collapsible) ──────────────────────────────────────────── */
 .supplier-card {
@@ -443,20 +430,6 @@ input.ing-stock {
   cursor: pointer;
 }
 .btn-danger:active { background: #a13225; }
-
-/* Test-only: reload sample data button in the management panel */
-.mgmt-reload {
-  width: 100%;
-  margin-top: 18px;
-  padding: 10px;
-  background: transparent;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text3);
-  font-family: 'DM Mono', monospace;
-  font-size: 12px;
-  cursor: pointer;
-}
 
 /* ── Alerts (Phase 6) ─────────────────────────────────────────────────────── */
 #orders-alerts { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }

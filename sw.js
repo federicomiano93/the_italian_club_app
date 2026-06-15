@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v93';
+const CACHE_NAME = 'theitalianclub-v94';
 const ASSETS = [
   './',
   './index.html',
@@ -19,7 +19,6 @@ const ASSETS = [
   './js/orders/week.js',
   './js/orders/suppliers.js',
   './js/orders/ingredients.js',
-  './js/orders/sample-data.js',
   './js/orders/draft.js',
   './js/orders/preview.js',
   './js/orders/history.js',

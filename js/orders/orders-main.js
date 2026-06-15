@@ -8,7 +8,6 @@
 import { authReady, watchCollection, saveDoc, createDoc, COLLECTIONS } from './firebase-orders.js';
 import { el, groupBy } from './dom.js';
 import { renderSuppliers, refreshSupplierDerived } from './suppliers.js';
-import { seedSampleData } from './sample-data.js';
 import { scheduleDraftSave, watchDraft, archiveOrder, clearDraft } from './draft.js';
 import { buildPreview } from './preview.js';
 import { renderHistory as renderHistoryView } from './history.js';
@@ -96,26 +95,9 @@ function render() {
 
 function renderEmptyState(container) {
   container.textContent = '';
-  const btn = el('button', {
-    type: 'button',
-    class: 'seed-btn',
-    onClick: async () => {
-      btn.disabled = true;
-      btn.textContent = 'Loading sample data…';
-      try {
-        await seedSampleData(); // live watchers pick up the new data automatically
-      } catch (err) {
-        console.error('Seeding sample data failed:', err);
-        btn.disabled = false;
-        btn.textContent = 'Retry — load sample data';
-      }
-    },
-  }, 'Load sample data');
-
   container.appendChild(el('div', { class: 'empty-state' }, [
     el('p', { class: 'empty-title', text: 'No suppliers yet' }),
-    el('p', { class: 'empty-sub', text: 'Load a set of sample suppliers and ingredients to try the order workflow.' }),
-    btn,
+    el('p', { class: 'empty-sub', text: 'Add your suppliers and ingredients from the settings panel (gear icon, top right).' }),
   ]));
 }
 
@@ -168,7 +150,6 @@ function openManagement() {
         id ? saveDoc(COLLECTIONS.ingredients, id, payload) : createDoc(COLLECTIONS.ingredients, payload),
       setSupplierActive: (id, active) => saveDoc(COLLECTIONS.suppliers, id, { active }),
       setIngredientActive: (id, active) => saveDoc(COLLECTIONS.ingredients, id, { active }),
-      reloadSample: () => seedSampleData(), // test scaffolding: re-write the sample set
     },
   );
   document.body.appendChild(mgmt.overlay);

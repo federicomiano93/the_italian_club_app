@@ -82,13 +82,6 @@ export function buildManagement(data, actions) {
         () => actions.setSupplierActive(s.id, s.active === false)));
     });
     content.appendChild(list);
-
-    if (actions.reloadSample) {
-      content.appendChild(el('button', { type: 'button', class: 'mgmt-reload', onClick: async () => {
-        const ok = await confirmDialog('Reload sample data? This re-writes the sample suppliers, ingredients and 5 weeks of history (for testing).', 'Reload', false);
-        if (ok) actions.reloadSample();
-      } }, '↻ Reload sample data (test)'));
-    }
   }
 
   function renderIngredientList() {
