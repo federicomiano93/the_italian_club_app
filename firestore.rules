@@ -2,7 +2,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Current-session log: one document per dough type, overwritten on each confirm
+    // Current-session log: one document per dough type, overwritten on each confirm.
+    // Shared across the bakery team (any authenticated client reads the same log).
+    // NOTE: with Anonymous Auth this means any authenticated client can read it.
+    // True per-bakery isolation requires real (non-anonymous) auth — tracked as the
+    // next security step; this ruleset only hardens validation, not read scope.
     match /log/{dough} {
       allow read: if request.auth != null;
 
@@ -22,12 +26,29 @@ service cloud.firestore {
         && dough in ['focaccia', 'brioche', 'sourdough'];
     }
 
-    // Daily production log: one document per day (YYYY-MM-DD), keyed by dough type
+    // Daily production log: one document per day (YYYY-MM-DD), keyed by dough type.
+    // saveDailyEntry() merges one dough sub-entry at a time, so request.resource.data
+    // is the full merged document — its top-level keys must be a subset of the three
+    // dough types, and each present sub-entry must be a map. The app never deletes
+    // daily logs, so delete is denied.
     match /daily-logs/{date} {
       allow read: if request.auth != null;
 
-      allow write: if request.auth != null
-        && date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+      allow create, update: if request.auth != null
+        && date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.keys().hasOnly(['focaccia', 'brioche', 'sourdough'])
+        && request.resource.data.keys().size() > 0
+        && (!('focaccia' in request.resource.data) || request.resource.data.focaccia is map)
+        && (!('brioche' in request.resource.data) || request.resource.data.brioche is map)
+        && (!('sourdough' in request.resource.data) || request.resource.data.sourdough is map);
+
+      allow delete: if false;
+    }
+
+    // Default deny: any collection not explicitly matched above is locked down,
+    // so adding a new collection can never accidentally inherit open access.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

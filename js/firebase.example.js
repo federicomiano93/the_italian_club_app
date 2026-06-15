@@ -2,7 +2,9 @@
 //
 // Copy this file to js/firebase.js and replace the placeholder config values
 // with your real Firebase keys (from the Firebase Console).
-// js/firebase.js is excluded from Git via .gitignore — never commit it.
+// js/firebase.js IS committed to Git: Firebase web API keys are public config
+// (sent to every visitor's browser), not secrets. Security comes from Firestore
+// Security Rules + API key restrictions, never from hiding this file.
 //
 // This module:
 //   1. Initializes Firebase and signs the user in anonymously
