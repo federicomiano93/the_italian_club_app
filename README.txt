@@ -1,174 +1,126 @@
 # The Italian Club — PWA
 
+A mobile-first Progressive Web App for a bakery/restaurant, with two sections:
+
+- **Calculator** — dough scaling from production orders (Focaccia, Brioche, Sourdough).
+- **Orders** — weekly supplier-order workflow: suppliers & ingredients, stock-based
+  order suggestions learned from history, autosaving real-time draft, preview and
+  WhatsApp/Email send, order history, and a management panel.
+
+Live: https://federicomiano93.github.io/the_italian_club_app/
+
 ## Files
 ```
-├── index.html          ← HTML structure only
-├── style.css           ← all CSS
+├── index.html              ← Home screen (PWA start_url): Orders / Calculator cards
+├── home.html               ← redirect stub -> index.html (for older installs)
+├── calculator.html         ← Calculator (dough scaling)
+├── orders.html             ← Orders feature page
+├── install-guide.html      ← shareable, device-first install guide (uses qr.png)
+├── style.css               ← Calculator styles
+├── orders.css              ← Home + Orders styles
+├── manifest.json           ← PWA config (start_url, name, icons)
+├── sw.js                   ← service worker (offline cache + auto-update)
+├── firestore.rules         ← Firestore security rules
+├── firebase.json           ← Firebase CLI config
+├── qr.png                  ← QR code to the app (for the install guide)
 ├── js/
-│   ├── app.js          ← entry point: service worker, tab switching, event listeners, localStorage
-│   ├── firebase.example.js ← template for firebase.js (placeholders only, safe to commit)
-│   ├── firebase.js     ← Firebase init + Firestore (save/delete/sync log + daily-logs) — gitignored, real keys
-│   ├── recipes.js      ← recipe data (RECIPES) + recipe overlay UI
-│   ├── calc.js         ← calcFocaccia, calcBrioche, calcSourdough, copyRecipe, shareRecipeWA
-│   ├── log.js          ← production log: save, render, delete, daily CSV entry
-│   └── whatsapp.js     ← Duke Street Market order modal + WhatsApp send
-├── sw.js               ← service worker (offline cache + auto-update)
-├── manifest.json       ← PWA config
-├── firestore.rules     ← Firestore security rules
-├── firebase.json       ← Firebase CLI config
+│   ├── firebase.js         ← Firebase init + Calculator Firestore helpers — COMMITTED (public config)
+│   ├── firebase.example.js ← reference template (placeholders) + Orders collections / FCM docs
+│   ├── app.js              ← Calculator entry point: SW, tabs, listeners, localStorage
+│   ├── calc.js             ← calcFocaccia, calcBrioche, calcSourdough
+│   ├── log.js              ← Calculator production log
+│   ├── recipes.js          ← recipe data + overlay UI
+│   ├── whatsapp.js         ← Duke Street Market order modal + WhatsApp send
+│   ├── install.js          ← Home-screen install helper (Android button / iOS tip)
+│   ├── install-guide.js    ← drives the device-first install guide
+│   └── orders/             ← Orders feature (vanilla ESM modules)
+│       ├── boot.js         ← service worker registration for Home/Orders pages
+│       ├── firebase-orders.js ← Firestore data layer (reuses firebase.js app + auth)
+│       ├── orders-main.js  ← Orders entry point / orchestrator
+│       ├── dom.js          ← CSP-safe DOM helpers
+│       ├── week.js         ← ISO week id helpers
+│       ├── suppliers.js    ← supplier list (badges, counters, progress)
+│       ├── ingredients.js  ← ingredient rows (stock, order, suggestion)
+│       ├── draft.js        ← autosave/restore/real-time draft + archive to history
+│       ├── preview.js      ← order preview + WhatsApp/Email send
+│       ├── history.js      ← past orders view
+│       ├── management.js   ← management panel (add/edit/deactivate)
+│       ├── suggestions.js  ← par-level order suggestion engine
+│       ├── bank-holidays.js ← gov.uk UK bank-holiday calendar (cached)
+│       └── notifications.js ← client-side alerts + browser notifications
 └── icons/
+    ├── icon.svg            ← editable vector source for the app icon
     ├── icon-192.png
     └── icon-512.png
 ```
 
-## Setup (first run / after clone)
-`js/firebase.js` holds the real Firebase keys and is gitignored, so it is
-NOT present after cloning. Recreate it from the template:
+## Firebase config
+`js/firebase.js` is **committed to Git**: Firebase web API keys are public config
+(sent to every visitor's browser), not secrets. Security comes from Firestore
+Security Rules + API key restrictions, never from hiding the file.
+`js/firebase.example.js` is the matching template (placeholder values + docs for
+the Orders collections and the future FCM setup). Keep it in sync with firebase.js.
 
-1. Copy `js/firebase.example.js` to `js/firebase.js`
-2. Replace the placeholder values in `firebaseConfig` with the real keys
-   from the Firebase Console (Project settings → Your apps)
-3. Leave the rest of the file unchanged
+Real secrets (service-account JSON, `.env`) are never committed.
 
-`js/firebase.example.js` is a complete, working template (safe to commit):
-it contains the full Firebase setup — app initialization, anonymous auth,
-the real-time `log` listener (populates `window.firestoreLog` and dispatches
-the `firestore-log-updated` event), and the `saveLogToFirestore` /
-`deleteLogFromFirestore` / `saveDailyEntry` exports. Only the `firebaseConfig`
-values are placeholders.
-
-Local testing needs a local server (service worker and Firebase do not work
-from `file://`):
+## Local testing
+Service workers and Firebase need a server (not file://):
 ```
 npx http-server . -p 8765
 ```
 then open http://localhost:8765/
 
 ## Deploy
-Hosted on GitHub Pages:
-https://federicomiano93.github.io/the_italian_club_app/
-
-Updates are deployed automatically on every push to the main branch.
-
-## Install on iPhone
-1. Open the link in Safari (must be Safari, not Chrome)
-2. Tap the Share button (square with arrow)
-3. Tap "Add to Home Screen"
-4. Tap "Add"
-5. Done — the app appears on your home screen
-
-## Install on Android
-1. Open the link in Chrome
-2. Tap the three dots menu
-3. Tap "Add to Home screen" or "Install app"
-4. Confirm
-
-## Update the app
-1. Edit the relevant file in js/ or style.css
-2. Bump the cache version in sw.js (CACHE_NAME = 'theitalianclub-vXX')
-3. Push to GitHub — the live site updates automatically
-4. All installed users see the update next time they open the app
-   (a banner appears at the top saying "New version available")
-
-## Works offline
-Once installed, the app works without internet connection.
-The service worker uses a cache-first strategy with background update (stale-while-revalidate):
-it serves the cached version immediately on every load (no white screen on poor connections),
-then fetches from the network in background to keep the cache fresh.
-
-## Focaccia tab
-
-### Ciabatta (Bone&Block)
-- Quantity is selected via a dropdown: 0 / 20 / 40 / 60 / 80 / 100 pz
-- Rule: 20 ciabatta = 1 box = 3000g of dough
-- After confirming, the result card shows a "Ciabatta" box with the number of boxes
-  and "3000g each box"
-
-### Confirm / Edit flow
-- After clicking **Confirm**, the recipe result stays visible on screen
-- If you change quantities, the recipe updates in real-time without saving to the log again
-- Clicking **Edit** asks for confirmation before hiding the result and returning to edit mode
-- If all quantities are cleared, the result hides automatically and the button resets
-
-## Production Log
-
-### Current session log (Log tab)
-Each Confirm saves the latest entry for that dough type to:
-- `localStorage` (offline backup)
-- Firestore collection `log/{dough}` (synced across devices)
-
-Only the most recent confirmation per dough type is kept in the Log tab display.
-
-### Daily production log (Firestore)
-Every Confirm also writes a structured entry to:
-- Firestore collection `daily-logs/{YYYY-MM-DD}`
-
-Each day is a single document. Each dough type is a field within that document.
-Re-confirming (after Edit) overwrites only that dough's field for the day — other doughs are untouched.
-
-Document structure:
-```
-daily-logs/
-  2026-06-06:
-    date: "2026-06-06"
-    focaccia:
-      date_iso, date, time, dough
-      pizzas, focaccias, ciabatta, tray_focaccia, panini, extra_kg_f
-      total_g
-    brioche:
-      date_iso, date, time, dough
-      burger_buns, sub_rolls, buns, rolls, extra_kg_b
-      total_g
-    sourdough:
-      date_iso, date, time, dough
-      loaves, loaf_weight_g
-      total_g
-```
-
-Non-applicable fields for a dough type are stored as empty string "".
-
-## Security
-
-### Content Security Policy
-A CSP meta tag in index.html restricts what the browser can load:
-- Scripts: only from this domain + https://www.gstatic.com (Firebase SDK CDN)
-- Connections: only to Firebase/Firestore endpoints
-- Styles/Fonts: only from this domain + Google Fonts
-- Everything else (inline eval, unknown origins) is blocked by the browser
-
-### Firebase Anonymous Auth
-The app signs in anonymously on startup (`signInAnonymously`) — no login
-screen, no email required. Every device gets a silent auth token which is
-required by the Firestore rules to read or write data. Unauthenticated
-REST API calls from outside the app are rejected.
-
-Anonymous Auth must be enabled in the Firebase Console:
-Authentication → Sign-in method → Anonymous → Enable.
-
-### Firestore Security Rules
-`firestore.rules` is deployed via Firebase CLI and enforced server-side.
-
-**log collection** — all writes and deletes require a valid auth token.
-Writes are accepted only if:
-- Document ID is one of: `focaccia`, `brioche`, `sourdough`
-- Fields are exactly: `dough`, `date`, `time`, `text` (no extras)
-- `dough` value is one of: `Focaccia`, `Brioche`, `Sourdough`
-- `date` < 50 chars, `time` < 10 chars, `text` < 2000 chars
-
-**daily-logs collection** — all reads and writes require a valid auth token.
-Document ID must match the format `YYYY-MM-DD`.
-
-To update and redeploy the rules:
+Hosted on GitHub Pages — every push to `main` goes live automatically.
+After editing any cached file, bump `CACHE_NAME = 'theitalianclub-vNN'` in sw.js
+so users receive the update. Deploy Firestore rules separately when they change:
 ```
 firebase deploy --only firestore:rules
 ```
 
-### Service Worker — no cross-origin caching
-The fetch handler skips caching for any request outside the app's own
-origin (Firebase SDK CDN, Firestore API, Google Fonts). This prevents a
-compromised CDN response from being persisted in the offline cache.
+## Versioning
+Releases are tracked with git tags (semver `vMAJOR.MINOR.PATCH`), never by renaming
+the repo. First release: v1.0.0.
 
-### XSS Prevention
-All Firestore data rendered in the Log tab uses DOM API methods
-(`textContent`, `createElement`) instead of `innerHTML`, so
-any HTML in stored records is displayed as plain text, never executed.
+## Install on a device
+Open the install guide and follow the steps for your device:
+https://federicomiano93.github.io/the_italian_club_app/install-guide.html
+- iPhone/iPad: Safari → Share → "Add to Home Screen".
+- Android: Chrome → "Install app" / menu → "Add to Home screen".
+- Computer: Chrome/Edge → install icon in the address bar.
+(Installs once per device; after that it opens like any app. Browsers do not allow
+automatic install — a one-time user action is always required.)
+
+## Works offline
+The service worker precaches the app and serves a cached copy instantly, updating
+in the background. Cross-origin requests (Firebase, Google Fonts, gov.uk) are never
+cached.
+
+## Data model (Firestore)
+Calculator:
+- `log/{dough}` — current-session log per dough type.
+- `daily-logs/{YYYY-MM-DD}` — daily production log, keyed by dough type.
+
+Orders (every document carries `bakery: "main"`):
+- `suppliers/{id}` — name, category, deliveryDays, phone, email, notifyHoursBefore, active.
+- `ingredients/{id}` — name, supplierId, category, unit, active.
+- `drafts/current` — current week's order (autosaved, real-time).
+- `orders-history/{weekId}` — archived weeks (ordered quantities + stock on hand).
+
+All collections are currently shared across authenticated clients (Anonymous Auth).
+
+## Security
+- **Firestore rules** (firestore.rules) enforced server-side: auth required, payloads
+  validated, deletes restricted, default-deny for unmatched collections.
+- **Anonymous Auth** on startup — no login screen; a silent token is required to
+  read/write.
+- **Content Security Policy** on every page restricts what the browser may load
+  (scripts/connections/styles/fonts allow-listed).
+- **XSS-safe rendering** — Firestore data is rendered via textContent/createElement,
+  never innerHTML.
+
+## Notifications
+Order alerts (order due, bank holiday next week, delivery-day conflict) are
+client-side: in-app banners + browser notifications while the app is open. Push to
+staff with the app closed needs a server step (Firebase Cloud Functions) — deferred;
+see the FCM notes in js/firebase.example.js.
