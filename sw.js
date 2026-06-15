@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v88';
+const CACHE_NAME = 'theitalianclub-v89';
 const ASSETS = [
   './',
   './index.html',
@@ -16,9 +16,12 @@ const ASSETS = [
   './js/orders/firebase-orders.js',
   './js/orders/orders-main.js',
   './js/orders/dom.js',
+  './js/orders/week.js',
   './js/orders/suppliers.js',
   './js/orders/ingredients.js',
   './js/orders/sample-data.js',
+  './js/orders/draft.js',
+  './js/orders/preview.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png'

@@ -23,6 +23,7 @@ import {
   getFirestore,
   collection,
   doc,
+  getDoc,
   getDocs,
   setDoc,
   deleteDoc,
@@ -91,4 +92,22 @@ export async function saveDoc(name, id, data) {
 export async function removeDoc(name, id) {
   await authReady;
   return deleteDoc(doc(db, name, id));
+}
+
+// One-off read of a single document. Returns { id, ...data } or null.
+export async function getDocOnce(name, id) {
+  await authReady;
+  const snap = await getDoc(doc(db, name, id));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+// Subscribe to a single document in real time. onChange receives { id, ...data }
+// or null when the document does not exist. Returns the unsubscribe function.
+export async function watchDoc(name, id, onChange) {
+  await authReady;
+  return onSnapshot(
+    doc(db, name, id),
+    snap => onChange(snap.exists() ? { id: snap.id, ...snap.data() } : null),
+    err => console.error(`watchDoc(${name}/${id}) failed:`, err),
+  );
 }

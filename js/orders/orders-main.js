@@ -1,32 +1,40 @@
 // orders-main.js — entry point for orders.html.
 //
-// Phase 1: tab navigation + Firebase connectivity check.
-// Phase 2: load suppliers/ingredients/history, render the supplier list with
-// per-supplier ingredient lists, progress bars, badges and counters. An empty
-// database offers a "Load sample data" button (test scaffolding, see
-// sample-data.js). Draft persistence and sending come in Phase 3.
+// Phase 1: tab navigation + Firebase connectivity.
+// Phase 2: render suppliers/ingredients with stock + order fields.
+// Phase 3: persistent autosaving draft, real-time sync across staff, order
+// preview grouped by supplier, and send (WhatsApp/Email) + archive to history.
 
 import { authReady, watchCollection, getCollection, COLLECTIONS } from './firebase-orders.js';
 import { el, groupBy } from './dom.js';
 import { renderSuppliers, refreshSupplierDerived } from './suppliers.js';
 import { seedSampleData } from './sample-data.js';
+import { scheduleDraftSave, watchDraft, archiveOrder, clearDraft } from './draft.js';
+import { buildPreview } from './preview.js';
 
 const state = {
   suppliers: [],
   ingredients: [],
-  lastWeek: {},                 // { ingredientId: quantity } from the latest history week
-  entries: {},                  // { ingredientId: { qty, stock, checked } } — this week's draft (in memory for now)
-  expanded: new Set(),          // ids of expanded supplier cards
+  lastWeek: {},
+  entries: {},                  // { ingredientId: { qty, stock } } — shared object, mutated in place
+  expanded: new Set(),
   loaded: { suppliers: false, ingredients: false },
 };
 
-// Refresh a supplier's badge/counter/progress when a row changes (no full rebuild).
+// Replace the contents of state.entries WITHOUT changing the object reference,
+// so the row closures (which captured this object) stay valid after a remote sync.
+function setEntries(next) {
+  Object.keys(state.entries).forEach(k => delete state.entries[k]);
+  Object.assign(state.entries, next || {});
+}
+
 const hooks = {
   afterChange(supplierId) {
     const supplier = state.suppliers.find(s => s.id === supplierId);
-    if (!supplier) return;
-    const ings = ingredientsBySupplier()[supplierId] || [];
-    refreshSupplierDerived(supplier, ings, state.entries);
+    if (supplier) {
+      refreshSupplierDerived(supplier, ingredientsBySupplier()[supplierId] || [], state.entries);
+    }
+    scheduleDraftSave(state.entries); // autosave (debounced)
   },
 };
 
@@ -40,15 +48,35 @@ function ingredientsBySupplier() {
   return groupBy(state.ingredients.filter(i => i.active !== false), 'supplierId');
 }
 
+function refreshAllSuppliers() {
+  const bySupplier = ingredientsBySupplier();
+  activeSuppliers().forEach(s => refreshSupplierDerived(s, bySupplier[s.id] || [], state.entries));
+}
+
+// Apply state.entries to the inputs already on screen (used after a remote sync).
+// Skips the field the user is currently editing so their typing is never clobbered.
+function syncInputsFromState() {
+  document.querySelectorAll('#suppliers-list .ing-row').forEach(row => {
+    const entry = state.entries[row.dataset.ing] || {};
+    const stock = row.querySelector('.ing-stock');
+    const qty = row.querySelector('.ing-qty');
+    if (stock && stock !== document.activeElement) stock.value = entry.stock || '';
+    if (qty && qty !== document.activeElement) qty.value = entry.qty || '';
+  });
+  refreshAllSuppliers();
+}
+
 // ── Rendering ─────────────────────────────────────────────────────────────────
 function render() {
   const container = document.getElementById('suppliers-list');
   if (!container) return;
-  // Wait until both collections have reported at least once.
   if (!state.loaded.suppliers || !state.loaded.ingredients) return;
 
   const suppliers = activeSuppliers();
+  const previewBtn = document.getElementById('preview-btn');
+
   if (!suppliers.length) {
+    if (previewBtn) previewBtn.hidden = true;
     renderEmptyState(container);
     return;
   }
@@ -59,6 +87,7 @@ function render() {
     expanded: state.expanded,
     hooks,
   });
+  if (previewBtn) previewBtn.hidden = false;
 }
 
 function renderEmptyState(container) {
@@ -87,6 +116,27 @@ function renderEmptyState(container) {
   ]));
 }
 
+// ── Preview / send ────────────────────────────────────────────────────────────
+function openPreview() {
+  const overlay = buildPreview(activeSuppliers(), ingredientsBySupplier(), state.entries, {
+    onBack: () => overlay.remove(),
+    onArchive: async () => {
+      try {
+        await archiveOrder(state.entries);
+        await clearDraft();
+        setEntries({});
+        syncInputsFromState();
+        overlay.remove();
+        setStatus('Order saved to history ✓', 'ok');
+      } catch (err) {
+        console.error('Archiving order failed:', err);
+        setStatus('Could not save the order — check your network and try again.', 'error');
+      }
+    },
+  });
+  document.body.appendChild(overlay);
+}
+
 // ── Data loading ────────────────────────────────────────────────────────────
 async function loadHistory() {
   try {
@@ -100,7 +150,7 @@ async function loadHistory() {
   render();
 }
 
-// ── Tab navigation (Order / History) ─────────────────────────────────────────
+// ── Tabs / status ─────────────────────────────────────────────────────────────
 function setupTabs() {
   const tabs = [
     { btn: 'tab-order-btn', panel: 'tab-order' },
@@ -128,6 +178,8 @@ function setStatus(text, kind) {
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
   setupTabs();
+  document.getElementById('preview-btn')?.addEventListener('click', openPreview);
+
   try {
     await authReady;
     setStatus('Connected ✓', 'ok');
@@ -138,6 +190,13 @@ async function init() {
   }
 
   await loadHistory();
+
+  // Real-time draft: restores the exact state on open and keeps staff in sync.
+  watchDraft(entries => {
+    setEntries(entries);
+    syncInputsFromState();
+  });
+
   watchCollection(COLLECTIONS.suppliers, list => {
     state.suppliers = list;
     state.loaded.suppliers = true;

@@ -8,9 +8,9 @@
 import { saveDoc, COLLECTIONS } from './firebase-orders.js';
 
 export const SAMPLE_SUPPLIERS = [
-  { id: 'bidfood', name: 'Bidfood', category: 'Dry goods', deliveryDays: ['Monday', 'Thursday'], active: true },
-  { id: 'freshdairy', name: 'Fresh Dairy Co', category: 'Dairy', deliveryDays: ['Tuesday', 'Friday'], active: true },
-  { id: 'greengrocer', name: 'Green Grocer', category: 'Fresh produce', deliveryDays: ['Wednesday'], active: true },
+  { id: 'bidfood', name: 'Bidfood', category: 'Dry goods', deliveryDays: ['Monday', 'Thursday'], phone: '447700900123', email: 'orders@bidfood.example', active: true },
+  { id: 'freshdairy', name: 'Fresh Dairy Co', category: 'Dairy', deliveryDays: ['Tuesday', 'Friday'], phone: '447700900456', email: 'sales@freshdairy.example', active: true },
+  { id: 'greengrocer', name: 'Green Grocer', category: 'Fresh produce', deliveryDays: ['Wednesday'], phone: '447700900789', email: 'hello@greengrocer.example', active: true },
 ];
 
 export const SAMPLE_INGREDIENTS = [

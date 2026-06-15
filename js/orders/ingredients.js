@@ -57,6 +57,7 @@ function buildRow(ing, supplier, entries, hooks) {
   stockInput.addEventListener('input', () => {
     entries[ing.id].stock = Math.max(0, Math.round(Number(stockInput.value) || 0));
     // Phase 5: entering stock will auto-fill the suggested order quantity here.
+    hooks.afterChange(supplier.id); // triggers the draft autosave
   });
   qtyInput.addEventListener('input', () => setQty(qtyInput.value, true));
 
