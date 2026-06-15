@@ -4,4 +4,6 @@ firebase-config.js
 # the app domain in Google Cloud Console. Do not re-add it to .gitignore.
 .env
 node_modules/
-CLAUDE.md
+# CLAUDE.md (project context) and CLAUDE.global.md (transport copy of the global
+# rules) stay local and must never be committed or published.
+CLAUDE*.md
