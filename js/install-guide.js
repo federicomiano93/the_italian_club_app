@@ -33,9 +33,31 @@
 
   // Detect the most likely device from the user agent.
   const ua = navigator.userAgent;
+  const isIOS = /iPhone|iPad|iPod/.test(ua);
   let detected = 'desktop';
-  if (/iPhone|iPad|iPod/.test(ua)) detected = 'ios';
+  if (isIOS) detected = 'ios';
   else if (/Android/.test(ua)) detected = 'android';
+
+  // On iOS only Safari can install a PWA. If the visitor opened the link in
+  // Chrome / Firefox / Edge or an in-app browser (no "Safari" token), show a
+  // clear notice telling them to switch to Safari, with a copy-link helper.
+  const isOtherIOSBrowser = isIOS
+    && (/CriOS|FxiOS|EdgiOS|GSA/.test(ua) || !/Safari/.test(ua));
+  if (isOtherIOSBrowser) {
+    const notice = document.getElementById('ios-safari-notice');
+    if (notice) notice.hidden = false;
+    const copyBtn = document.getElementById('copy-link-btn');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(location.href);
+          copyBtn.textContent = 'Link copied — now paste it in Safari';
+        } catch (e) {
+          copyBtn.textContent = 'Copy failed — long-press the address bar to copy';
+        }
+      });
+    }
+  }
 
   // One-tap install (Chromium only). The browser fires beforeinstallprompt when
   // it considers the app installable; we capture it and show a button at the top
