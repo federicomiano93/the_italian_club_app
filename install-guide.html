@@ -1,114 +1,168 @@
 <!--
-  Install guide — shareable page with a QR code and per-device instructions.
-  Static, self-contained (no JS, no Firebase). Open it, screenshot/print, or
-  share the URL with staff: .../the_italian_club_app/install-guide.html
+  Install guide — full-screen, device-first flow. Asks which device the user has,
+  then shows only the matching install steps. Static (no Firebase). Logic lives in
+  js/install-guide.js (external, CSP-safe). Shareable URL / screenshot / print.
 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#2D5016">
 <title>Install The Italian Club</title>
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@500&family=DM+Sans:wght@400;500;600;700&display=swap');
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
   body {
     font-family: 'DM Sans', sans-serif;
     background: #F5F2ED;
     color: #1A1A18;
     line-height: 1.5;
-    padding: 24px 16px 48px;
   }
-  .wrap { max-width: 560px; margin: 0 auto; }
-  header { text-align: center; margin-bottom: 24px; }
-  header h1 { font-size: 24px; font-weight: 700; color: #2D5016; letter-spacing: -0.3px; }
-  header p { font-size: 14px; color: #6B6860; margin-top: 4px; font-family: 'DM Mono', monospace; }
+  .app {
+    min-height: 100%;
+    max-width: 560px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    padding: calc(28px + env(safe-area-inset-top, 0px)) 20px calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+  .brand { text-align: center; margin-bottom: 28px; }
+  .brand h1 { font-size: 24px; font-weight: 700; color: #2D5016; letter-spacing: -0.3px; }
+  .brand p { font-size: 14px; color: #6B6860; margin-top: 4px; font-family: 'DM Mono', monospace; }
 
+  .screen { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .screen[hidden] { display: none; }
+
+  .ask { font-size: 18px; font-weight: 600; text-align: center; margin-bottom: 20px; }
+  .os-buttons { display: flex; flex-direction: column; gap: 12px; }
+  .os-btn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 20px;
+    background: #fff;
+    border: 1px solid #E0DDD8;
+    border-radius: 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1A1A18;
+    cursor: pointer;
+    text-align: left;
+  }
+  .os-btn:active { border-color: #2D5016; }
+  .os-btn .ico { font-size: 26px; line-height: 1; }
+  .os-btn .suggested {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'DM Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #2D5016;
+    background: #E8F0E0;
+    padding: 4px 8px;
+    border-radius: 8px;
+  }
+
+  .change {
+    align-self: flex-start;
+    background: none;
+    border: none;
+    color: #2D5016;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0 0 16px;
+  }
   .qr-card {
     background: #fff; border: 1px solid #E0DDD8; border-radius: 16px;
-    padding: 22px; text-align: center; margin-bottom: 24px;
+    padding: 18px; text-align: center; margin-bottom: 18px;
   }
-  .qr-card img { width: 220px; height: 220px; max-width: 100%; }
-  .qr-card .cap { font-size: 14px; color: #1A1A18; margin-top: 12px; font-weight: 500; }
-  .qr-card a {
-    display: inline-block; margin-top: 8px; font-family: 'DM Mono', monospace;
-    font-size: 12px; color: #2D5016; word-break: break-all;
-  }
+  .qr-card img { width: 180px; height: 180px; max-width: 70%; }
+  .qr-card .cap { font-size: 13px; color: #6B6860; margin-top: 10px; }
 
-  .step-card {
-    background: #fff; border: 1px solid #E0DDD8; border-radius: 12px;
-    padding: 16px 18px; margin-bottom: 14px;
-  }
-  .step-card h2 {
-    font-size: 16px; font-weight: 700; color: #2D5016; margin-bottom: 10px;
+  .steps[hidden] { display: none; }
+  .steps h2 {
+    font-size: 18px; font-weight: 700; color: #2D5016; margin-bottom: 12px;
     display: flex; align-items: center; gap: 8px;
   }
-  .step-card ol { margin: 0; padding-left: 20px; }
-  .step-card li { font-size: 15px; margin-bottom: 6px; }
-  .step-card .badge {
-    font-size: 11px; font-weight: 600; font-family: 'DM Mono', monospace;
-    text-transform: uppercase; letter-spacing: 0.05em; color: #6B6860;
-  }
+  .steps ol { margin: 0 0 4px; padding-left: 22px; }
+  .steps li { font-size: 16px; margin-bottom: 10px; }
 
   .note {
     background: #E8F0E0; border-radius: 12px; padding: 14px 16px;
-    font-size: 14px; color: #2D5016; margin-top: 8px;
+    font-size: 14px; color: #2D5016; margin-top: 16px;
   }
   .note strong { font-weight: 700; }
-  footer { text-align: center; font-size: 12px; color: #A09D98; margin-top: 22px; font-family: 'DM Mono', monospace; }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="app">
 
-  <header>
+  <div class="brand">
     <h1>The Italian Club</h1>
-    <p>Install the app on your device</p>
-  </header>
-
-  <div class="qr-card">
-    <img src="qr.png" alt="QR code to open The Italian Club app">
-    <div class="cap">Scan with your phone camera to open the app</div>
-    <a href="https://federicomiano93.github.io/the_italian_club_app/">federicomiano93.github.io/the_italian_club_app</a>
+    <p>Install the app</p>
   </div>
 
-  <div class="step-card">
-    <h2>📱 iPhone / iPad <span class="badge">Safari</span></h2>
-    <ol>
-      <li>Open the link in <strong>Safari</strong> (not Chrome).</li>
-      <li>Tap the <strong>Share</strong> button (the square with an up arrow).</li>
-      <li>Scroll down and tap <strong>“Add to Home Screen”</strong>.</li>
-      <li>Tap <strong>“Add”</strong> — the app icon appears on your home screen.</li>
-    </ol>
+  <!-- Step 1: choose device -->
+  <div class="screen" id="screen-select">
+    <p class="ask">Which device are you using?</p>
+    <div class="os-buttons">
+      <button class="os-btn" data-os-btn="ios"><span class="ico">📱</span> iPhone / iPad</button>
+      <button class="os-btn" data-os-btn="android"><span class="ico">🤖</span> Android</button>
+      <button class="os-btn" data-os-btn="desktop"><span class="ico">💻</span> Computer</button>
+    </div>
   </div>
 
-  <div class="step-card">
-    <h2>🤖 Android <span class="badge">Chrome</span></h2>
-    <ol>
-      <li>Open the link in <strong>Chrome</strong>.</li>
-      <li>Tap the <strong>“Install app”</strong> button if it appears, or the <strong>⋮</strong> menu (top right).</li>
-      <li>Tap <strong>“Install app”</strong> / <strong>“Add to Home screen”</strong>.</li>
-      <li>Confirm — the app icon appears.</li>
-    </ol>
+  <!-- Step 2: instructions for the chosen device -->
+  <div class="screen" id="screen-steps" hidden>
+    <button class="change" id="change-device">← Change device</button>
+
+    <div class="qr-card">
+      <img src="qr.png" alt="QR code to open The Italian Club app">
+      <div class="cap">Or scan this with your phone camera to open the app</div>
+    </div>
+
+    <div class="steps" data-os="ios" hidden>
+      <h2>📱 iPhone / iPad</h2>
+      <ol>
+        <li>Open the link in <strong>Safari</strong> (it must be Safari).</li>
+        <li>Tap the <strong>Share</strong> button (the square with an up arrow).</li>
+        <li>Scroll down and tap <strong>“Add to Home Screen”</strong>.</li>
+        <li>Tap <strong>“Add”</strong> — the app icon appears on your home screen.</li>
+      </ol>
+    </div>
+
+    <div class="steps" data-os="android" hidden>
+      <h2>🤖 Android</h2>
+      <ol>
+        <li>Open the link in <strong>Chrome</strong>.</li>
+        <li>Tap the <strong>“Install app”</strong> button if it appears, or the <strong>⋮</strong> menu (top right).</li>
+        <li>Tap <strong>“Install app”</strong> / <strong>“Add to Home screen”</strong>.</li>
+        <li>Confirm — the app icon appears.</li>
+      </ol>
+    </div>
+
+    <div class="steps" data-os="desktop" hidden>
+      <h2>💻 Computer</h2>
+      <ol>
+        <li>Open the link in <strong>Chrome</strong> or <strong>Edge</strong>.</li>
+        <li>Click the <strong>install icon</strong> in the address bar (a small screen with a ⊕), or the menu → <strong>“Install The Italian Club”</strong>.</li>
+        <li>Confirm — it opens in its own window and gets a shortcut.</li>
+      </ol>
+    </div>
+
+    <div class="note"><strong>You only do this once</strong> per device. After that, just tap the app icon — like any other app.</div>
   </div>
 
-  <div class="step-card">
-    <h2>💻 Computer <span class="badge">Chrome / Edge</span></h2>
-    <ol>
-      <li>Open the link in <strong>Chrome</strong> or <strong>Edge</strong>.</li>
-      <li>Click the <strong>install icon</strong> in the address bar (a small screen with a ⊕), or the menu → <strong>“Install The Italian Club”</strong>.</li>
-      <li>Confirm — it opens in its own window and gets a shortcut.</li>
-    </ol>
-  </div>
-
-  <div class="note">
-    <strong>You only do this once</strong> per device. After that, just tap the app icon — like any other app. (Browsers don’t allow apps to install automatically, so this short setup is needed the first time.)
-  </div>
-
-  <footer>The Italian Club · install guide</footer>
 </div>
+<script src="js/install-guide.js"></script>
 </body>
 </html>

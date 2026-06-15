@@ -1,10 +1,13 @@
-const CACHE_NAME = 'theitalianclub-v97';
+const CACHE_NAME = 'theitalianclub-v98';
 const ASSETS = [
   './',
   './index.html',
   './home.html',
   './calculator.html',
   './orders.html',
+  './install-guide.html',
+  './qr.png',
+  './js/install-guide.js',
   './style.css',
   './orders.css',
   './js/app.js',
