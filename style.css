@@ -299,6 +299,9 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   margin-top: 10px;
   text-align: center;
 }
+/* Hidden by default; shown by calc.js when ciabatta orders exist.
+   Replaces an inline style="display:none" that violated the CSP. */
+#f-ciabatta-box { display: none; }
 .panini-box-title {
   font-size: 11px;
   font-family: 'DM Mono', monospace;

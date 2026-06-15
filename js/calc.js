@@ -77,7 +77,7 @@ export function calcFocaccia() {
   const cbEl = document.getElementById('f-ciabatta-box');
   if (ciabatta > 0) {
     document.getElementById('f-ciabatta-boxes').textContent = ciabattaBoxes;
-    cbEl.style.display = '';
+    cbEl.style.display = 'block';
   } else {
     cbEl.style.display = 'none';
   }
