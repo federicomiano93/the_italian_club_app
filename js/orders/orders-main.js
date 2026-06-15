@@ -15,6 +15,7 @@ import { renderHistory as renderHistoryView } from './history.js';
 import { buildManagement, isAdmin } from './management.js';
 import { computeSuggestion } from './suggestions.js';
 import { refreshBankHolidays } from './bank-holidays.js';
+import { renderAlerts } from './notifications.js';
 
 const state = {
   suppliers: [],
@@ -129,6 +130,10 @@ function renderHistory() {
   renderHistoryView(document.getElementById('history-list'), state.history, state.suppliers, state.ingredients);
 }
 
+function showAlerts() {
+  renderAlerts(document.getElementById('orders-alerts'), state.suppliers);
+}
+
 // ── Preview / send ────────────────────────────────────────────────────────────
 function openPreview() {
   const overlay = buildPreview(activeSuppliers(), ingredientsBySupplier(), state.entries, {
@@ -216,7 +221,7 @@ async function init() {
 
   // Refresh the official UK bank-holiday calendar (cached for offline; used by
   // the Phase 6 alerts). Fire-and-forget — failure falls back to the cached list.
-  refreshBankHolidays().then(list => console.log(`Bank holidays loaded: ${list.length} dates`));
+  refreshBankHolidays().then(list => { console.log(`Bank holidays loaded: ${list.length} dates`); showAlerts(); });
 
   // Real-time draft: restores exact state on open and keeps staff in sync.
   watchDraft(entries => {
@@ -231,6 +236,7 @@ async function init() {
     state.loaded.suppliers = true;
     render();
     renderHistory();
+    showAlerts();
     mgmt?.refresh();
   });
   watchCollection(COLLECTIONS.ingredients, list => {

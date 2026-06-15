@@ -457,3 +457,29 @@ input.ing-stock {
   font-size: 12px;
   cursor: pointer;
 }
+
+/* ── Alerts (Phase 6) ─────────────────────────────────────────────────────── */
+#orders-alerts { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+#orders-alerts:empty { display: none; }
+.enable-notifs {
+  align-self: flex-start;
+  padding: 8px 14px;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.alert-banner {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+.alert-banner.due { background: var(--accent-light); color: var(--accent); border-color: var(--accent-light); }
+.alert-banner.holiday { background: #FBF3DE; color: #7A5200; border-color: #EAD9A8; }
+.alert-banner.conflict { background: #FBE9E7; color: #8B3A0F; border-color: #E6B7AE; }
