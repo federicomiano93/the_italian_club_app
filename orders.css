@@ -456,3 +456,29 @@ input.ing-stock {
 .alert-banner.due { background: var(--accent-light); color: var(--accent); border-color: var(--accent-light); }
 .alert-banner.holiday { background: #FBF3DE; color: #7A5200; border-color: #EAD9A8; }
 .alert-banner.conflict { background: #FBE9E7; color: #8B3A0F; border-color: #E6B7AE; }
+
+/* ── Install helper (Home screen) ─────────────────────────────────────────── */
+.install-host { padding: 0 16px 18px; }
+.install-host:empty { display: none; }
+.install-btn {
+  width: 100%;
+  padding: 14px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.install-btn:active { background: #1e3810; }
+.install-tip {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.5;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}

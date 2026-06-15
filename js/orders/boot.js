@@ -2,7 +2,7 @@
 //
 // index.html registers the service worker via js/app.js (which we never modify);
 // the new pages need their own CSP-safe external registration so the PWA works
-// when launched from home.html (the start_url) or orders.html.
+// when launched from index.html (the Home start_url) or orders.html.
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
