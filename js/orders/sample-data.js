@@ -29,26 +29,39 @@ export const SAMPLE_INGREDIENTS = [
   { id: 'rosemary', supplierId: 'greengrocer', name: 'Rosemary', category: 'Herbs', unit: 'bunches', active: true },
 ];
 
-// Two past weeks so "last week" reference and trend badges have data.
-// (Smart suggestions need 4 weeks — added in Phase 5.)
-export const SAMPLE_HISTORY = [
-  {
-    id: '2026-W23',
-    weekStart: '2026-06-01',
-    quantities: {
-      'flour-t55': 45, 'flour-wholemeal': 8, 'caster-sugar': 10, 'sea-salt': 5, 'fresh-yeast': 3,
-      'butter': 10, 'whole-milk': 18, 'eggs': 12, 'tomatoes': 20, 'rosemary': 5,
-    },
-  },
-  {
-    id: '2026-W24',
-    weekStart: '2026-06-08',
-    quantities: {
-      'flour-t55': 50, 'flour-wholemeal': 10, 'caster-sugar': 8, 'sea-salt': 5, 'fresh-yeast': 3,
-      'butter': 12, 'whole-milk': 20, 'eggs': 15, 'tomatoes': 18, 'rosemary': 6,
-    },
-  },
+// Five past weeks (each records stock on hand + quantity ordered) so the Phase 5
+// suggestion engine activates (needs >= 4 weeks). Per ingredient, stock+order is
+// kept ~constant across weeks, so the learned "par" level is stable and the
+// suggestions are easy to sanity-check. [stock, order] per week:
+const SAMPLE_WEEKS = [
+  { id: '2026-W20', weekStart: '2026-05-11' },
+  { id: '2026-W21', weekStart: '2026-05-18' },
+  { id: '2026-W22', weekStart: '2026-05-25' },
+  { id: '2026-W23', weekStart: '2026-06-01' },
+  { id: '2026-W24', weekStart: '2026-06-08' },
 ];
+const SAMPLE_WEEKLY = {
+  'flour-t55':       [[5, 50], [8, 47], [3, 52], [6, 49], [4, 51]], // par ~55
+  'flour-wholemeal': [[2, 10], [3, 9], [1, 11], [2, 10], [4, 8]],   // par ~12
+  'caster-sugar':    [[4, 8], [2, 10], [5, 7], [3, 9], [4, 8]],     // par ~12
+  'sea-salt':        [[1, 5], [2, 4], [1, 5], [0, 6], [1, 5]],      // par ~6
+  'fresh-yeast':     [[1, 3], [0, 4], [1, 3], [2, 2], [1, 3]],      // par ~4
+  'butter':          [[2, 12], [4, 10], [3, 11], [2, 12], [1, 13]], // par ~14
+  'whole-milk':      [[2, 20], [4, 18], [3, 19], [2, 20], [5, 17]], // par ~22
+  'eggs':            [[1, 15], [3, 13], [2, 14], [4, 12], [1, 15]], // par ~16
+  'tomatoes':        [[3, 17], [2, 18], [0, 20], [4, 16], [2, 18]], // par ~20
+  'rosemary':        [[1, 5], [2, 4], [0, 6], [1, 5], [2, 4]],      // par ~6
+};
+
+export const SAMPLE_HISTORY = SAMPLE_WEEKS.map((week, idx) => {
+  const quantities = {};
+  const stock = {};
+  Object.entries(SAMPLE_WEEKLY).forEach(([id, weeks]) => {
+    stock[id] = weeks[idx][0];
+    quantities[id] = weeks[idx][1];
+  });
+  return { ...week, quantities, stock };
+});
 
 // Write all sample documents to Firestore. saveDoc() stamps bakery:"main".
 export async function seedSampleData() {

@@ -13,12 +13,13 @@ import { scheduleDraftSave, watchDraft, archiveOrder, clearDraft } from './draft
 import { buildPreview } from './preview.js';
 import { renderHistory as renderHistoryView } from './history.js';
 import { buildManagement, isAdmin } from './management.js';
+import { computeSuggestion } from './suggestions.js';
+import { refreshBankHolidays } from './bank-holidays.js';
 
 const state = {
   suppliers: [],
   ingredients: [],
   history: [],
-  lastWeek: {},
   entries: {},                  // { ingredientId: { qty, stock } } — shared object, mutated in place
   expanded: new Set(),
   loaded: { suppliers: false, ingredients: false },
@@ -85,7 +86,7 @@ function render() {
 
   renderSuppliers(container, suppliers, ingredientsBySupplier(), {
     entries: state.entries,
-    lastWeek: state.lastWeek,
+    suggest: (id, stock) => computeSuggestion(id, stock, state.history),
     expanded: state.expanded,
     hooks,
   });
@@ -120,10 +121,8 @@ function renderEmptyState(container) {
 // ── Rendering: history tab ────────────────────────────────────────────────────
 function applyHistory(list) {
   state.history = list;
-  const sorted = list.slice().sort((a, b) =>
-    String(b.weekStart || '').localeCompare(String(a.weekStart || '')));
-  state.lastWeek = sorted[0]?.quantities || {};
   renderHistory();
+  render(); // refresh order-tab suggestions now that history is available
 }
 
 function renderHistory() {
@@ -164,6 +163,7 @@ function openManagement() {
         id ? saveDoc(COLLECTIONS.ingredients, id, payload) : createDoc(COLLECTIONS.ingredients, payload),
       setSupplierActive: (id, active) => saveDoc(COLLECTIONS.suppliers, id, { active }),
       setIngredientActive: (id, active) => saveDoc(COLLECTIONS.ingredients, id, { active }),
+      reloadSample: () => seedSampleData(), // test scaffolding: re-write the sample set
     },
   );
   document.body.appendChild(mgmt.overlay);
@@ -213,6 +213,10 @@ async function init() {
     setStatus('Connection problem — check your network and reload.', 'error');
     return;
   }
+
+  // Refresh the official UK bank-holiday calendar (cached for offline; used by
+  // the Phase 6 alerts). Fire-and-forget — failure falls back to the cached list.
+  refreshBankHolidays().then(list => console.log(`Bank holidays loaded: ${list.length} dates`));
 
   // Real-time draft: restores exact state on open and keeps staff in sync.
   watchDraft(entries => {

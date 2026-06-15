@@ -198,6 +198,9 @@ input.ing-stock {
   min-height: 42px;
   padding: 8px 6px;
 }
+.ing-suggestion { margin-top: 8px; font-size: 12px; font-family: 'DM Mono', monospace; }
+.ing-suggestion.active { color: var(--accent); }
+.ing-suggestion.pending { color: var(--text3); }
 
 /* ── Buttons ──────────────────────────────────────────────────────────────── */
 .btn-primary {
@@ -427,6 +430,7 @@ input.ing-stock {
 .confirm-actions { display: flex; gap: 10px; }
 .confirm-actions .btn-secondary { flex: 1; }
 .confirm-actions .btn-danger { flex: 1; }
+.confirm-actions .btn-primary { flex: 1; margin-top: 0; box-shadow: none; }
 .btn-danger {
   padding: 13px;
   background: #C0392B;
@@ -439,3 +443,17 @@ input.ing-stock {
   cursor: pointer;
 }
 .btn-danger:active { background: #a13225; }
+
+/* Test-only: reload sample data button in the management panel */
+.mgmt-reload {
+  width: 100%;
+  margin-top: 18px;
+  padding: 10px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text3);
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
+}

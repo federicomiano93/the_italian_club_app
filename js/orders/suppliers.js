@@ -66,7 +66,7 @@ function buildSupplierCard(supplier, ingredients, ctx) {
     el('div', { class: 'supplier-head-right' }, [counter, badge, chevron]),
   ]);
 
-  const bodyInner = buildIngredientList(supplier, ingredients, ctx.lastWeek, ctx.entries, ctx.hooks);
+  const bodyInner = buildIngredientList(supplier, ingredients, ctx.suggest, ctx.entries, ctx.hooks);
   const body = el('div', { class: 'supplier-body' }, [bodyInner]);
   if (!expanded) body.hidden = true;
 

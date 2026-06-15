@@ -16,7 +16,7 @@ import { el } from './dom.js';
 export const isAdmin = true; // placeholder until real auth/roles exist
 
 // Small on-brand confirmation dialog. Resolves true (confirm) / false (cancel).
-function confirmDialog(message) {
+function confirmDialog(message, confirmLabel = 'Confirm', danger = true) {
   return new Promise(resolve => {
     const close = value => { wrap.remove(); resolve(value); };
     const wrap = el('div', { class: 'confirm-overlay', onClick: e => { if (e.target === wrap) close(false); } }, [
@@ -24,7 +24,7 @@ function confirmDialog(message) {
         el('p', { class: 'confirm-msg', text: message }),
         el('div', { class: 'confirm-actions' }, [
           el('button', { type: 'button', class: 'btn-secondary', onClick: () => close(false) }, 'Cancel'),
-          el('button', { type: 'button', class: 'btn-danger', onClick: () => close(true) }, 'Deactivate'),
+          el('button', { type: 'button', class: danger ? 'btn-danger' : 'btn-primary', onClick: () => close(true) }, confirmLabel),
         ]),
       ]),
     ]);
@@ -82,6 +82,13 @@ export function buildManagement(data, actions) {
         () => actions.setSupplierActive(s.id, s.active === false)));
     });
     content.appendChild(list);
+
+    if (actions.reloadSample) {
+      content.appendChild(el('button', { type: 'button', class: 'mgmt-reload', onClick: async () => {
+        const ok = await confirmDialog('Reload sample data? This re-writes the sample suppliers, ingredients and 5 weeks of history (for testing).', 'Reload', false);
+        if (ok) actions.reloadSample();
+      } }, '↻ Reload sample data (test)'));
+    }
   }
 
   function renderIngredientList() {
@@ -113,7 +120,7 @@ export function buildManagement(data, actions) {
           // Confirm before deactivating (guards against accidental taps);
           // reactivating is harmless and needs no confirmation.
           if (active) {
-            const ok = await confirmDialog(`Deactivate "${name}"? It will be hidden from the order screen. You can reactivate it later.`);
+            const ok = await confirmDialog(`Deactivate "${name}"? It will be hidden from the order screen. You can reactivate it later.`, 'Deactivate', true);
             if (!ok) return;
           }
           onToggle();

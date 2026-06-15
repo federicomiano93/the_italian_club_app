@@ -1,20 +1,17 @@
 // ingredients.js — builds the ingredient list for one supplier.
 //
-// Deliberately minimal for chefs (per Federico): each row shows the ingredient
-// name + unit, a STOCK ON HAND field (entered first), and the ORDER quantity
-// (a +/- stepper). From Phase 5, entering stock auto-fills the suggested order
-// quantity from history — the operator can always override it.
+// Minimal, chef-first: each row shows the ingredient name + unit, a STOCK ON
+// HAND field (entered first), and the ORDER quantity (+/- stepper). Entering
+// stock auto-fills the suggested order quantity from history (Phase 5) — the
+// operator can always override it. A small line shows the suggestion, or a
+// countdown while fewer than 4 weeks of history exist.
 //
-// State lives in the shared `entries` object ({ [ingredientId]: { qty, stock } }).
-// Row handlers mutate it, then call hooks.afterChange(supplierId) so the supplier
-// badge/counter/progress refresh without a full rebuild (inputs keep focus).
-//
-// `lastWeek` is accepted for the Phase 5 suggestion engine; it is not displayed.
+// State lives in the shared `entries` object ({ [id]: { qty, stock } }).
+// `suggest(ingredientId, stock)` returns the suggestion engine result.
 
 import { el, groupBy } from './dom.js';
 
-export function buildIngredientList(supplier, ingredients, lastWeek, entries, hooks) {
-  // Progress bar (values filled in by suppliers.js refreshSupplierDerived).
+export function buildIngredientList(supplier, ingredients, suggest, entries, hooks) {
   const progress = el('div', { class: 'progress' }, [
     el('div', { class: 'progress-track' }, [
       el('div', { class: 'progress-fill', id: `progress-fill-${supplier.id}` }),
@@ -29,13 +26,13 @@ export function buildIngredientList(supplier, ingredients, lastWeek, entries, ho
     body.appendChild(el('div', { class: 'ing-category' }, category));
     byCategory[category]
       .sort((a, b) => a.name.localeCompare(b.name))
-      .forEach(ing => body.appendChild(buildRow(ing, supplier, entries, hooks)));
+      .forEach(ing => body.appendChild(buildRow(ing, supplier, suggest, entries, hooks)));
   });
 
   return body;
 }
 
-function buildRow(ing, supplier, entries, hooks) {
+function buildRow(ing, supplier, suggest, entries, hooks) {
   const entry = entries[ing.id] || (entries[ing.id] = { qty: 0, stock: 0 });
 
   const stockInput = el('input', {
@@ -46,6 +43,7 @@ function buildRow(ing, supplier, entries, hooks) {
     type: 'number', class: 'ing-qty', min: '0', inputmode: 'numeric',
     'aria-label': `${ing.name} quantity to order`,
   });
+  const hint = el('div', { class: 'ing-suggestion' });
 
   function setQty(value, fromInput) {
     const qty = Math.max(0, Math.round(Number(value) || 0));
@@ -54,10 +52,24 @@ function buildRow(ing, supplier, entries, hooks) {
     hooks.afterChange(supplier.id);
   }
 
+  function updateHint() {
+    const result = suggest(ing.id, entries[ing.id].stock || 0);
+    if (result.active) {
+      hint.textContent = `Suggested: ${result.suggestion}`;
+      hint.className = 'ing-suggestion active';
+    } else {
+      const n = result.weeksRemaining;
+      hint.textContent = `Suggestion available in ${n} week${n === 1 ? '' : 's'}`;
+      hint.className = 'ing-suggestion pending';
+    }
+    return result;
+  }
+
   stockInput.addEventListener('input', () => {
     entries[ing.id].stock = Math.max(0, Math.round(Number(stockInput.value) || 0));
-    // Phase 5: entering stock will auto-fill the suggested order quantity here.
-    hooks.afterChange(supplier.id); // triggers the draft autosave
+    const result = updateHint();
+    if (result.active) setQty(result.suggestion); // auto-fill the suggested order (also autosaves)
+    else hooks.afterChange(supplier.id);           // still autosave the stock value
   });
   qtyInput.addEventListener('input', () => setQty(qtyInput.value, true));
 
@@ -84,9 +96,11 @@ function buildRow(ing, supplier, entries, hooks) {
         stepper,
       ]),
     ]),
+    hint,
   ]);
 
   stockInput.value = entry.stock || '';
   qtyInput.value = entry.qty || '';
+  updateHint(); // show suggestion/countdown without overwriting a restored quantity
   return row;
 }
