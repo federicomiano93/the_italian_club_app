@@ -300,3 +300,142 @@ input.ing-stock {
 }
 .preview-footer .btn-secondary { flex: 1; }
 .preview-footer .btn-primary { flex: 2; margin-top: 0; }
+
+/* ── History tab ──────────────────────────────────────────────────────────── */
+.history-empty { text-align: center; color: var(--text3); font-size: 14px; padding: 40px 20px; }
+.history-body { border-top: 1px solid var(--border); padding: 10px 14px 12px; }
+.history-supplier {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 10px 0 4px;
+}
+.history-supplier:first-child { margin-top: 0; }
+.history-item { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; color: var(--text); }
+.history-item-qty { font-family: 'DM Mono', monospace; font-weight: 600; }
+
+/* ── Management overlay ───────────────────────────────────────────────────── */
+.mgmt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 650;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+.mgmt-scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 16px calc(24px + var(--safe-bot));
+}
+.mgmt-add {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 14px;
+  background: var(--surface);
+  border: 1px dashed var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mgmt-list { display: flex; flex-direction: column; gap: 8px; }
+.mgmt-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.mgmt-item.inactive { opacity: 0.55; }
+.mgmt-item-main { flex: 1; min-width: 0; }
+.mgmt-item-name { display: block; font-size: 15px; font-weight: 600; color: var(--text); }
+.mgmt-item-meta { display: block; font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 2px; }
+.mgmt-item-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; align-items: flex-end; }
+.mgmt-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+/* ── Management forms ─────────────────────────────────────────────────────── */
+.mgmt-form { display: flex; flex-direction: column; gap: 14px; }
+.mgmt-form-title { font-size: 17px; font-weight: 600; color: var(--text); }
+.mgmt-field { display: flex; flex-direction: column; gap: 6px; }
+.mgmt-field-label { font-size: 12px; color: var(--text2); font-weight: 500; }
+.mgmt-form .mgmt-input {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  min-height: 44px;
+  text-align: left;
+}
+.mgmt-form .mgmt-input:focus { outline: none; border-color: var(--accent); }
+.day-checks { display: flex; flex-wrap: wrap; gap: 8px; }
+.day-check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+}
+.day-check input { width: 18px; height: 18px; accent-color: var(--accent); }
+.mgmt-form-actions { display: flex; gap: 10px; margin-top: 6px; }
+.mgmt-form-actions .btn-secondary { flex: 1; }
+.mgmt-form-actions .btn-primary { flex: 2; margin-top: 0; }
+
+/* ── Confirmation dialog ──────────────────────────────────────────────────── */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 800;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.confirm-box {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 22px 20px 18px;
+  width: 100%;
+  max-width: 360px;
+}
+.confirm-msg { font-size: 15px; color: var(--text); line-height: 1.5; margin-bottom: 20px; }
+.confirm-actions { display: flex; gap: 10px; }
+.confirm-actions .btn-secondary { flex: 1; }
+.confirm-actions .btn-danger { flex: 1; }
+.btn-danger {
+  padding: 13px;
+  background: #C0392B;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+}
+.btn-danger:active { background: #a13225; }

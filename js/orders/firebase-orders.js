@@ -26,6 +26,7 @@ import {
   getDoc,
   getDocs,
   setDoc,
+  addDoc,
   deleteDoc,
   onSnapshot,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
@@ -86,6 +87,13 @@ export async function getCollection(name) {
 export async function saveDoc(name, id, data) {
   await authReady;
   return setDoc(doc(db, name, id), withBakery(data), { merge: true });
+}
+
+// Create a document with an auto-generated id. Returns the new id.
+export async function createDoc(name, data) {
+  await authReady;
+  const ref = await addDoc(collection(db, name), withBakery(data));
+  return ref.id;
 }
 
 // Delete a document (only permitted by the rules for drafts).

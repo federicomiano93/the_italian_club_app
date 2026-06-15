@@ -2,27 +2,31 @@
 //
 // Phase 1: tab navigation + Firebase connectivity.
 // Phase 2: render suppliers/ingredients with stock + order fields.
-// Phase 3: persistent autosaving draft, real-time sync across staff, order
-// preview grouped by supplier, and send (WhatsApp/Email) + archive to history.
+// Phase 3: persistent autosaving draft, real-time sync, preview + send/archive.
+// Phase 4: order history view + management panel (suppliers & ingredients).
 
-import { authReady, watchCollection, getCollection, COLLECTIONS } from './firebase-orders.js';
+import { authReady, watchCollection, saveDoc, createDoc, COLLECTIONS } from './firebase-orders.js';
 import { el, groupBy } from './dom.js';
 import { renderSuppliers, refreshSupplierDerived } from './suppliers.js';
 import { seedSampleData } from './sample-data.js';
 import { scheduleDraftSave, watchDraft, archiveOrder, clearDraft } from './draft.js';
 import { buildPreview } from './preview.js';
+import { renderHistory as renderHistoryView } from './history.js';
+import { buildManagement, isAdmin } from './management.js';
 
 const state = {
   suppliers: [],
   ingredients: [],
+  history: [],
   lastWeek: {},
   entries: {},                  // { ingredientId: { qty, stock } } — shared object, mutated in place
   expanded: new Set(),
   loaded: { suppliers: false, ingredients: false },
 };
 
-// Replace the contents of state.entries WITHOUT changing the object reference,
-// so the row closures (which captured this object) stay valid after a remote sync.
+let mgmt = null;                // open management panel handle, or null
+
+// Replace state.entries contents WITHOUT changing the reference (row closures keep working).
 function setEntries(next) {
   Object.keys(state.entries).forEach(k => delete state.entries[k]);
   Object.assign(state.entries, next || {});
@@ -34,7 +38,7 @@ const hooks = {
     if (supplier) {
       refreshSupplierDerived(supplier, ingredientsBySupplier()[supplierId] || [], state.entries);
     }
-    scheduleDraftSave(state.entries); // autosave (debounced)
+    scheduleDraftSave(state.entries);
   },
 };
 
@@ -53,8 +57,6 @@ function refreshAllSuppliers() {
   activeSuppliers().forEach(s => refreshSupplierDerived(s, bySupplier[s.id] || [], state.entries));
 }
 
-// Apply state.entries to the inputs already on screen (used after a remote sync).
-// Skips the field the user is currently editing so their typing is never clobbered.
 function syncInputsFromState() {
   document.querySelectorAll('#suppliers-list .ing-row').forEach(row => {
     const entry = state.entries[row.dataset.ing] || {};
@@ -66,7 +68,7 @@ function syncInputsFromState() {
   refreshAllSuppliers();
 }
 
-// ── Rendering ─────────────────────────────────────────────────────────────────
+// ── Rendering: order tab ──────────────────────────────────────────────────────
 function render() {
   const container = document.getElementById('suppliers-list');
   if (!container) return;
@@ -99,8 +101,7 @@ function renderEmptyState(container) {
       btn.disabled = true;
       btn.textContent = 'Loading sample data…';
       try {
-        await seedSampleData();
-        await loadHistory();
+        await seedSampleData(); // live watchers pick up the new data automatically
       } catch (err) {
         console.error('Seeding sample data failed:', err);
         btn.disabled = false;
@@ -114,6 +115,19 @@ function renderEmptyState(container) {
     el('p', { class: 'empty-sub', text: 'Load a set of sample suppliers and ingredients to try the order workflow.' }),
     btn,
   ]));
+}
+
+// ── Rendering: history tab ────────────────────────────────────────────────────
+function applyHistory(list) {
+  state.history = list;
+  const sorted = list.slice().sort((a, b) =>
+    String(b.weekStart || '').localeCompare(String(a.weekStart || '')));
+  state.lastWeek = sorted[0]?.quantities || {};
+  renderHistory();
+}
+
+function renderHistory() {
+  renderHistoryView(document.getElementById('history-list'), state.history, state.suppliers, state.ingredients);
 }
 
 // ── Preview / send ────────────────────────────────────────────────────────────
@@ -137,17 +151,22 @@ function openPreview() {
   document.body.appendChild(overlay);
 }
 
-// ── Data loading ────────────────────────────────────────────────────────────
-async function loadHistory() {
-  try {
-    const history = await getCollection(COLLECTIONS.history);
-    history.sort((a, b) => String(b.weekStart || '').localeCompare(String(a.weekStart || '')));
-    state.lastWeek = history[0]?.quantities || {};
-  } catch (err) {
-    console.error('Loading order history failed:', err);
-    state.lastWeek = {};
-  }
-  render();
+// ── Management panel ──────────────────────────────────────────────────────────
+function openManagement() {
+  if (mgmt) return;
+  mgmt = buildManagement(
+    { suppliers: () => state.suppliers, ingredients: () => state.ingredients },
+    {
+      onClose: () => { mgmt.overlay.remove(); mgmt = null; },
+      saveSupplier: (id, payload) =>
+        id ? saveDoc(COLLECTIONS.suppliers, id, payload) : createDoc(COLLECTIONS.suppliers, payload),
+      saveIngredient: (id, payload) =>
+        id ? saveDoc(COLLECTIONS.ingredients, id, payload) : createDoc(COLLECTIONS.ingredients, payload),
+      setSupplierActive: (id, active) => saveDoc(COLLECTIONS.suppliers, id, { active }),
+      setIngredientActive: (id, active) => saveDoc(COLLECTIONS.ingredients, id, { active }),
+    },
+  );
+  document.body.appendChild(mgmt.overlay);
 }
 
 // ── Tabs / status ─────────────────────────────────────────────────────────────
@@ -180,6 +199,12 @@ async function init() {
   setupTabs();
   document.getElementById('preview-btn')?.addEventListener('click', openPreview);
 
+  const settingsBtn = document.getElementById('orders-settings-btn');
+  if (settingsBtn) {
+    if (isAdmin) settingsBtn.addEventListener('click', openManagement);
+    else settingsBtn.hidden = true;
+  }
+
   try {
     await authReady;
     setStatus('Connected ✓', 'ok');
@@ -189,23 +214,27 @@ async function init() {
     return;
   }
 
-  await loadHistory();
-
-  // Real-time draft: restores the exact state on open and keeps staff in sync.
+  // Real-time draft: restores exact state on open and keeps staff in sync.
   watchDraft(entries => {
     setEntries(entries);
     syncInputsFromState();
   });
 
+  watchCollection(COLLECTIONS.history, applyHistory);
+
   watchCollection(COLLECTIONS.suppliers, list => {
     state.suppliers = list;
     state.loaded.suppliers = true;
     render();
+    renderHistory();
+    mgmt?.refresh();
   });
   watchCollection(COLLECTIONS.ingredients, list => {
     state.ingredients = list;
     state.loaded.ingredients = true;
     render();
+    renderHistory();
+    mgmt?.refresh();
   });
 }
 
