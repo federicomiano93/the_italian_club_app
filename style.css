@@ -194,6 +194,8 @@ input[type="number"] {
 input[type="number"]:focus { outline: none; border-color: var(--accent); background: #fff; }
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+/* Locked after Confirm — visibly greyed until the user taps Edit */
+input[type="number"]:disabled, select.qty-select:disabled { opacity: 0.55; cursor: not-allowed; }
 
 select.qty-select {
   width: 80px;

@@ -3,6 +3,20 @@ import { RECIPES, recipeTotal } from './recipes.js';
 export function showResult(id) { document.getElementById(id).classList.add('visible'); }
 export function hideResult(id) { document.getElementById(id).classList.remove('visible'); }
 
+// Inputs locked after Confirm (quantities + main params). Divisor fields are NOT
+// here — they only split the dough into portions and never affect the log.
+export const LOCK_IDS = {
+  focaccia: ['f-pizze', 'f-focacce', 'f-ciabatta', 'f-trayfocaccia', 'f-panini', 'f-kg', 'f-yeast-pct'],
+  brioche:  ['b-burgerbuns', 'b-subrolls', 'b-bun', 'b-rolls', 'b-kg', 'b-yeast-pct'],
+  sourdough: ['s-loaves', 's-weight', 's-starter-pct'],
+};
+export function lockInputs(tab) {
+  (LOCK_IDS[tab] || []).forEach(id => { const el = document.getElementById(id); if (el) el.disabled = true; });
+}
+export function unlockInputs(tab) {
+  (LOCK_IDS[tab] || []).forEach(id => { const el = document.getElementById(id); if (el) el.disabled = false; });
+}
+
 function ing(name, grams) {
   return `<div class="ing-row"><span class="ing-name">${name}</span><span class="ing-val">${Math.round(grams)} g</span></div>`;
 }

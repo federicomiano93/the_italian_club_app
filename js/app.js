@@ -1,6 +1,6 @@
 import './firebase.js';
-import { calcFocaccia, calcBrioche, calcSourdough, copyRecipe, shareRecipeWA } from './calc.js';
-import { confirmAndSave, renderLog } from './log.js';
+import { calcFocaccia, calcBrioche, calcSourdough, copyRecipe, shareRecipeWA, unlockInputs } from './calc.js';
+import { confirmAndSave, renderLog, restoreConfirmed, clearConfirmed } from './log.js';
 import { openRecipes, saveRecipes, closeRecipes } from './recipes.js';
 import { shareMarketOrder, closeLoafModal, sendWithLoaves } from './whatsapp.js';
 
@@ -50,6 +50,8 @@ function switchTab(name) {
 // ── Reset ─────────────────────────────────────────────────────────────────────
 function resetTab(tab) {
   if (!confirm('Reset all fields?')) return;
+  unlockInputs(tab);
+  clearConfirmed(tab);
   document.querySelectorAll('#tab-'+tab+' input[type="number"]').forEach(input => {
     const defaults = { 'f-yeast-pct':'0.65', 'b-yeast-pct':'4', 's-starter-pct':'18', 's-weight':'905', 'f-kg':'0', 'b-kg':'0', 'f-panini-div':'0', 'b-dough-div':'0', 's-dough-div':'0' };
     input.value = defaults[input.id] || '0';
@@ -91,6 +93,9 @@ function restoreAndInit() {
   calcFocaccia();
   calcBrioche();
   calcSourdough();
+  restoreConfirmed('focaccia');
+  restoreConfirmed('brioche');
+  restoreConfirmed('sourdough');
 }
 
 // ── Input focus/blur ──────────────────────────────────────────────────────────

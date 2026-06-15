@@ -1,5 +1,23 @@
-import { showResult, hideResult } from './calc.js';
+import { showResult, hideResult, lockInputs, unlockInputs } from './calc.js';
 import { saveLogToFirestore, deleteLogFromFirestore, saveDailyEntry } from './firebase.js';
+
+// Persisted "confirmed" flag per dough, so a locked recipe survives app restarts.
+function setConfirmed(tab) { localStorage.setItem('confirmed-' + tab, '1'); }
+export function clearConfirmed(tab) { localStorage.removeItem('confirmed-' + tab); }
+
+// On app start, re-show + re-lock a previously confirmed recipe WITHOUT re-saving
+// the log, so reopening the app never changes the saved entry or its timestamp.
+export function restoreConfirmed(tab) {
+  if (localStorage.getItem('confirmed-' + tab) !== '1') return;
+  const btn = document.getElementById(tab[0] + '-confirm-btn');
+  if (!btn || !btn.classList.contains('visible')) return; // no current recipe (quantities empty)
+  btn.textContent = 'Edit';
+  btn.dataset.mode = 'edit';
+  btn.dataset.saved = '1';
+  btn.disabled = false;
+  showResult(tab + '-result');
+  lockInputs(tab);
+}
 
 function logTimestamp() {
   const now = new Date();
@@ -116,8 +134,10 @@ export function confirmAndSave(tab) {
   const btn = document.getElementById(tab[0] + '-confirm-btn');
 
   if (btn.dataset.mode === 'edit') {
-    if (!confirm('Edit recipe? The result will be hidden.')) return;
+    if (!confirm('Change the quantities? You will need to Confirm again to update the recipe and the log.')) return;
     hideResult(tab + '-result');
+    unlockInputs(tab);
+    clearConfirmed(tab);
     btn.textContent = '✓ Confirm';
     btn.dataset.mode = '';
     btn.dataset.saved = '';
@@ -145,6 +165,9 @@ export function confirmAndSave(tab) {
   localStorage.setItem('bakery-log', JSON.stringify(log));
   saveLogToFirestore(record);
   saveDailyEntry(buildDailyEntry(tab, record));
+
+  lockInputs(tab);
+  setConfirmed(tab);
 
   btn.textContent = 'Saved!';
   btn.disabled = true;
