@@ -1,6 +1,8 @@
 // install-guide.js — drives the device-first install guide (install-guide.html).
-// Shows the OS choice first, then only the matching install steps. CSP-safe:
-// external script, no inline handlers.
+// Detects the device and shows only the matching install steps. On Chromium
+// (Android / desktop Chrome / Edge) it also offers a real one-tap "Install app"
+// button via the native install prompt. On iOS Safari there is no install API,
+// so the written steps are the only path. CSP-safe: external script, no inline.
 
 (function () {
   const select = document.getElementById('screen-select');
@@ -29,12 +31,46 @@
     });
   }
 
-  // Mark the most likely device so the user can pick it in one tap.
+  // Detect the most likely device from the user agent.
   const ua = navigator.userAgent;
   let detected = 'desktop';
   if (/iPhone|iPad|iPod/.test(ua)) detected = 'ios';
   else if (/Android/.test(ua)) detected = 'android';
 
+  // One-tap install (Chromium only). The browser fires beforeinstallprompt when
+  // it considers the app installable; we capture it and show a button at the top
+  // of the Android/desktop steps. When it never fires (iOS Safari, already
+  // installed, non-Chromium), the written steps remain the fallback.
+  let deferredPrompt = null;
+
+  function addInstallButton() {
+    if (!deferredPrompt) return;
+    blocks.forEach(b => {
+      if (b.dataset.os !== 'android' && b.dataset.os !== 'desktop') return;
+      if (b.querySelector('.install-now-btn')) return; // already added
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'install-now-btn';
+      btn.textContent = 'Install app';
+      btn.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        btn.remove();
+      });
+      b.insertBefore(btn, b.firstChild);
+    });
+  }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    addInstallButton();
+  });
+
+  // Skip the "which device?" question: go straight to the detected device's
+  // steps. "Change device" still lets the user switch if the guess is wrong.
   const suggestedBtn = document.querySelector(`[data-os-btn="${detected}"]`);
   if (suggestedBtn) {
     const tag = document.createElement('span');
@@ -42,4 +78,5 @@
     tag.textContent = 'your device';
     suggestedBtn.appendChild(tag);
   }
+  showSteps(detected);
 })();
