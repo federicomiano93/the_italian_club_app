@@ -91,3 +91,110 @@
 .orders-status.ok { color: var(--accent); background: var(--accent-light); border-color: var(--accent-light); }
 .orders-status.warn { color: #7A5200; background: #FBF3DE; border-color: #EAD9A8; }
 .orders-status.error { color: #c0392b; background: #FBE9E7; border-color: #E6B7AE; }
+
+/* ── Empty state / seed (test scaffolding) ────────────────────────────────── */
+.empty-state { text-align: center; padding: 40px 20px; }
+.empty-title { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.empty-sub { font-size: 14px; color: var(--text3); line-height: 1.5; margin-bottom: 18px; }
+.seed-btn {
+  padding: 13px 22px;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+}
+.seed-btn:active { background: #1e3810; }
+.seed-btn:disabled { opacity: 0.6; cursor: default; }
+
+/* ── Supplier card (collapsible) ──────────────────────────────────────────── */
+.supplier-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.supplier-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: 'DM Sans', sans-serif;
+}
+.supplier-head-main { flex: 1; min-width: 0; }
+.supplier-name { display: block; font-size: 16px; font-weight: 600; color: var(--text); }
+.supplier-meta { display: block; font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 2px; }
+.supplier-head-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.supplier-counter { font-size: 13px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--text2); }
+.supplier-badge { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+.supplier-badge.yellow { background: #E0A82E; }
+.supplier-badge.green { background: var(--accent); }
+.supplier-chevron { color: var(--text3); font-size: 14px; transition: transform 0.15s; }
+.supplier-chevron.open { transform: rotate(90deg); }
+.supplier-body { border-top: 1px solid var(--border); padding: 12px 14px 14px; }
+
+/* ── Progress bar ─────────────────────────────────────────────────────────── */
+.progress { margin-bottom: 14px; }
+.progress-track { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+.progress-fill { height: 100%; width: 0; background: var(--accent); border-radius: 3px; transition: width 0.2s; }
+.progress-text { display: block; font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 5px; }
+
+/* ── Ingredient rows (minimal: name · stock · order) ──────────────────────── */
+.ing-category {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-family: 'DM Mono', monospace;
+  margin: 14px 0 6px;
+}
+.ing-row { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.ing-row:last-child { border-bottom: none; }
+.ing-top { display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px; }
+.ing-name { font-size: 16px; font-weight: 500; color: var(--text); }
+.ing-unit { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; }
+
+.ing-fields { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field-label { font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; }
+.order-field { align-items: flex-end; }
+
+.qty-stepper { display: flex; align-items: center; gap: 8px; }
+.step-btn {
+  width: 40px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  background: var(--surface2);
+  color: var(--accent);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.step-btn:active { background: var(--accent-light); }
+input.ing-qty {
+  width: 64px;
+  font-size: 18px;
+  min-height: 42px;
+  padding: 8px 6px;
+}
+input.ing-stock {
+  width: 84px;
+  font-size: 18px;
+  min-height: 42px;
+  padding: 8px 6px;
+}
