@@ -52,11 +52,13 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com; img-src 'self' data:; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#2D5016">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Bakery">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="stylesheet" href="style.css">
 <title>Bakery Calculator</title>
 </head>
@@ -181,7 +183,7 @@
             <span class="panini-split-unit">g</span>
           </div>
         </div>
-        <div class="panini-box" id="f-ciabatta-box" style="display:none">
+        <div class="panini-box" id="f-ciabatta-box">
           <div class="panini-box-title">Ciabatta</div>
           <div class="ciabatta-count"><span id="f-ciabatta-boxes">0</span><span class="ciabatta-count-unit"> box</span></div>
           <div class="ciabatta-sub">3000g each box</div>
