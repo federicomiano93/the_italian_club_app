@@ -18,6 +18,18 @@ import {
   resolveGroupClients,
   isExtraDoughEnabled,
   normalizeConfig,
+  getDivisorProducts,
+  getDivisorIncluded,
+  isInDivisor,
+  divisorTotal,
+  splitDough,
+  clampCratePerBox,
+  isCrateEnabled,
+  getCratePerBox,
+  crateCount,
+  CRATE_PERBOX_MIN,
+  CRATE_PERBOX_MAX,
+  CRATE_PERBOX_DEFAULT,
   WEIGHT_MIN,
   WEIGHT_MAX,
   EXTRA_MAX_G,
@@ -113,7 +125,21 @@ test('getTabProducts flattens the address book and tags each product with its cl
   assert.equal(products.length, 5); // pizze, focacce, ciabatta, trayfocaccia, panini
   const ciabatta = products.find((p) => p.id === 'f-ciabatta');
   assert.equal(ciabatta.clientName, 'Client 1');
-  assert.equal(ciabatta.kind, 'ciabatta');
+  assert.equal(ciabatta.kind, 'dropdown');
+});
+
+test('normalizeConfig migrates legacy kinds: ciabatta->dropdown, panini->number', () => {
+  const raw = { clients: [
+    { id: 'c1', name: 'X', products: [
+      { id: 'p1', name: 'Ciabatta', dough: 'focaccia', weight: 151, kind: 'ciabatta' },
+      { id: 'p2', name: 'Panini',   dough: 'focaccia', weight: 131, kind: 'panini' },
+      { id: 'p3', name: 'Plain',    dough: 'focaccia', weight: 100, kind: 'number' },
+    ] },
+  ] };
+  const products = getClientById(normalizeConfig(raw), 'c1').products;
+  assert.equal(products[0].kind, 'dropdown'); // ciabatta widget preserved as a dropdown
+  assert.equal(products[1].kind, 'number');   // panini was only ever a plain number field
+  assert.equal(products[2].kind, 'number');
 });
 
 test('getTabProducts tolerates a missing or malformed config', () => {
@@ -215,6 +241,106 @@ test('normalizeConfig migrates the legacy per-tab + market shape into the addres
   assert.equal(norm.groups.length, 1);
   assert.equal(norm.groups[0].title, 'Market order');
   assert.deepEqual(norm.groups[0].clientIds, [client.id]);
+});
+
+// ── Divisor (display-only crate split) ────────────────────────────────────────
+
+test('divisor includes NOTHING by default (opt-in): no product is split until ticked', () => {
+  const q = { 'f-pizze': 10, 'f-focacce': 5, 'f-ciabatta': 40, 'f-trayfocaccia': 3, 'f-panini': 24 };
+  // Default config has an empty divisorIncluded → no product is in the divisor.
+  assert.equal(divisorTotal(DEFAULT_CONFIG, 'focaccia', qtyFrom(q)), 0);
+  assert.equal(getDivisorProducts(DEFAULT_CONFIG, 'focaccia').length, 0);
+  assert.equal(isInDivisor(DEFAULT_CONFIG, 'focaccia', 'f-panini'), false);
+});
+
+test('only ticked products are summed by the divisor; the dough math is untouched', () => {
+  const config = {
+    clients: [{ id: 'c1', name: 'X', products: [
+      { id: 'p1', name: 'Panini', dough: 'focaccia', weight: 100, kind: 'number' },
+      { id: 'p2', name: 'Pizza',  dough: 'focaccia', weight: 200, kind: 'number' },
+    ] }],
+    divisorIncluded: { focaccia: ['p1'], brioche: [], sourdough: [] },
+  };
+  const q = { p1: 10, p2: 10 };
+  // Divisor sums only the ticked p1; computeTarget still sums both products.
+  assert.equal(divisorTotal(config, 'focaccia', qtyFrom(q)), 10 * 100);
+  assert.equal(computeTarget(config, 'focaccia', qtyFrom(q)), 10 * 100 + 10 * 200);
+  assert.equal(isInDivisor(config, 'focaccia', 'p1'), true);
+  assert.equal(isInDivisor(config, 'focaccia', 'p2'), false);
+  assert.deepEqual(getDivisorProducts(config, 'focaccia').map(p => p.id), ['p1']);
+});
+
+test('splitDough divides into crates, and is safe at the edges', () => {
+  assert.equal(splitDough(3000, 2), 1500);
+  assert.equal(splitDough(5000, 4), 1250);
+  assert.equal(splitDough(3000, 0), 0);    // 0 crates → no split
+  assert.equal(splitDough(3000, -1), 0);   // never negative parts
+  assert.equal(splitDough('abc', 2), 0);   // never NaN
+  assert.equal(splitDough(3000, 'x'), 0);
+});
+
+test('normalizeConfig prunes divisor inclusions for products that no longer exist', () => {
+  const raw = {
+    clients: [{ id: 'c1', name: 'X', products: [
+      { id: 'p1', name: 'Panini', dough: 'focaccia', weight: 100, kind: 'number' },
+    ] }],
+    divisorIncluded: { focaccia: ['p1', 'ghost'], brioche: ['also-gone'] },
+  };
+  const norm = normalizeConfig(raw);
+  assert.deepEqual(getDivisorIncluded(norm, 'focaccia'), ['p1']); // ghost dropped
+  assert.deepEqual(getDivisorIncluded(norm, 'brioche'), []);       // all gone
+  assert.deepEqual(getDivisorIncluded(norm, 'sourdough'), []);     // default empty
+});
+
+test('divisor defaults to none-included on a config without the field', () => {
+  assert.deepEqual(getDivisorIncluded(DEFAULT_CONFIG, 'focaccia'), []);
+  assert.deepEqual(getDivisorIncluded({}, 'focaccia'), []);
+  assert.equal(isInDivisor({}, 'focaccia', 'anything'), false);
+});
+
+// ── Crate boxes (display-only, per product) ───────────────────────────────────
+
+test('crateCount = quantity ÷ pieces per box, safe at the edges', () => {
+  assert.equal(crateCount(40, 20), 2);
+  assert.equal(crateCount(30, 20), 1.5);  // fractional crate
+  assert.equal(crateCount(0, 20), 0);
+  assert.equal(crateCount(40, 0), 0);     // no box size → no count
+  assert.equal(crateCount(-5, 20), 0);    // never negative
+  assert.equal(crateCount('abc', 20), 0); // never NaN
+});
+
+test('clampCratePerBox keeps sane values and defaults on junk', () => {
+  assert.equal(clampCratePerBox(20), 20);
+  assert.equal(clampCratePerBox(0), CRATE_PERBOX_MIN);       // too small
+  assert.equal(clampCratePerBox(99999), CRATE_PERBOX_MAX);   // too big
+  assert.equal(clampCratePerBox('abc'), CRATE_PERBOX_DEFAULT);
+  assert.equal(clampCratePerBox(undefined), CRATE_PERBOX_DEFAULT);
+});
+
+test('crate box is per-product: off by default, on only when explicitly enabled', () => {
+  assert.equal(isCrateEnabled({ crate: { show: true, perBox: 20 } }), true);
+  assert.equal(isCrateEnabled({ crate: { show: false } }), false);
+  assert.equal(isCrateEnabled({}), false);   // no crate → off
+  assert.equal(isCrateEnabled(null), false);
+  assert.equal(getCratePerBox({ crate: { perBox: 24 } }), 24);
+  assert.equal(getCratePerBox({}), CRATE_PERBOX_DEFAULT);
+});
+
+test('the default ciabatta product has its crate box enabled (20 pieces)', () => {
+  const ciabatta = getTabProducts(DEFAULT_CONFIG, 'focaccia').find(p => p.id === 'f-ciabatta');
+  assert.equal(isCrateEnabled(ciabatta), true);
+  assert.equal(getCratePerBox(ciabatta), 20);
+});
+
+test('normalizeConfig keeps a product crate box (clamped perBox, show preserved)', () => {
+  const raw = { clients: [{ id: 'c1', name: 'X', products: [
+    { id: 'p1', name: 'Ciabatte', dough: 'focaccia', weight: 150, kind: 'number', crate: { show: true, perBox: 0 } },
+    { id: 'p2', name: 'Plain',    dough: 'focaccia', weight: 100, kind: 'number' },
+  ] }] };
+  const products = getClientById(normalizeConfig(raw), 'c1').products;
+  assert.equal(isCrateEnabled(products[0]), true);
+  assert.equal(getCratePerBox(products[0]), CRATE_PERBOX_MIN); // 0 clamped up to the min
+  assert.equal(isCrateEnabled(products[1]), false);            // no crate field → off
 });
 
 test('migration math equals the legacy formula after normalising old data', () => {

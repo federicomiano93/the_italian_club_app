@@ -1,5 +1,5 @@
 import './firebase.js';
-import { calcFocaccia, calcBrioche, calcSourdough, copyRecipe, shareRecipeWA, unlockInputs } from './calc.js';
+import { calcFocaccia, calcBrioche, calcSourdough, copyRecipe, shareRecipeWA, unlockInputs, buildDivisorBox } from './calc.js';
 import { confirmAndSave, renderLog, restoreConfirmed, clearConfirmed } from './log.js';
 import { saveRecipes, closeRecipes, goHomeFromRecipes } from './recipes.js';
 import { openSettings } from './calculator-settings.js';
@@ -108,6 +108,7 @@ function renderAll() {
     wireProductInputs(tab);
     restoreQty(tab);
     restoreExtra(tab);
+    buildDivisorBox(tab);
     const extraRow = document.querySelector('#tab-' + tab + ' .extra-dough-row');
     if (extraRow) extraRow.style.display = isExtraDoughEnabled(getConfig(), tab) ? '' : 'none';
   });
@@ -120,9 +121,8 @@ function renderAll() {
 }
 
 // ── Reset ─────────────────────────────────────────────────────────────────────
-const PARAM_DIVISOR_DEFAULTS = {
+const PARAM_DEFAULTS = {
   'f-yeast-pct': '0.65', 'b-yeast-pct': '4', 's-starter-pct': '18',
-  'f-panini-div': '0', 'b-dough-div': '0', 's-dough-div': '0',
 };
 
 function resetTab(tab) {
@@ -130,9 +130,11 @@ function resetTab(tab) {
   unlockInputs(tab);
   clearConfirmed(tab);
   document.querySelectorAll('#tab-'+tab+' input[type="number"]').forEach(input => {
-    input.value = PARAM_DIVISOR_DEFAULTS[input.id] || '0';
+    input.value = PARAM_DEFAULTS[input.id] || '0';
   });
   document.querySelectorAll('#tab-'+tab+' select.qty-select').forEach(sel => { sel.value = '0'; });
+  const divSel = document.getElementById(tab[0] + '-divisor-div');
+  if (divSel) divSel.value = '0';
   clearQty(tab);
   const extraUnit = document.getElementById(tab[0] + '-extra-unit');
   if (extraUnit) extraUnit.value = 'kg'; // the number field is already reset to 0 above
@@ -179,8 +181,8 @@ DOUGH_TABS.forEach(tab => {
   if (u) u.addEventListener('change', () => { CALC[tab](); saveExtra(tab); });
 });
 
-// ── Static parameter / divisor inputs (not products) ──────────────────────────
-const STATIC_NUMBER_IDS = ['f-yeast-pct', 'b-yeast-pct', 's-starter-pct', 'f-panini-div', 'b-dough-div', 's-dough-div'];
+// ── Static parameter inputs (not products) ────────────────────────────────────
+const STATIC_NUMBER_IDS = ['f-yeast-pct', 'b-yeast-pct', 's-starter-pct'];
 
 function tabOfId(id) {
   if (id.startsWith('f-')) return 'focaccia';
@@ -198,7 +200,7 @@ STATIC_NUMBER_IDS.forEach(id => {
   });
   el.addEventListener('blur', function() {
     if (this.value === '' || isNaN(parseFloat(this.value))) {
-      this.value = PARAM_DIVISOR_DEFAULTS[this.id] || '0';
+      this.value = PARAM_DEFAULTS[this.id] || '0';
       const t = tabOfId(this.id);
       if (t) CALC[t]();
     }
@@ -210,34 +212,8 @@ document.getElementById('f-yeast-pct').addEventListener('input', calcFocaccia);
 document.getElementById('b-yeast-pct').addEventListener('input', calcBrioche);
 document.getElementById('s-starter-pct').addEventListener('input', calcSourdough);
 
-// Divisor fields: live "÷" split, plus scroll-into-view so the keyboard does not
-// cover them. They split dough into portions and never affect the calculation.
-document.getElementById('f-panini-div').addEventListener('input', () => {
-  const total = +document.getElementById('f-panini-total').textContent || 0;
-  const div   = +document.getElementById('f-panini-div').value || 0;
-  document.getElementById('f-panini-split').textContent = div > 0 ? Math.round(total / div) : 0;
-});
-document.getElementById('f-panini-div').addEventListener('focus', () => {
-  setTimeout(() => {
-    document.getElementById('f-panini-div').scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, 300);
-});
-document.getElementById('b-dough-div').addEventListener('input', () => {
-  const total = +document.getElementById('b-total').textContent || 0;
-  const div   = +document.getElementById('b-dough-div').value || 0;
-  document.getElementById('b-dough-split').textContent = div > 0 ? Math.round(total / div) : 0;
-});
-document.getElementById('b-dough-div').addEventListener('focus', () => {
-  setTimeout(() => { document.getElementById('b-dough-div').scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 300);
-});
-document.getElementById('s-dough-div').addEventListener('input', () => {
-  const total = +document.getElementById('s-total').textContent || 0;
-  const div   = +document.getElementById('s-dough-div').value || 0;
-  document.getElementById('s-dough-split').textContent = div > 0 ? Math.round(total / div) : 0;
-});
-document.getElementById('s-dough-div').addEventListener('focus', () => {
-  setTimeout(() => { document.getElementById('s-dough-div').scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 300);
-});
+// The divisor box (its 0–4 dropdown) is built per render in calc.js, which also
+// wires its change handler — no static wiring here.
 
 // ── Static button event listeners ─────────────────────────────────────────────
 document.getElementById('update-banner').addEventListener('click', applyUpdate);

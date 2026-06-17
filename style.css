@@ -217,7 +217,7 @@ select.qty-select {
 }
 select.qty-select:focus { outline: none; border-color: var(--accent); background: #fff; }
 
-.ciabatta-count {
+.crate-count {
   font-size: 36px;
   font-weight: 700;
   font-family: 'DM Mono', monospace;
@@ -225,8 +225,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   line-height: 1;
   margin-bottom: 6px;
 }
-.ciabatta-count-unit { font-size: 15px; color: var(--text3); font-weight: 400; }
-.ciabatta-sub {
+.crate-count-unit { font-size: 15px; color: var(--text3); font-weight: 400; }
+.crate-sub {
   font-size: 13px;
   font-family: 'DM Mono', monospace;
   color: var(--text3);
@@ -321,17 +321,17 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .total-dough-val { font-size: 26px; font-weight: 700; color: var(--accent); font-family: 'DM Mono', monospace; }
 .total-dough-unit { font-size: 13px; color: var(--text3); margin-left: 2px; }
 
-.panini-box {
+/* Crate boxes: one card per product that opted into a crate count, built by calc.js
+   inside the result block. .crate-boxes is just the stacking wrapper. */
+.crate-boxes { display: flex; flex-direction: column; gap: 10px; }
+.crate-box {
   background: var(--surface);
   border-radius: var(--radius-sm);
   padding: 16px 20px 18px;
   margin-top: 10px;
   text-align: center;
 }
-/* Hidden by default; shown by calc.js when ciabatta orders exist.
-   Replaces an inline style="display:none" that violated the CSP. */
-#f-ciabatta-box { display: none; }
-.panini-box-title {
+.crate-box-title {
   font-size: 11px;
   font-family: 'DM Mono', monospace;
   text-transform: uppercase;
@@ -339,40 +339,49 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   color: var(--text3);
   margin-bottom: 6px;
 }
-.panini-box-total {
-  font-size: 36px;
+
+/* Divisor box: the included product names on top, then "total ÷ N = per crate". */
+.divisor-box {
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 16px 20px 18px;
+  margin-top: 10px;
+  text-align: center;
+}
+.divisor-names {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text2);
+  line-height: 1.35;
+  margin-bottom: 12px;
+}
+.divisor-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.divisor-total, .divisor-result {
+  font-size: 26px;
   font-weight: 700;
   font-family: 'DM Mono', monospace;
   color: var(--accent);
   line-height: 1;
-  margin-bottom: 14px;
 }
-.panini-box-total .panini-unit { font-size: 15px; color: var(--text3); margin-left: 3px; font-weight: 400; }
-.panini-box-divider-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-.panini-div-sym { font-size: 20px; font-weight: 700; color: var(--text3); line-height: 1; }
-.panini-div-input {
-  width: 52px;
+.divisor-unit { font-size: 13px; color: var(--text3); }
+.divisor-sym, .divisor-eq { font-size: 20px; font-weight: 700; color: var(--text3); line-height: 1; }
+.divisor-select {
   height: 40px;
+  padding: 0 12px;
   font-size: 20px;
   font-weight: 700;
   font-family: 'DM Mono', monospace;
   color: var(--accent);
   background: var(--surface2);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
-  text-align: center;
-  -moz-appearance: textfield;
 }
-.panini-div-input::-webkit-outer-spin-button,
-.panini-div-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.panini-div-eq { font-size: 18px; color: var(--text3); }
-.panini-split-val { font-size: 26px; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--accent); }
-.panini-split-unit { font-size: 13px; color: var(--text3); }
 
 .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
 .summary-item {
@@ -751,7 +760,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 
 /* Extra-dough visibility screen — same overlay style as Recipes, opened on top of
    the Settings hub. */
-#extra-overlay {
+#extra-overlay,
+#divisor-overlay {
   position: fixed;
   inset: 0;
   z-index: 520;
@@ -759,9 +769,29 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   flex-direction: column;
   background: var(--bg);
 }
-#extra-overlay.visible { display: flex; }
-#extra-content { padding: 14px 16px; }
+#extra-overlay.visible,
+#divisor-overlay.visible { display: flex; }
+#extra-content, #divisor-content { padding: 14px 16px; }
 .extra-help { font-size: 13px; color: var(--text2); margin: 0 2px 16px; }
+
+/* Divisor settings: "Untick all" button at the foot of a tab's checklist. */
+.divisor-clear-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text2);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.divisor-clear-btn:active { background: var(--surface2); }
+
+/* Crate-box toggle in a product card: checkbox + "Crate box" label, inline. */
+.cp-crate-label { display: flex; align-items: center; gap: 8px; flex: 1; font-size: 14px; font-weight: 600; color: var(--text); }
+.cp-crate-label input { width: 20px; height: 20px; accent-color: var(--accent); flex-shrink: 0; }
 .extra-toggle-row {
   display: flex;
   align-items: center;

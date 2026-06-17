@@ -30,14 +30,15 @@ export function el(tag, attrs, children) {
   return node;
 }
 
-const CIABATTA_OPTIONS = [0, 20, 40, 60, 80, 100];
+const DROPDOWN_OPTIONS = [0, 20, 40, 60, 80, 100];
 
-// The quantity widget for a product. Ciabatta keeps its fixed dropdown; every
-// other product is a plain number field. Kg products take decimals (kilograms).
+// The quantity widget for a product. A 'dropdown' product picks its quantity from
+// a fixed preset list; every other product is a plain number field. Kg products
+// take decimals (kilograms).
 function quantityControl(product) {
-  if (product.kind === 'ciabatta') {
+  if (product.kind === 'dropdown') {
     const select = el('select', { id: product.id, class: 'qty-select' });
-    for (const v of CIABATTA_OPTIONS) {
+    for (const v of DROPDOWN_OPTIONS) {
       select.appendChild(el('option', { value: String(v) }, String(v)));
     }
     return select;

@@ -12,11 +12,14 @@
 // The recipe itself never lives here — it stays fixed per dough. Only the unit
 // weights (which decide HOW MUCH total dough to make) are configurable.
 //
-// product.kind drives the input widget in the calculator, NOT the math:
+// product.kind drives the INPUT WIDGET in the calculator, NOT the math:
 //   'number'   → plain numeric quantity field (default)
-//   'ciabatta' → quantity picked from a fixed dropdown + "boxes" helper
-//   'panini'   → plain numeric field + "panini dough ÷ divisor" helper
+//   'dropdown' → quantity picked from a fixed preset dropdown (0/20/40/60/80/100)
 //   'kg'       → quantity entered directly in kilograms (weight 1000 g/kg)
+// Legacy kinds are migrated on load: 'ciabatta' → 'dropdown', 'panini' → 'number'.
+// A product can also opt into a "crate box" (product.crate = { show, perBox }): a
+// display-only helper showing how many crates its order fills. It is bound to the
+// product's identity (not kind, not name), so renaming never breaks it.
 //
 // WhatsApp orders reuse the SAME clients/products: `groups` are saved lists of
 // client ids (e.g. the market's stalls) sent in one message. Sending a single
@@ -34,8 +37,8 @@ export const WEIGHT_MAX = 5000;
 // the calculator behaves identically. The four real wholesale client names are
 // intentionally NOT shipped here (business data, P1/P8): they are entered once in
 // Settings and stored in Firestore. Generic placeholders are used until the real
-// configuration is loaded. Product ids are kept identical to the old per-tab ones
-// so cached quantities and the special widgets (f-panini, f-ciabatta) keep working.
+// configuration is loaded. Product ids are kept identical to the old per-tab ones so
+// cached quantities keep working; the ciabatta product ships with its crate box on.
 export const DEFAULT_CONFIG = {
   clients: [
     { id: 'c-bakery', name: 'Bakery', products: [
@@ -43,7 +46,7 @@ export const DEFAULT_CONFIG = {
       { id: 'f-focacce', name: 'Focaccias', dough: 'focaccia', weight: 181, kind: 'number' },
     ] },
     { id: 'c-client-1', name: 'Client 1', products: [
-      { id: 'f-ciabatta',   name: 'Ciabatta',    dough: 'focaccia', weight: 151, kind: 'ciabatta' },
+      { id: 'f-ciabatta',   name: 'Ciabatta',    dough: 'focaccia', weight: 151, kind: 'dropdown', crate: { show: true, perBox: 20 } },
       { id: 'b-burgerbuns', name: 'Burger buns', dough: 'brioche',  weight: 81,  kind: 'number' },
       { id: 'b-subrolls',   name: 'Sub rolls',   dough: 'brioche',  weight: 121, kind: 'number' },
     ] },
@@ -54,7 +57,7 @@ export const DEFAULT_CONFIG = {
       { id: 's-loaf',         name: 'Loaf',          dough: 'sourdough', weight: 905,  kind: 'number' },
     ] },
     { id: 'c-client-3', name: 'Client 3', products: [
-      { id: 'f-panini', name: 'Panini', dough: 'focaccia', weight: 131, kind: 'panini' },
+      { id: 'f-panini', name: 'Panini', dough: 'focaccia', weight: 131, kind: 'number' },
     ] },
   ],
   // Saved WhatsApp order lists: each groups several address-book clients into one
@@ -66,9 +69,24 @@ export const DEFAULT_CONFIG = {
   // Whether the per-tab "Extra dough" box is shown in each dough tab. Toggled from
   // a separate Settings screen. Default: shown everywhere.
   extraDough: { focaccia: true, brioche: true, sourdough: true },
+  // Products INCLUDED in each tab's divisor box (the box that splits dough into
+  // crates). Opt-in by design: an empty list means NO product is in the divisor —
+  // a product only joins once the user ticks it in Settings. Edited from a separate
+  // Settings screen.
+  divisorIncluded: { focaccia: [], brioche: [], sourdough: [] },
 };
 
-const KINDS = ['number', 'ciabatta', 'panini', 'kg'];
+const KINDS = ['number', 'dropdown', 'kg'];
+
+// Migrate a stored kind to the current taxonomy. The old 'ciabatta'/'panini'
+// values conflated the input widget with a helper box; they now map to their pure
+// input widget (the helper boxes live on the product id in calc.js). Anything
+// unknown falls back to a plain number field so the math always has a widget.
+const LEGACY_KIND = { ciabatta: 'dropdown', panini: 'number' };
+function normalizeKind(kind) {
+  const migrated = LEGACY_KIND[kind] || kind;
+  return KINDS.includes(migrated) ? migrated : 'number';
+}
 
 // Deep clone via JSON — config is plain data (no functions/dates), so this is
 // safe and keeps callers from mutating shared defaults.
@@ -89,6 +107,16 @@ export function doughExtraGrams(value, unit) {
   if (unit === 'kg') g *= 1000;
   return Math.min(g, EXTRA_MAX_G);
 }
+
+// The divisor box splits dough into up to this many crates (a 0–4 dropdown, 0 = no
+// split shown). Display-only — it never affects the dough math.
+export const DIVISOR_MAX = 4;
+
+// The per-product "crate box" helper: how many pieces fit in one crate. Default 20,
+// clamped to a sane range so a typo can never produce an absurd crate count.
+export const CRATE_PERBOX_MIN = 1;
+export const CRATE_PERBOX_MAX = 1000;
+export const CRATE_PERBOX_DEFAULT = 20;
 
 // Clamp a weight to the allowed range and coerce to a finite number. Returns
 // WEIGHT_MIN for anything non-numeric so the math never sees NaN.
@@ -160,7 +188,95 @@ export function computeTarget(config, tab, getQty) {
   return total;
 }
 
+// ── Divisor (display-only crate split) ────────────────────────────────────────
+// The divisor box is a kitchen helper: it sums the dough of the SELECTED products
+// of a tab and divides it into N crates. It NEVER touches the recipe or the log.
+
+// Product ids included in a tab's divisor (safe empty array). Opt-in: nothing is
+// in the divisor until the user ticks it in Settings.
+export function getDivisorIncluded(config, tab) {
+  const inc = config && config.divisorIncluded;
+  return inc && Array.isArray(inc[tab]) ? inc[tab] : [];
+}
+
+// Whether a product is counted in its tab's divisor (opt-in: only if ticked).
+export function isInDivisor(config, tab, productId) {
+  return getDivisorIncluded(config, tab).includes(productId);
+}
+
+// The tab's products currently in the divisor (the ones whose dough is split).
+export function getDivisorProducts(config, tab) {
+  const included = getDivisorIncluded(config, tab);
+  return getTabProducts(config, tab).filter(p => included.includes(p.id));
+}
+
+// Total raw grams the divisor splits: Σ (quantity × unit weight) over the INCLUDED
+// products only. Same shape as computeTarget but limited to the divisor selection.
+export function divisorTotal(config, tab, getQty) {
+  let total = 0;
+  for (const product of getDivisorProducts(config, tab)) {
+    const qty = Number(getQty(product.id)) || 0;
+    total += qty * clampWeight(product.weight);
+  }
+  return total;
+}
+
+// Grams per crate = total ÷ n, or 0 when n is 0/invalid (nothing to split into).
+// Unrounded; the display rounds it. Never returns NaN.
+export function splitDough(total, n) {
+  const parts = Number(n);
+  if (!Number.isFinite(parts) || parts <= 0) return 0;
+  const grams = Number(total);
+  if (!Number.isFinite(grams) || grams < 0) return 0;
+  return grams / parts;
+}
+
+// ── Crate boxes (display-only, per product) ───────────────────────────────────
+// A per-product helper that tells the baker how many crates an order fills, where
+// each crate holds a configurable number of pieces (default 20). Enabled per product
+// (product.crate.show) and bound to the product's identity, not its name — robust to
+// renames. The crate weight shown is perBox × the product's unit weight, so changing
+// the weight updates the box automatically. Display-only — never touches recipe/log.
+
+// Clamp the pieces-per-crate to a sane range, defaulting on anything non-numeric.
+export function clampCratePerBox(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return CRATE_PERBOX_DEFAULT;
+  if (n < CRATE_PERBOX_MIN) return CRATE_PERBOX_MIN;
+  if (n > CRATE_PERBOX_MAX) return CRATE_PERBOX_MAX;
+  return n;
+}
+
+// Whether a product shows its crate box (off unless explicitly enabled).
+export function isCrateEnabled(product) {
+  return !!(product && product.crate && product.crate.show);
+}
+
+// A product's configured pieces per crate (clamped, default 20).
+export function getCratePerBox(product) {
+  return clampCratePerBox(product && product.crate ? product.crate.perBox : undefined);
+}
+
+// How many crates an order fills = quantity ÷ pieces per box. Safe at the edges
+// (0 for invalid/zero box size). Unrounded; the display rounds it.
+export function crateCount(qty, perBox) {
+  const n = Number(qty);
+  const per = Number(perBox);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  if (!Number.isFinite(per) || per <= 0) return 0;
+  return n / per;
+}
+
 // ── Normalisation & migration ─────────────────────────────────────────────────
+
+// A product's optional crate box: shown only when explicitly enabled; perBox always
+// clamped to a sane range so the math never sees a zero/garbage divisor.
+function normalizeCrate(raw) {
+  return {
+    show: !!(raw && raw.show),
+    perBox: clampCratePerBox(raw && raw.perBox),
+  };
+}
 
 function normalizeProduct(p) {
   if (!p || typeof p !== 'object' || !p.id) return null;
@@ -169,7 +285,8 @@ function normalizeProduct(p) {
     name: String(p.name || 'Product'),
     dough: TABS.includes(p.dough) ? p.dough : 'focaccia',
     weight: clampWeight(p.weight),
-    kind: KINDS.includes(p.kind) ? p.kind : 'number',
+    kind: normalizeKind(p.kind),
+    crate: normalizeCrate(p.crate),
   };
 }
 
@@ -204,6 +321,29 @@ function normalizeGroups(raw, clients) {
 function normalizeExtraDough(raw) {
   const out = {};
   for (const tab of TABS) out[tab] = !(raw && raw[tab] === false);
+  return out;
+}
+
+// The set of product ids that exist in a given tab (across all clients).
+function tabProductIds(clients, tab) {
+  const ids = new Set();
+  for (const client of clients) {
+    for (const product of (client.products || [])) {
+      if (product.dough === tab) ids.add(product.id);
+    }
+  }
+  return ids;
+}
+
+// Per-tab divisor inclusions, pruned to ids that still exist in that tab so a
+// deleted product never lingers as a stale inclusion. Defaults to none included.
+function normalizeDivisorIncluded(raw, clients) {
+  const out = {};
+  for (const tab of TABS) {
+    const ids = tabProductIds(clients, tab);
+    const stored = raw && Array.isArray(raw[tab]) ? raw[tab].map(String) : [];
+    out[tab] = stored.filter(id => ids.has(id));
+  }
   return out;
 }
 
@@ -264,7 +404,12 @@ function migrateLegacy(raw) {
   });
 
   const clients = order.map(normalizeClient);
-  return { clients, groups: normalizeGroups(groups, clients), extraDough: normalizeExtraDough(raw.extraDough) };
+  return {
+    clients,
+    groups: normalizeGroups(groups, clients),
+    extraDough: normalizeExtraDough(raw.extraDough),
+    divisorIncluded: normalizeDivisorIncluded(raw.divisorIncluded, clients),
+  };
 }
 
 // Produce a safe, well-formed config from arbitrary (e.g. Firestore) input. A
@@ -277,7 +422,12 @@ export function normalizeConfig(raw) {
 
   if (Array.isArray(raw.clients)) {
     const clients = raw.clients.map(normalizeClient).filter(Boolean);
-    return { clients, groups: normalizeGroups(raw.groups, clients), extraDough: normalizeExtraDough(raw.extraDough) };
+    return {
+      clients,
+      groups: normalizeGroups(raw.groups, clients),
+      extraDough: normalizeExtraDough(raw.extraDough),
+      divisorIncluded: normalizeDivisorIncluded(raw.divisorIncluded, clients),
+    };
   }
 
   if (raw.focaccia || raw.brioche || raw.sourdough || raw.market) {

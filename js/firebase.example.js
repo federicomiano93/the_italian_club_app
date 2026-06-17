@@ -114,12 +114,20 @@ export function saveDailyEntry(entry) {
 // ── Calculator configuration (single client address book) ────────────────────
 // One shared document: config/calculator. Shared across the team like the log,
 // under Anonymous Auth. Shape:
-//   { clients: [ { id, name, products: [ { id, name, dough, weight, kind } ] } ],
-//     groups:  [ { id, title, clientIds: [...] } ] }
+//   { clients: [ { id, name, products: [ { id, name, dough, weight, kind,
+//                    crate: { show: bool, perBox: number } } ] } ],
+//     groups:  [ { id, title, clientIds: [...] } ],
+//     extraDough:      { focaccia: bool, brioche: bool, sourdough: bool },
+//     divisorIncluded: { focaccia: [ids], brioche: [ids], sourdough: [ids] } }
 // Each product knows its dough (focaccia|brioche|sourdough); the dough tabs are
-// filtered views of `clients`. `groups` are saved WhatsApp order lists referencing
-// clients by id. Legacy per-tab documents are migrated on read by normalizeConfig
-// in js/calculator-config.js. See firestore.rules.
+// filtered views of `clients`. product.kind is the input widget: number|dropdown|kg.
+// product.crate optionally shows a per-product "crate box" (how many crates the order
+// fills) bound to the product, not its name. `groups` are saved WhatsApp order lists
+// referencing clients by id. `extraDough` toggles the per-tab extra-dough box.
+// `divisorIncluded` lists products kept IN each tab's divisor box (opt-in: empty = no
+// product is split). Legacy
+// per-tab documents are migrated on read by normalizeConfig in js/calculator-config.js.
+// See firestore.rules.
 
 // Subscribe to the config document in real time. onChange receives the raw data
 // object, or null when the document does not exist yet (fresh project).

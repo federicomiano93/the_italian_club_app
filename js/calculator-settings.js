@@ -23,13 +23,19 @@
 // dough math unbounded — see calculator-config.js).
 
 import { getConfig, saveConfig } from './calculator-config-store.js';
-import { WEIGHT_MIN, WEIGHT_MAX, TABS, cloneConfig, isExtraDoughEnabled } from './calculator-config.js';
+import {
+  WEIGHT_MIN, WEIGHT_MAX, TABS, cloneConfig, isExtraDoughEnabled, getTabProducts, isInDivisor,
+} from './calculator-config.js';
 import { el } from './calculator-render.js';
 import { openRecipes } from './recipes.js';
 import { confirmDiscard } from './calculator-confirm.js';
 import Sortable from './vendor/sortable.esm.js';
 
 const DOUGH_LABELS = { focaccia: 'Focaccia', brioche: 'Brioche', sourdough: 'Sourdough' };
+
+// How the quantity is entered on the calculator. 'kg' is not offered here (it is a
+// legacy widget tied to the old extra-dough product, no longer creatable).
+const TYPE_LABELS = { number: 'Number', dropdown: 'Dropdown' };
 
 let working = null;        // deep copy being edited
 let activeTab = 'clients'; // 'clients' | 'whatsapp'
@@ -348,6 +354,20 @@ function productCard(client, p, pi) {
   dough.value = TABS.includes(p.dough) ? p.dough : 'focaccia';
   dough.addEventListener('change', () => { p.dough = dough.value; markDirty(); });
 
+  // How the quantity is entered: a plain number field or a fixed preset dropdown.
+  // Drives only the calculator widget, never the dough math. Hidden for the legacy
+  // 'kg' widget (not creatable here).
+  let typeRow = null;
+  if (p.kind !== 'kg') {
+    const type = el('select', { class: 'cp-prod-dough', 'aria-label': 'Quantity type' });
+    for (const k of ['number', 'dropdown']) {
+      type.appendChild(el('option', { value: k }, TYPE_LABELS[k]));
+    }
+    type.value = p.kind === 'dropdown' ? 'dropdown' : 'number';
+    type.addEventListener('change', () => { p.kind = type.value; markDirty(); });
+    typeRow = el('div', { class: 'cp-prod-card-row' }, [el('span', { class: 'cp-unit' }, 'Type'), type]);
+  }
+
   const rowChildren = [dough];
   if (p.kind === 'kg') {
     // Extra-dough row: quantity is entered in kilograms, weight is not editable.
@@ -361,9 +381,37 @@ function productCard(client, p, pi) {
     rowChildren.push(weight, el('span', { class: 'cp-unit' }, 'g'));
   }
 
+  // Optional crate box: tick to show a "how many crates" helper in the calculator,
+  // and set how many pieces fit one crate. Bound to this product (not its name). The
+  // pieces field is enabled only while the box is on. Not offered for 'kg' products.
+  let crateRow = null;
+  if (p.kind !== 'kg') {
+    if (!p.crate || typeof p.crate !== 'object') p.crate = { show: false, perBox: 20 };
+    const crateToggle = el('input', { type: 'checkbox' });
+    crateToggle.checked = !!p.crate.show;
+    const perBoxInput = el('input', {
+      class: 'cp-prod-weight', type: 'number', min: '1', max: '1000', step: '1',
+      value: String(p.crate.perBox || 20), inputmode: 'numeric',
+    });
+    perBoxInput.disabled = !p.crate.show;
+    crateToggle.addEventListener('change', () => {
+      p.crate.show = crateToggle.checked;
+      perBoxInput.disabled = !crateToggle.checked;
+      markDirty();
+    });
+    perBoxInput.addEventListener('input', () => { p.crate.perBox = +perBoxInput.value || 0; markDirty(); });
+    crateRow = el('div', { class: 'cp-prod-card-row' }, [
+      el('label', { class: 'cp-crate-label' }, [crateToggle, el('span', {}, 'Crate box')]),
+      perBoxInput,
+      el('span', { class: 'cp-unit' }, 'pz'),
+    ]);
+  }
+
   return el('div', { class: 'cp-prod-card' }, [
     el('div', { class: 'cp-prod-card-head' }, [nameInput, del]),
+    typeRow,
     el('div', { class: 'cp-prod-card-row' }, rowChildren),
+    crateRow,
   ]);
 }
 
@@ -473,6 +521,108 @@ TABS.forEach(tab => {
 document.getElementById('open-extra-btn').addEventListener('click', openExtra);
 document.querySelector('.extra-back-btn').addEventListener('click', closeExtra);
 document.getElementById('extra-home-btn').addEventListener('click', () => { window.location.href = 'index.html'; });
+
+// ── Divisor selection (separate Settings screen) ──────────────────────────────
+// A drill-in: first a chooser of the three dough tabs, then a tapped tab's product
+// checklist. Ticked = included in that tab's divisor box (opt-in: nothing is split
+// until ticked, so a new product never joins on its own). Each change applies
+// immediately (local-first via saveConfig, which re-renders the calculator and
+// best-effort syncs to Firestore).
+let divisorTab = null; // null = the tab chooser; a tab name = that tab's checklist
+
+function openDivisor() { divisorTab = null; renderDivisorSettings(); show('divisor-overlay'); }
+function closeDivisor() { hide('divisor-overlay'); }
+
+// Contextual back: from a tab's checklist step up to the chooser; from the chooser
+// close the overlay (revealing the Settings hub underneath).
+function backDivisor() {
+  if (divisorTab !== null) { divisorTab = null; renderDivisorSettings(); return; }
+  closeDivisor();
+}
+
+function setDivisorTitle(text) {
+  const t = document.querySelector('#divisor-overlay .recipe-overlay-title');
+  if (t) t.textContent = text;
+}
+// Home is shown on the chooser, hidden on a tab's checklist (a detail screen).
+function setDivisorHomeVisible(visible) {
+  const btn = document.getElementById('divisor-home-btn');
+  if (btn) btn.style.display = visible ? '' : 'none';
+}
+
+function renderDivisorSettings() {
+  if (divisorTab === null) renderDivisorTabChooser();
+  else renderDivisorTabDetail(divisorTab);
+}
+
+// Level 0: one drill-in box per dough tab.
+function renderDivisorTabChooser() {
+  setDivisorTitle('Divisor');
+  setDivisorHomeVisible(true);
+  const content = document.getElementById('divisor-content');
+  content.textContent = '';
+  content.appendChild(el('p', { class: 'extra-help' },
+    'Pick which products each tab’s divisor box splits into crates. Nothing is split until you tick it.'));
+  for (const tab of TABS) {
+    const box = el('button', { class: 'drill-item', type: 'button' }, [
+      el('span', {}, DOUGH_LABELS[tab]),
+      el('span', { class: 'drill-chevron' }, '→'),
+    ]);
+    box.addEventListener('click', () => { divisorTab = tab; renderDivisorSettings(); });
+    content.appendChild(box);
+  }
+}
+
+// Level 1: a tab's product checklist + an "Untick all" button.
+function renderDivisorTabDetail(tab) {
+  setDivisorTitle(DOUGH_LABELS[tab] + ' divisor');
+  setDivisorHomeVisible(false);
+  const content = document.getElementById('divisor-content');
+  content.textContent = '';
+  const products = getTabProducts(getConfig(), tab);
+  if (products.length === 0) {
+    content.appendChild(el('div', { class: 'cp-empty-hint' }, 'No products in this tab yet.'));
+    return;
+  }
+  products.forEach(p => content.appendChild(divisorProductRow(tab, p)));
+  const clearBtn = el('button', { class: 'divisor-clear-btn', type: 'button' }, 'Untick all');
+  clearBtn.addEventListener('click', () => clearDivisorTab(tab));
+  content.appendChild(clearBtn);
+}
+
+// A checkbox row toggling one product's membership in its tab's divisor. The
+// client name disambiguates same-named products from different clients.
+function divisorProductRow(tab, product) {
+  const box = el('input', { type: 'checkbox' });
+  box.checked = isInDivisor(getConfig(), tab, product.id);
+  box.addEventListener('change', () => toggleDivisorProduct(tab, product.id, box.checked));
+  const label = product.name + (product.clientName ? '  ·  ' + product.clientName : '');
+  return el('label', { class: 'cp-check-row' }, [box, el('span', {}, label)]);
+}
+
+function toggleDivisorProduct(tab, productId, included) {
+  const cfg = cloneConfig(getConfig());
+  if (!cfg.divisorIncluded || typeof cfg.divisorIncluded !== 'object') cfg.divisorIncluded = {};
+  const list = Array.isArray(cfg.divisorIncluded[tab]) ? cfg.divisorIncluded[tab] : [];
+  const i = list.indexOf(productId);
+  if (included && i === -1) list.push(productId);       // tick → include
+  else if (!included && i !== -1) list.splice(i, 1);    // untick → exclude
+  cfg.divisorIncluded[tab] = list;
+  saveConfig(cfg);
+}
+
+// Untick every product of a tab at once, then re-render so the boxes reflect it.
+function clearDivisorTab(tab) {
+  const cfg = cloneConfig(getConfig());
+  if (!cfg.divisorIncluded || typeof cfg.divisorIncluded !== 'object') cfg.divisorIncluded = {};
+  cfg.divisorIncluded[tab] = [];
+  saveConfig(cfg);
+  renderDivisorSettings();
+}
+
+document.getElementById('open-divisor-btn').addEventListener('click', openDivisor);
+document.querySelector('.divisor-back-btn').addEventListener('click', backDivisor);
+document.getElementById('divisor-home-btn').addEventListener('click', () => { window.location.href = 'index.html'; });
 
 // ── Static wiring (elements exist in calculator.html) ─────────────────────────
 document.querySelector('.settings-back-btn').addEventListener('click', closeSettings);
