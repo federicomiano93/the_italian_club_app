@@ -95,6 +95,10 @@
         <span class="settings-menu-title">Clients &amp; products</span>
         <span class="settings-menu-sub">Add or rename clients, set product weights per client</span>
       </button>
+      <button id="open-whatsapp-btn" class="settings-menu-btn">
+        <span class="settings-menu-title">WhatsApp</span>
+        <span class="settings-menu-sub">Build order lists: pick clients and the products to send</span>
+      </button>
       <button id="open-recipes-btn" class="settings-menu-btn">
         <span class="settings-menu-title">Recipes</span>
         <span class="settings-menu-sub">Edit the dough ingredient amounts</span>
@@ -142,6 +146,20 @@
   </div>
 </div>
 
+<div id="wa-overlay">
+  <div class="recipe-overlay-header">
+    <button class="wa-back-btn">&#8592;</button>
+    <span class="recipe-overlay-title">WhatsApp</span>
+    <button class="overlay-home-btn" id="wa-home-btn" type="button" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </button>
+    <button id="wa-save-btn" disabled>Save</button>
+  </div>
+  <div class="recipe-scroll">
+    <div id="wa-content"></div>
+  </div>
+</div>
+
 <div id="cp-overlay">
   <div class="recipe-overlay-header">
     <button class="cp-back-btn">&#8592;</button>
@@ -150,10 +168,6 @@
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
     </button>
     <button id="cp-save-btn" disabled>Save</button>
-  </div>
-  <div class="cp-tabs">
-    <button class="cp-tab active" data-tab="clients">Clients</button>
-    <button class="cp-tab" data-tab="whatsapp">WhatsApp</button>
   </div>
   <div class="recipe-scroll">
     <div id="cp-content"></div>

@@ -1,26 +1,24 @@
-// calculator-settings.js — the Settings hub and the address-book editor.
+// calculator-settings.js — the Settings hub and the address-book (Clients) editor.
 //
-// The footer "Settings" button opens a small chooser (#settings-overlay):
-//   • Clients & products → this editor (#cp-overlay)
-//   • Recipes            → the recipe overlay (recipes.js)
+// The footer "Settings" button opens a small chooser (#settings-overlay) whose
+// entries each open their own overlay: Clients & products (this editor, #cp-overlay),
+// WhatsApp (calculator-whatsapp-settings.js), Recipes (recipes.js), Extra dough and
+// Divisor (below).
 //
-// The editor has two sections (the #cp-tabs):
-//   • Clients  → the single address book. A drill-in: the client list, then a
-//                tapped client's detail with its products inline. Each product
-//                carries which dough it belongs to (focaccia/brioche/sourdough)
-//                and its own weight; the dough tabs are filtered views of this.
-//   • WhatsApp → saved order groups. A drill-in: the group list, then a group's
-//                detail (its title + a checkbox per address-book client to pick
-//                who is in the group). Sending a single client needs no group.
+// This editor manages the single address book: a drill-in from the client list to a
+// tapped client's detail with its products inline. Each product carries which dough
+// it belongs to (focaccia/brioche/sourdough) and its own weight; the dough tabs are
+// filtered views of this. (WhatsApp order lists live in their own editor and are
+// fully independent of the dough tabs — see calculator-whatsapp-settings.js.)
 //
 // Detail screens show a prominent Save at the bottom; deleting is a small icon by
-// the name (kept low-key). New clients/products/groups start with EMPTY names and
-// are validated on Save — nothing is persisted until every client, product and
-// group has a name. Moving between levels never loses data — the editor works on
-// a deep copy of the live config and nothing is touched until the user taps Save,
-// which persists through the config store (Firestore + cache) and triggers a
-// calculator re-render. Weights are clamped on save (a typo can never reach the
-// dough math unbounded — see calculator-config.js).
+// the name (kept low-key). New clients/products start with EMPTY names and are
+// validated on Save — nothing is persisted until every client and product has a
+// name. Moving between levels never loses data — the editor works on a deep copy of
+// the live config and nothing is touched until the user taps Save, which persists
+// through the config store (Firestore + cache) and triggers a calculator re-render.
+// Weights are clamped on save (a typo can never reach the dough math unbounded —
+// see calculator-config.js).
 
 import { getConfig, saveConfig } from './calculator-config-store.js';
 import {
@@ -28,6 +26,7 @@ import {
 } from './calculator-config.js';
 import { el } from './calculator-render.js';
 import { openRecipes } from './recipes.js';
+import { openWhatsapp } from './calculator-whatsapp-settings.js';
 import { confirmDiscard } from './calculator-confirm.js';
 import Sortable from './vendor/sortable.esm.js';
 
@@ -38,9 +37,7 @@ const DOUGH_LABELS = { focaccia: 'Focaccia', brioche: 'Brioche', sourdough: 'Sou
 const TYPE_LABELS = { number: 'Number', dropdown: 'Dropdown' };
 
 let working = null;        // deep copy being edited
-let activeTab = 'clients'; // 'clients' | 'whatsapp'
-let activeClient = null;   // Clients section: null = list, index = a client's detail
-let activeGroup = null;    // WhatsApp section: null = list, index = a group's detail
+let activeClient = null;   // null = the client list, an index = a client's detail
 let freshlyAdded = false;  // the item just opened was created by an "Add" button
 let showErrors = false;    // after a failed Save, mark empty required fields
 let dirty = false;
@@ -64,13 +61,8 @@ function clients() {
   if (!Array.isArray(working.clients)) working.clients = [];
   return working.clients;
 }
-function groups() {
-  if (!Array.isArray(working.groups)) working.groups = [];
-  return working.groups;
-}
 
 function cpTitle() { return document.querySelector('#cp-overlay .recipe-overlay-title'); }
-function cpTabs()  { return document.querySelector('#cp-overlay .cp-tabs'); }
 
 // The header Home button is hidden on detail screens (Edit client / Edit group),
 // shown on the lists.
@@ -81,13 +73,10 @@ function setHomeVisible(visible) {
 
 function openClients() {
   working = cloneConfig(getConfig());
-  activeTab = 'clients';
   activeClient = null;
-  activeGroup = null;
   freshlyAdded = false;
   showErrors = false;
   dirty = false;
-  syncTabs();
   renderEditor();
   updateSaveBtn();
   // Settings stays mounted underneath (lower z-index); closing this reveals it.
@@ -98,16 +87,13 @@ function openClients() {
 function isEmptyClient(c) {
   return !c || (isBlank(c.name) && (!c.products || c.products.length === 0));
 }
-function isEmptyGroup(g) {
-  return !g || (isBlank(g.title) && (!g.clientIds || g.clientIds.length === 0));
-}
 
 // Contextual "back": step up one level (detail → list) without losing data —
 // edits live in the working copy. A just-added but still-empty item is offered
 // for discard, so leaving the "add" screen without filling anything does not
 // leave junk behind. Only a real exit from a list fires the unsaved guard.
 function closeClients() {
-  if (activeTab === 'clients' && activeClient !== null) {
+  if (activeClient !== null) {
     const client = clients()[activeClient];
     if (freshlyAdded && isEmptyClient(client)) {
       if (!confirm('Discard this new client? You have not added anything to it.')) return;
@@ -115,17 +101,6 @@ function closeClients() {
     }
     freshlyAdded = false;
     activeClient = null;
-    renderEditor();
-    return;
-  }
-  if (activeTab === 'whatsapp' && activeGroup !== null) {
-    const group = groups()[activeGroup];
-    if (freshlyAdded && isEmptyGroup(group)) {
-      if (!confirm('Discard this new group? You have not added anything to it.')) return;
-      groups().splice(activeGroup, 1);
-    }
-    freshlyAdded = false;
-    activeGroup = null;
     renderEditor();
     return;
   }
@@ -147,22 +122,15 @@ function updateSaveBtn() {
   btn.classList.toggle('dirty', dirty);
 }
 
-function syncTabs() {
-  document.querySelectorAll('.cp-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === activeTab));
-}
-
-// The first client/product/group missing a name, or null if all are named.
+// The index of the first client with a missing name (its own or a product's), or
+// null if every client and product is named.
 function findInvalid() {
   const cs = clients();
   for (let i = 0; i < cs.length; i++) {
-    if (isBlank(cs[i].name)) return { tab: 'clients', clientIndex: i };
+    if (isBlank(cs[i].name)) return i;
     for (const p of (cs[i].products || [])) {
-      if (isBlank(p.name)) return { tab: 'clients', clientIndex: i };
+      if (isBlank(p.name)) return i;
     }
-  }
-  const gs = groups();
-  for (let i = 0; i < gs.length; i++) {
-    if (isBlank(gs[i].title)) return { tab: 'whatsapp', groupIndex: i };
   }
   return null;
 }
@@ -171,14 +139,11 @@ async function saveClients() {
   // Required-field guard: never persist a nameless client/product/group. Jump to
   // the first offender and highlight the empty fields.
   const invalid = findInvalid();
-  if (invalid) {
+  if (invalid !== null) {
     showErrors = true;
-    activeTab = invalid.tab;
-    activeClient = invalid.tab === 'clients' ? invalid.clientIndex : null;
-    activeGroup = invalid.tab === 'whatsapp' ? invalid.groupIndex : null;
-    syncTabs();
+    activeClient = invalid;
     renderEditor();
-    alert('Please give every client, product and group a name before saving.');
+    alert('Please give every client and product a name before saving.');
     return;
   }
   if (!confirm('Save these changes?')) return;
@@ -187,26 +152,20 @@ async function saveClients() {
     showErrors = false;
     dirty = false;
     updateSaveBtn();
-    // Return to the current section's list — a clear "saved" signal and the
-    // natural next step when adding clients one after another.
+    // Return to the client list — a clear "saved" signal and the natural next step
+    // when adding clients one after another.
     freshlyAdded = false;
     activeClient = null;
-    activeGroup = null;
     renderEditor();
   } catch (e) {
     alert('Could not save. Check your connection and try again.');
   }
 }
 
-// Dispatch to the active section/level.
+// Dispatch to the active level: the client list, or a client's detail.
 function renderEditor() {
-  if (activeTab === 'whatsapp') {
-    if (activeGroup === null) renderGroupList();
-    else renderGroupDetail(activeGroup);
-  } else {
-    if (activeClient === null) renderClientList();
-    else renderClientDetail(activeClient);
-  }
+  if (activeClient === null) renderClientList();
+  else renderClientDetail(activeClient);
 }
 
 // A prominent Save button for the bottom of a detail screen.
@@ -228,7 +187,6 @@ let clientSortable = null; // active SortableJS instance on the client list
 
 function renderClientList() {
   cpTitle().textContent = 'Clients & products';
-  cpTabs().style.display = '';
   setHomeVisible(true);
   const content = document.getElementById('cp-content');
   if (clientSortable) { clientSortable.destroy(); clientSortable = null; }
@@ -297,7 +255,6 @@ function syncClientOrderFromDom() {
 function renderClientDetail(ci) {
   const client = clients()[ci];
   cpTitle().textContent = 'Edit client';
-  cpTabs().style.display = 'none';
   setHomeVisible(false);
   const content = document.getElementById('cp-content');
   content.textContent = '';
@@ -413,85 +370,6 @@ function productCard(client, p, pi) {
     el('div', { class: 'cp-prod-card-row' }, rowChildren),
     crateRow,
   ]);
-}
-
-// ── WhatsApp Level 0: the list of saved groups ────────────────────────────────
-function renderGroupList() {
-  cpTitle().textContent = 'WhatsApp groups';
-  cpTabs().style.display = '';
-  setHomeVisible(true);
-  const content = document.getElementById('cp-content');
-  content.textContent = '';
-
-  groups().forEach((group, gi) => {
-    const box = el('button', { class: 'drill-item', type: 'button' }, [
-      el('span', {}, group.title || 'Untitled group'),
-      el('span', { class: 'drill-chevron' }, '→'),
-    ]);
-    box.addEventListener('click', () => { freshlyAdded = false; activeGroup = gi; renderEditor(); });
-    content.appendChild(box);
-  });
-
-  const add = el('button', { class: 'cp-add-client', type: 'button' }, '+ Add group');
-  add.addEventListener('click', () => {
-    groups().push({ id: genId('g'), title: '', clientIds: [] });
-    markDirty();
-    freshlyAdded = true;
-    activeGroup = groups().length - 1;
-    renderEditor();
-  });
-  content.appendChild(add);
-}
-
-// ── WhatsApp Level 1: a group's detail (title + which clients belong) ─────────
-function renderGroupDetail(gi) {
-  const group = groups()[gi];
-  if (!Array.isArray(group.clientIds)) group.clientIds = [];
-  cpTitle().textContent = 'Edit group';
-  cpTabs().style.display = 'none';
-  setHomeVisible(false);
-  const content = document.getElementById('cp-content');
-  content.textContent = '';
-
-  const titleInput = el('input', { class: 'cp-client-name', type: 'text', value: group.title || '', placeholder: 'Group name' });
-  if (showErrors && isBlank(group.title)) titleInput.classList.add('cp-invalid');
-  titleInput.addEventListener('input', () => { group.title = titleInput.value; titleInput.classList.remove('cp-invalid'); markDirty(); });
-  const del = deleteIcon('Delete group', () => {
-    if (!confirm('Delete this group?')) return;
-    groups().splice(gi, 1);
-    markDirty();
-    activeGroup = null;
-    renderEditor();
-  });
-  content.appendChild(el('div', { class: 'cp-field' }, [
-    el('label', { class: 'cp-label' }, 'Group name'),
-    el('div', { class: 'cp-name-row' }, [titleInput, del]),
-  ]));
-
-  const field = el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, 'Clients in this group')]);
-  const list = clients();
-  if (list.length === 0) {
-    field.appendChild(el('div', { class: 'cp-empty-hint' }, 'Add clients first, then pick who is in this group.'));
-  } else {
-    list.forEach(client => field.appendChild(groupClientRow(group, client)));
-  }
-  content.appendChild(field);
-
-  content.appendChild(saveBottomButton());
-}
-
-// A checkbox row toggling one client's membership in the group.
-function groupClientRow(group, client) {
-  const checked = group.clientIds.includes(client.id);
-  const box = el('input', { type: 'checkbox' });
-  box.checked = checked;
-  box.addEventListener('change', () => {
-    const i = group.clientIds.indexOf(client.id);
-    if (box.checked && i === -1) group.clientIds.push(client.id);
-    else if (!box.checked && i !== -1) group.clientIds.splice(i, 1);
-    markDirty();
-  });
-  return el('label', { class: 'cp-check-row' }, [box, el('span', {}, client.name || 'Unnamed client')]);
 }
 
 // ── Extra-dough visibility (separate Settings screen) ─────────────────────────
@@ -627,20 +505,11 @@ document.getElementById('divisor-home-btn').addEventListener('click', () => { wi
 // ── Static wiring (elements exist in calculator.html) ─────────────────────────
 document.querySelector('.settings-back-btn').addEventListener('click', closeSettings);
 document.getElementById('open-clients-btn').addEventListener('click', openClients);
-// Recipes opens on top of Settings (which stays mounted underneath); closing
-// Recipes reveals Settings again, no extra wiring needed.
+// WhatsApp / Recipes / Extra dough / Divisor each open on top of Settings (which
+// stays mounted underneath); closing them reveals Settings again. WhatsApp lists
+// have their own editor module (calculator-whatsapp-settings.js).
+document.getElementById('open-whatsapp-btn').addEventListener('click', openWhatsapp);
 document.getElementById('open-recipes-btn').addEventListener('click', openRecipes);
 document.querySelector('.cp-back-btn').addEventListener('click', closeClients);
 document.getElementById('cp-home-btn').addEventListener('click', goHomeFromClients);
 document.getElementById('cp-save-btn').addEventListener('click', saveClients);
-document.querySelectorAll('.cp-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    if (tab.dataset.tab === activeTab) return;
-    activeTab = tab.dataset.tab;
-    activeClient = null;     // switching section always returns to its top level
-    activeGroup = null;
-    freshlyAdded = false;
-    syncTabs();
-    renderEditor();
-  });
-});
