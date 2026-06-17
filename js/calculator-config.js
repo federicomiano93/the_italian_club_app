@@ -150,13 +150,6 @@ export function getClientById(config, id) {
   return getClients(config).find(c => c && c.id === id) || null;
 }
 
-// The saved WhatsApp groups (empty array for a missing/garbage config). Legacy
-// shape, still read by the old send path until it is rewritten; new configs use
-// `whatsappLists` below.
-export function getGroups(config) {
-  return (config && Array.isArray(config.groups)) ? config.groups : [];
-}
-
 // The saved independent WhatsApp lists (empty array for a missing/garbage config).
 export function getWhatsappLists(config) {
   return (config && Array.isArray(config.whatsappLists)) ? config.whatsappLists : [];
@@ -211,13 +204,6 @@ export function resolveListClients(config, list) {
 // shown (true) unless explicitly turned off in the config.
 export function isExtraDoughEnabled(config, tab) {
   return !(config && config.extraDough && config.extraDough[tab] === false);
-}
-
-// The actual client objects a group points at, skipping ids no longer in the
-// address book (e.g. a client deleted after the group was created).
-export function resolveGroupClients(config, group) {
-  if (!group || !Array.isArray(group.clientIds)) return [];
-  return group.clientIds.map(id => getClientById(config, id)).filter(Boolean);
 }
 
 // A dough tab's products: every product, across all clients, whose `dough`
