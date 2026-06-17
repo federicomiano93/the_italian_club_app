@@ -1,5 +1,13 @@
 import { showResult, hideResult, lockInputs, unlockInputs } from './calc.js';
 import { saveLogToFirestore, deleteLogFromFirestore, saveDailyEntry } from './firebase.js';
+import { getConfig } from './calculator-config-store.js';
+import { getTabProducts } from './calculator-config.js';
+
+// Reads a quantity input/select by id; 0 when absent or empty.
+function qtyOf(id) {
+  const el = document.getElementById(id);
+  return el ? (+el.value || 0) : 0;
+}
 
 // Persisted "confirmed" flag per dough, so a locked recipe survives app restarts.
 function setConfirmed(tab) { localStorage.setItem('confirmed-' + tab, '1'); }
@@ -35,97 +43,37 @@ function isoDate() {
     String(n.getDate()).padStart(2, '0');
 }
 
+// Daily production log entry (one map stored under daily-logs/{date}.{dough}).
+// Generic by product: total grams plus a "qty_<productId>" field per configured
+// product. Nothing reads these fields in the app — they are an archive only.
 function buildDailyEntry(tab, record) {
   const base = {
-    date_iso:       isoDate(),
-    date:           record.date,
-    time:           record.time,
-    dough:          record.dough,
-    pizzas:         '',
-    focaccias:      '',
-    ciabatta:       '',
-    tray_focaccia:  '',
-    panini:         '',
-    extra_kg_f:     '',
-    burger_buns:    '',
-    sub_rolls:      '',
-    buns:           '',
-    rolls:          '',
-    extra_kg_b:     '',
-    loaves:         '',
-    loaf_weight_g:  '',
-    total_g:        '',
+    date_iso: isoDate(),
+    date: record.date,
+    time: record.time,
+    dough: record.dough,
+    total_g: parseInt(document.getElementById(tab[0] + '-total').textContent, 10) || 0,
   };
-  if (tab === 'focaccia') {
-    base.pizzas        = +document.getElementById('f-pizze').value        || 0;
-    base.focaccias     = +document.getElementById('f-focacce').value      || 0;
-    base.ciabatta      = +document.getElementById('f-ciabatta').value     || 0;
-    base.tray_focaccia = +document.getElementById('f-trayfocaccia').value || 0;
-    base.panini        = +document.getElementById('f-panini').value       || 0;
-    base.extra_kg_f    = +document.getElementById('f-kg').value           || 0;
-    base.total_g       = parseInt(document.getElementById('f-total').textContent, 10) || 0;
-  } else if (tab === 'brioche') {
-    base.burger_buns = +document.getElementById('b-burgerbuns').value || 0;
-    base.sub_rolls   = +document.getElementById('b-subrolls').value   || 0;
-    base.buns        = +document.getElementById('b-bun').value        || 0;
-    base.rolls       = +document.getElementById('b-rolls').value      || 0;
-    base.extra_kg_b  = +document.getElementById('b-kg').value         || 0;
-    base.total_g     = parseInt(document.getElementById('b-total').textContent, 10) || 0;
-  } else if (tab === 'sourdough') {
-    base.loaves       = +document.getElementById('s-loaves').value || 0;
-    base.loaf_weight_g = +document.getElementById('s-weight').value || 905;
-    base.total_g      = parseInt(document.getElementById('s-total').textContent, 10) || 0;
+  for (const product of getTabProducts(getConfig(), tab)) {
+    base['qty_' + product.id] = qtyOf(product.id);
   }
   return base;
 }
 
-function buildFocacciaLog() {
+// Builds the saved log text grouped by client, from the configured products.
+// Each client with at least one ordered product gets a "Client name:" header
+// followed by indented "  Product: N pz" (or " kg") lines.
+function buildTabLog(tab) {
   const { date, time } = logTimestamp();
-  const pizze    = +document.getElementById('f-pizze').value || 0;
-  const focacce  = +document.getElementById('f-focacce').value || 0;
-  const ciabatta = +document.getElementById('f-ciabatta').value || 0;
-  const tray     = +document.getElementById('f-trayfocaccia').value || 0;
-  const panini   = +document.getElementById('f-panini').value || 0;
-  const kg_f     = +document.getElementById('f-kg').value || 0;
-
+  const tabConfig = getConfig()[tab];
   const lines = [];
-  if (pizze > 0 || focacce > 0) {
-    lines.push('Bakery:');
-    if (pizze > 0)   lines.push('  Pizzas: ' + pizze + ' pz');
-    if (focacce > 0) lines.push('  Focaccias: ' + focacce + ' pz');
-  }
-  if (ciabatta > 0) { lines.push('Bone&Block:'); lines.push('  Ciabatta: ' + ciabatta + ' pz'); }
-  if (tray > 0)     { lines.push('Club Fish:');  lines.push('  Tray focaccia: ' + tray + ' pz'); }
-  if (panini > 0)   { lines.push('Cahita:');     lines.push('  Panini: ' + panini + ' pz'); }
-  if (kg_f > 0)     lines.push('Extra dough: ' + kg_f + ' kg');
-
-  return { date, time, text: lines.join('\n') };
-}
-
-function buildLogText(tab) {
-  const { date, time } = logTimestamp();
-  const lines = [];
-  if (tab === 'brioche') {
-    const burgerbuns = +document.getElementById('b-burgerbuns').value || 0;
-    const subrolls   = +document.getElementById('b-subrolls').value || 0;
-    const bun        = +document.getElementById('b-bun').value || 0;
-    const rolls      = +document.getElementById('b-rolls').value || 0;
-    const kg_b       = +document.getElementById('b-kg').value || 0;
-    if (burgerbuns > 0 || subrolls > 0) {
-      lines.push('Bone&Block:');
-      if (burgerbuns > 0) lines.push('  Burger buns: ' + burgerbuns + ' pz');
-      if (subrolls > 0)   lines.push('  Sub rolls: ' + subrolls + ' pz');
+  for (const client of ((tabConfig && tabConfig.clients) || [])) {
+    const items = [];
+    for (const product of (client.products || [])) {
+      const qty = qtyOf(product.id);
+      if (qty > 0) items.push('  ' + product.name + ': ' + qty + (product.kind === 'kg' ? ' kg' : ' pz'));
     }
-    if (bun > 0 || rolls > 0) {
-      lines.push('Club Fish:');
-      if (bun > 0)   lines.push('  Buns: ' + bun + ' pz');
-      if (rolls > 0) lines.push('  Rolls: ' + rolls + ' pz');
-    }
-    if (kg_b > 0) lines.push('Extra dough: ' + kg_b + ' kg');
-  } else {
-    const loaves = +document.getElementById('s-loaves').value || 0;
-    const weight = +document.getElementById('s-weight').value || 905;
-    if (loaves > 0) lines.push('Loaves: ' + loaves + ' pz (' + weight + ' g each)');
+    if (items.length) { lines.push(client.name + ':'); lines.push(...items); }
   }
   return { date, time, text: lines.join('\n') };
 }
@@ -148,14 +96,9 @@ export function confirmAndSave(tab) {
 
   showResult(tab + '-result');
 
-  let record;
-  if (tab === 'focaccia') {
-    const { date, time, text } = buildFocacciaLog();
-    record = { date, time, dough: 'Focaccia', text };
-  } else {
-    const { date, time, text } = buildLogText(tab);
-    record = { date, time, dough: tab === 'brioche' ? 'Brioche' : 'Sourdough', text };
-  }
+  const DOUGH = { focaccia: 'Focaccia', brioche: 'Brioche', sourdough: 'Sourdough' };
+  const { date, time, text } = buildTabLog(tab);
+  const record = { date, time, dough: DOUGH[tab], text };
 
   let log = [];
   try { log = JSON.parse(localStorage.getItem('bakery-log') || '[]'); } catch(e) {}
@@ -183,7 +126,10 @@ function parseLogText(text) {
   for (const line of (text || '').split('\n')) {
     if (!line.trim()) continue;
     const div = document.createElement('div');
-    if (/^[A-Za-z&].+:$/.test(line)) {
+    // Headers are "Client name:" (no leading space, ends with a colon); items are
+    // indented "  Product: qty". Client names are user-typed, so accept any name
+    // (accents, digits, emoji) rather than ASCII only.
+    if (!/^\s/.test(line) && line.endsWith(':')) {
       div.className = 'log-customer';
       div.textContent = line.slice(0, -1);
     } else {

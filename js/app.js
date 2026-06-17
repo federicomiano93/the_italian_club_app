@@ -1,8 +1,12 @@
 import './firebase.js';
 import { calcFocaccia, calcBrioche, calcSourdough, copyRecipe, shareRecipeWA, unlockInputs } from './calc.js';
 import { confirmAndSave, renderLog, restoreConfirmed, clearConfirmed } from './log.js';
-import { openRecipes, saveRecipes, closeRecipes } from './recipes.js';
+import { saveRecipes, closeRecipes } from './recipes.js';
+import { openSettings } from './calculator-settings.js';
 import { shareMarketOrder, closeLoafModal, sendWithLoaves } from './whatsapp.js';
+import { getConfig, initConfig } from './calculator-config-store.js';
+import { renderTab } from './calculator-render.js';
+import { getTabProducts } from './calculator-config.js';
 
 // ── Service Worker ────────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
@@ -47,48 +51,62 @@ function switchTab(name) {
   if (name === 'log') renderLog();
 }
 
-// ── Reset ─────────────────────────────────────────────────────────────────────
-function resetTab(tab) {
-  if (!confirm('Reset all fields?')) return;
-  unlockInputs(tab);
-  clearConfirmed(tab);
-  document.querySelectorAll('#tab-'+tab+' input[type="number"]').forEach(input => {
-    const defaults = { 'f-yeast-pct':'0.65', 'b-yeast-pct':'4', 's-starter-pct':'18', 's-weight':'905', 'f-kg':'0', 'b-kg':'0', 'f-panini-div':'0', 'b-dough-div':'0', 's-dough-div':'0' };
-    input.value = defaults[input.id] || '0';
-  });
-  document.querySelectorAll('#tab-'+tab+' select.qty-select').forEach(sel => { sel.value = '0'; });
-  clearQty(tab);
-  if (tab === 'focaccia') calcFocaccia();
-  if (tab === 'brioche') calcBrioche();
-  if (tab === 'sourdough') calcSourdough();
+// ── Config-driven calculator wiring ───────────────────────────────────────────
+const DOUGH_TABS = ['focaccia', 'brioche', 'sourdough'];
+const CALC = { focaccia: calcFocaccia, brioche: calcBrioche, sourdough: calcSourdough };
+
+function productIds(tab) {
+  return getTabProducts(getConfig(), tab).map(p => p.id);
 }
 
-// ── localStorage persistence ──────────────────────────────────────────────────
-const QTY_IDS = {
-  focaccia: ['f-pizze','f-focacce','f-ciabatta','f-trayfocaccia','f-panini','f-kg'],
-  brioche:  ['b-burgerbuns','b-subrolls','b-bun','b-rolls','b-kg'],
-  sourdough:['s-loaves','s-weight'],
-};
-
+// localStorage persistence: one key per product ('qty-<id>'), so the working
+// quantities survive a reload and a config re-render.
 function saveQty(tab) {
-  QTY_IDS[tab].forEach(id => localStorage.setItem(id, document.getElementById(id).value));
-}
-
-function clearQty(tab) {
-  QTY_IDS[tab].forEach(id => localStorage.removeItem(id));
-}
-
-function restoreAndInit() {
-  Object.values(QTY_IDS).flat().forEach(id => {
-    const val = localStorage.getItem(id);
-    if (val !== null) document.getElementById(id).value = val;
+  productIds(tab).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) localStorage.setItem('qty-' + id, el.value);
   });
-  Object.entries(QTY_IDS).forEach(([tab, ids]) => {
-    ids.forEach(id => {
-      const el = document.getElementById(id);
-      const evt = el.tagName === 'SELECT' ? 'change' : 'input';
-      el.addEventListener(evt, () => saveQty(tab));
-    });
+}
+function clearQty(tab) {
+  productIds(tab).forEach(id => localStorage.removeItem('qty-' + id));
+}
+function restoreQty(tab) {
+  productIds(tab).forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const val = localStorage.getItem('qty-' + id);
+    if (val !== null) el.value = val;
+  });
+}
+
+// Attach listeners to the dynamically-created product inputs of a tab.
+function wireProductInputs(tab) {
+  const calc = CALC[tab];
+  productIds(tab).forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const evt = el.tagName === 'SELECT' ? 'change' : 'input';
+    el.addEventListener(evt, () => { calc(); saveQty(tab); });
+    if (el.tagName !== 'SELECT') {
+      el.addEventListener('focus', function() {
+        if (this.value === '0' || this.value === '') this.value = '';
+        else this.select();
+      });
+      el.addEventListener('blur', function() {
+        if (this.value === '' || isNaN(parseFloat(this.value))) { this.value = '0'; calc(); }
+      });
+    }
+  });
+}
+
+// (Re)build every dough tab from the current config, restore quantities, run the
+// calculations and re-apply any confirmed/locked state. Called on first paint
+// and whenever the remote config changes.
+function renderAll() {
+  DOUGH_TABS.forEach(tab => {
+    renderTab(getConfig(), tab, document.getElementById(tab[0] + '-orders'));
+    wireProductInputs(tab);
+    restoreQty(tab);
   });
   calcFocaccia();
   calcBrioche();
@@ -98,32 +116,57 @@ function restoreAndInit() {
   restoreConfirmed('sourdough');
 }
 
-// ── Input focus/blur ──────────────────────────────────────────────────────────
-const DEFAULTS = { 'f-yeast-pct':'0.65', 'b-yeast-pct':'4', 's-starter-pct':'18', 's-weight':'905', 'f-panini-div':'0', 'b-dough-div':'0', 's-dough-div':'0' };
+// ── Reset ─────────────────────────────────────────────────────────────────────
+const PARAM_DIVISOR_DEFAULTS = {
+  'f-yeast-pct': '0.65', 'b-yeast-pct': '4', 's-starter-pct': '18',
+  'f-panini-div': '0', 'b-dough-div': '0', 's-dough-div': '0',
+};
 
-document.querySelectorAll('input[type="number"]').forEach(input => {
-  input.addEventListener('focus', function() {
-    if (this.value === '0' || this.value === '') {
-      this.value = '';
-    } else {
-      this.select();
-    }
+function resetTab(tab) {
+  if (!confirm('Reset all fields?')) return;
+  unlockInputs(tab);
+  clearConfirmed(tab);
+  document.querySelectorAll('#tab-'+tab+' input[type="number"]').forEach(input => {
+    input.value = PARAM_DIVISOR_DEFAULTS[input.id] || '0';
   });
-  input.addEventListener('blur', function() {
+  document.querySelectorAll('#tab-'+tab+' select.qty-select').forEach(sel => { sel.value = '0'; });
+  clearQty(tab);
+  CALC[tab]();
+}
+
+// ── Static parameter / divisor inputs (not products) ──────────────────────────
+const STATIC_NUMBER_IDS = ['f-yeast-pct', 'b-yeast-pct', 's-starter-pct', 'f-panini-div', 'b-dough-div', 's-dough-div'];
+
+function tabOfId(id) {
+  if (id.startsWith('f-')) return 'focaccia';
+  if (id.startsWith('b-')) return 'brioche';
+  if (id.startsWith('s-')) return 'sourdough';
+  return null;
+}
+
+STATIC_NUMBER_IDS.forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('focus', function() {
+    if (this.value === '0' || this.value === '') this.value = '';
+    else this.select();
+  });
+  el.addEventListener('blur', function() {
     if (this.value === '' || isNaN(parseFloat(this.value))) {
-      this.value = DEFAULTS[this.id] || '0';
-      if (this.id.startsWith('f-')) calcFocaccia();
-      else if (this.id.startsWith('b-')) calcBrioche();
-      else if (this.id.startsWith('s-')) calcSourdough();
+      this.value = PARAM_DIVISOR_DEFAULTS[this.id] || '0';
+      const t = tabOfId(this.id);
+      if (t) CALC[t]();
     }
   });
 });
 
-// ── Calc input listeners ──────────────────────────────────────────────────────
-['f-yeast-pct','f-pizze','f-focacce','f-trayfocaccia','f-panini','f-kg'].forEach(id => {
-  document.getElementById(id).addEventListener('input', calcFocaccia);
-});
-document.getElementById('f-ciabatta').addEventListener('change', calcFocaccia);
+// Parameter fields recalculate their tab on every input.
+document.getElementById('f-yeast-pct').addEventListener('input', calcFocaccia);
+document.getElementById('b-yeast-pct').addEventListener('input', calcBrioche);
+document.getElementById('s-starter-pct').addEventListener('input', calcSourdough);
+
+// Divisor fields: live "÷" split, plus scroll-into-view so the keyboard does not
+// cover them. They split dough into portions and never affect the calculation.
 document.getElementById('f-panini-div').addEventListener('input', () => {
   const total = +document.getElementById('f-panini-total').textContent || 0;
   const div   = +document.getElementById('f-panini-div').value || 0;
@@ -149,12 +192,6 @@ document.getElementById('s-dough-div').addEventListener('input', () => {
 });
 document.getElementById('s-dough-div').addEventListener('focus', () => {
   setTimeout(() => { document.getElementById('s-dough-div').scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 300);
-});
-['b-yeast-pct','b-burgerbuns','b-subrolls','b-bun','b-rolls','b-kg'].forEach(id => {
-  document.getElementById(id).addEventListener('input', calcBrioche);
-});
-['s-starter-pct','s-loaves','s-weight'].forEach(id => {
-  document.getElementById(id).addEventListener('input', calcSourdough);
 });
 
 // ── Static button event listeners ─────────────────────────────────────────────
@@ -185,7 +222,7 @@ document.querySelectorAll('.reset-btn').forEach((btn, i) => {
   btn.addEventListener('click', () => resetTab(tabs[i]));
 });
 
-document.querySelector('.recipe-footer-btn').addEventListener('click', openRecipes);
+document.querySelector('.recipe-footer-btn').addEventListener('click', openSettings);
 document.getElementById('recipe-save-btn').addEventListener('click', saveRecipes);
 document.querySelector('.recipe-back-btn').addEventListener('click', closeRecipes);
 
@@ -198,4 +235,7 @@ document.addEventListener('firestore-log-updated', renderLog);
 document.addEventListener('recipes-saved', () => { calcFocaccia(); calcBrioche(); calcSourdough(); });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-restoreAndInit();
+// Paint immediately from cache/default, then re-render whenever Firestore streams
+// a new configuration.
+initConfig(renderAll);
+renderAll();
