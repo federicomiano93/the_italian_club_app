@@ -15,9 +15,11 @@ import {
   getClients,
   getClientById,
   getWhatsappLists,
+  getWhatsappClients,
   getProductById,
   getAllProducts,
   resolveListClients,
+  resolveDirectClient,
   isExtraDoughEnabled,
   normalizeConfig,
   getDivisorProducts,
@@ -192,6 +194,34 @@ test('getProductById finds a product across all clients; getAllProducts tags own
   const loaf = all.find(p => p.id === 's-loaf');
   assert.equal(loaf.ownerClientId, 'c-client-2');
   assert.equal(loaf.ownerClientName, 'Client 2');
+});
+
+test('direct WhatsApp clients: typed name + products resolved from any client', () => {
+  assert.deepEqual(getWhatsappClients(DEFAULT_CONFIG), []); // none by default
+  const config = {
+    clients: [
+      { id: 'cA', name: 'A', products: [{ id: 'pA', name: 'Loaf', dough: 'sourdough', weight: 900, kind: 'number' }] },
+    ],
+    whatsappClients: [{ id: 'wc1', name: 'Walk-in', products: ['pA', 'ghost'] }],
+  };
+  const dc = getWhatsappClients(config)[0];
+  const resolved = resolveDirectClient(config, dc);
+  assert.equal(resolved.name, 'Walk-in');                 // typed name kept as-is
+  assert.deepEqual(resolved.products.map(p => p.name), ['Loaf']); // ghost pruned
+});
+
+test('normalizeConfig keeps direct clients: typed name preserved, product ids pruned', () => {
+  const raw = {
+    clients: [{ id: 'c1', name: 'A', products: [{ id: 'p1', name: 'X', dough: 'focaccia', weight: 100, kind: 'number' }] }],
+    whatsappClients: [
+      { id: 'wc1', name: 'Custom name', products: ['p1', 'gone'] },
+      { notAnObject: true },
+    ],
+  };
+  const norm = normalizeConfig(raw);
+  assert.equal(norm.whatsappClients.length, 1);
+  assert.equal(norm.whatsappClients[0].name, 'Custom name');
+  assert.deepEqual(norm.whatsappClients[0].products, ['p1']); // 'gone' pruned
 });
 
 test('resolveListClients drops a deleted client and prunes deleted product ids', () => {

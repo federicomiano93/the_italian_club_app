@@ -21,14 +21,19 @@
 // display-only helper showing how many crates its order fills. It is bound to the
 // product's identity (not kind, not name), so renaming never breaks it.
 //
-// WhatsApp orders are INDEPENDENT saved lists (`whatsappLists`), decoupled from the
-// dough tabs. A list has a title and a set of client entries; each entry references
-// an address-book client (by id, for its name) and an explicitly chosen set of
-// product ids — drawn from ANY client in the address book, not only that client's
-// own products. This lets a client appear on WhatsApp with a product whose dough it
-// does not actually produce, WITHOUT polluting that dough's tab. Names are resolved
-// live from the address book (a rename propagates; a deleted client/product is
-// pruned). The dough math never reads this — it is purely for the order message.
+// WhatsApp orders are INDEPENDENT of the dough tabs. There are two kinds, both sent
+// from the WhatsApp button and edited in the WhatsApp settings screen:
+//   • `whatsappLists` — a list has a title and a set of client entries; each entry
+//     references an address-book client (by id, for its name) and an explicitly
+//     chosen set of product ids drawn from ANY client. This lets a client appear on
+//     WhatsApp with a product whose dough it does not actually produce, WITHOUT
+//     polluting that dough's tab.
+//   • `whatsappClients` — a standalone "direct client": a TYPED name (need not be in
+//     the address book) plus products picked from the address book. Sent on its own,
+//     without a list.
+// Product ids are resolved live from the address book (a rename propagates; a deleted
+// product is pruned). The dough math never reads this — it is purely for the order
+// message.
 
 export const TABS = ['focaccia', 'brioche', 'sourdough'];
 
@@ -77,6 +82,11 @@ export const DEFAULT_CONFIG = {
       { clientId: 'c-client-3', products: ['f-panini'] },
     ] },
   ],
+  // Direct WhatsApp clients: a standalone recipient defined here with a TYPED name
+  // (need not exist in the address book) and products picked from the address book.
+  // Sent on its own from the WhatsApp button, without belonging to a list. Empty by
+  // default. Product ids are resolved live; deleted products are pruned.
+  whatsappClients: [],
   // Whether the per-tab "Extra dough" box is shown in each dough tab. Toggled from
   // a separate Settings screen. Default: shown everywhere.
   extraDough: { focaccia: true, brioche: true, sourdough: true },
@@ -155,6 +165,11 @@ export function getWhatsappLists(config) {
   return (config && Array.isArray(config.whatsappLists)) ? config.whatsappLists : [];
 }
 
+// The saved direct WhatsApp clients (empty array for a missing/garbage config).
+export function getWhatsappClients(config) {
+  return (config && Array.isArray(config.whatsappClients)) ? config.whatsappClients : [];
+}
+
 // Find a product by id anywhere in the address book (across all clients). Returns
 // the product object, or null if no client owns that id. Used to resolve the
 // product ids a WhatsApp list references, regardless of which client owns them.
@@ -198,6 +213,15 @@ export function resolveListClients(config, list) {
     out.push({ client, products });
   }
   return out;
+}
+
+// Resolve a direct WhatsApp client to the order message's data: its typed name plus
+// the chosen product objects, skipping product ids whose product was deleted.
+export function resolveDirectClient(config, dc) {
+  if (!dc) return null;
+  const productIds = Array.isArray(dc.products) ? dc.products : [];
+  const products = productIds.map(id => getProductById(config, id)).filter(Boolean);
+  return { name: dc.name || 'Client', products };
 }
 
 // Whether the per-tab "Extra dough" box is shown for a given tab. Defaults to
@@ -381,6 +405,26 @@ function normalizeWhatsappLists(raw, clients) {
   return raw.map(l => normalizeWhatsappList(l, validClientIds, validProductIds)).filter(Boolean);
 }
 
+// A direct WhatsApp client: a typed name (kept as-is — it need not match the address
+// book) plus product ids pruned to ones that still exist. A fully empty entry (no
+// name AND no products) is dropped as junk; the editor blocks a blank name on save.
+function normalizeWhatsappClient(raw, validProductIds) {
+  if (!raw || typeof raw !== 'object') return null;
+  const products = Array.isArray(raw.products)
+    ? raw.products.map(String).filter(id => validProductIds.has(id))
+    : [];
+  const name = String(raw.name || '');
+  if (name.trim() === '' && products.length === 0) return null;
+  return { id: String(raw.id || 'wc'), name, products };
+}
+
+function normalizeWhatsappClients(raw, clients) {
+  if (!Array.isArray(raw)) return [];
+  const validProductIds = new Set();
+  for (const c of clients) for (const p of (c.products || [])) validProductIds.add(p.id);
+  return raw.map(c => normalizeWhatsappClient(c, validProductIds)).filter(Boolean);
+}
+
 // Convert the OLD `groups` shape (a group = a title + client ids, implicitly
 // carrying each client's whole product list) into the new independent-list shape.
 // Each client entry is seeded with all the products that client currently owns, so
@@ -490,6 +534,7 @@ function migrateLegacy(raw) {
   return {
     clients,
     whatsappLists: normalizeWhatsappLists(groupsToLists(groups, clients), clients),
+    whatsappClients: normalizeWhatsappClients(raw.whatsappClients, clients),
     extraDough: normalizeExtraDough(raw.extraDough),
     divisorIncluded: normalizeDivisorIncluded(raw.divisorIncluded, clients),
   };
@@ -513,6 +558,7 @@ export function normalizeConfig(raw) {
     return {
       clients,
       whatsappLists: normalizeWhatsappLists(rawLists, clients),
+      whatsappClients: normalizeWhatsappClients(raw.whatsappClients, clients),
       extraDough: normalizeExtraDough(raw.extraDough),
       divisorIncluded: normalizeDivisorIncluded(raw.divisorIncluded, clients),
     };

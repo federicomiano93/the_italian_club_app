@@ -752,26 +752,29 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 #wa-overlay.visible { display: flex; }
 #extra-content, #divisor-content, #wa-content { padding: 14px 16px; }
 
-/* WhatsApp lists editor: a client-entry card pairs a drill-in (client name +
-   chosen products) with a low-key remove icon, mirroring the product cards. */
-#wa-save-btn {
-  background: none;
-  border: 1.5px solid rgba(255,255,255,0.3);
-  border-radius: var(--radius-sm);
-  color: rgba(255,255,255,0.3);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  padding: 5px 14px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-#wa-save-btn.dirty { color: #fff; border-color: rgba(255,255,255,0.8); }
+/* WhatsApp lists editor: a list/client/entry row pairs a drill-in with a low-key
+   remove icon beside it (the top screen deletes lists & direct clients there). */
 .wa-entry-card { display: flex; align-items: stretch; gap: 8px; }
 .wa-entry-open { flex: 1; margin-bottom: 12px; }
 .wa-entry-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; text-align: left; }
 .wa-entry-name { font-size: 16px; font-weight: 700; color: var(--text); }
 .wa-entry-sub { font-size: 13px; font-weight: 400; color: var(--text2); white-space: normal; }
+/* An added-product row in a client entry: name on the left, low-key remove icon. */
+.wa-prod-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+}
 .extra-help { font-size: 13px; color: var(--text2); margin: 0 2px 16px; }
 
 /* Divisor settings: "Untick all" button at the foot of a tab's checklist. */

@@ -13,7 +13,7 @@
 // colliding with the calculator's own quantity fields living in the same document.
 
 import { getConfig } from './calculator-config-store.js';
-import { getWhatsappLists, resolveListClients } from './calculator-config.js';
+import { getWhatsappLists, getWhatsappClients, resolveListClients, resolveDirectClient } from './calculator-config.js';
 import { el } from './calculator-render.js';
 
 // The resolved client entries we are sending: [{ client, products }]. The order
@@ -30,16 +30,18 @@ function inputId(entryIndex, productId) {
 export function shareMarketOrder() {
   const config = getConfig();
   const lists = getWhatsappLists(config);
-  if (lists.length === 0) {
-    alert('No WhatsApp lists yet. Add one in Settings → WhatsApp.');
+  const directs = getWhatsappClients(config);
+  if (lists.length + directs.length === 0) {
+    alert('No WhatsApp lists or clients yet. Add one in Settings → WhatsApp.');
     return;
   }
-  // Shortcut: a single list opens straight into its order modal.
-  if (lists.length === 1) {
-    openList(config, lists[0]);
+  // Shortcut: a single saved item opens straight into its order modal.
+  if (lists.length + directs.length === 1) {
+    if (lists.length === 1) openList(config, lists[0]);
+    else openDirect(config, directs[0]);
     return;
   }
-  openSendPicker(config, lists);
+  openSendPicker(config, lists, directs);
 }
 
 // Resolve a list against the address book and open its order modal, or warn if
@@ -55,16 +57,34 @@ function openList(config, list) {
   openOrderModal();
 }
 
-// ── "Send order" picker: one item per saved list ──────────────────────────────
-function openSendPicker(config, lists) {
+// Open the order modal for a single direct client: one section (its typed name) with
+// its chosen products. The heading is the client name, so the section is not labelled.
+function openDirect(config, dc) {
+  const resolved = resolveDirectClient(config, dc);
+  selectedEntries = [{ client: { name: resolved.name }, products: resolved.products }];
+  selectedTitle = resolved.name || 'Order';
+  openOrderModal();
+}
+
+// ── "Send order" picker: saved lists first, then direct clients ───────────────
+function openSendPicker(config, lists, directs) {
   const box = document.querySelector('#list-select-box .loaf-modal-title');
   if (box) box.textContent = 'Send order';
   const body = document.getElementById('list-select-body');
   body.textContent = '';
 
-  lists.forEach(list => {
-    body.appendChild(pickerItem(list.title || 'Untitled list', () => openList(config, list)));
-  });
+  if (lists.length) {
+    body.appendChild(el('div', { class: 'send-picker-label' }, 'Lists'));
+    lists.forEach(list => {
+      body.appendChild(pickerItem(list.title || 'Untitled list', () => openList(config, list)));
+    });
+  }
+  if (directs.length) {
+    body.appendChild(el('div', { class: 'send-picker-label' }, 'Clients'));
+    directs.forEach(dc => {
+      body.appendChild(pickerItem(dc.name || 'Unnamed client', () => openDirect(config, dc)));
+    });
+  }
 
   document.getElementById('list-select-modal').classList.add('visible');
 }
