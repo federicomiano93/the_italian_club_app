@@ -111,8 +111,38 @@ test('normalizeConfig falls back to defaults for a missing tab', () => {
   assert.ok(getTabProducts(norm, 'sourdough').length > 0);
 });
 
-test('normalizeConfig preserves the market section untouched', () => {
-  const raw = { market: { title: 'Order', clients: [{ id: 'm1', name: 'A', products: [] }] } };
+test('normalizeConfig migrates the legacy single-order market into a list', () => {
+  // Old Firestore shape: { title, clients }. Must become { lists: [ {title, clients} ] }
+  // with the data preserved, so existing orders are not lost.
+  const raw = { market: { title: 'Order', clients: [{ id: 'm1', name: 'A', products: [{ id: 'om1', name: 'X' }] }] } };
   const norm = normalizeConfig(raw);
-  assert.equal(norm.market.title, 'Order');
+  assert.ok(Array.isArray(norm.market.lists));
+  assert.equal(norm.market.lists.length, 1);
+  assert.equal(norm.market.lists[0].title, 'Order');
+  assert.equal(norm.market.lists[0].clients[0].name, 'A');
+  assert.equal(norm.market.lists[0].clients[0].products[0].name, 'X');
+});
+
+test('normalizeConfig keeps the new multi-list market shape', () => {
+  const raw = { market: { lists: [
+    { id: 'l1', title: 'Market order', clients: [{ id: 'm1', name: 'A', products: [{ id: 'om1', name: 'X' }] }] },
+    { id: 'l2', title: 'Italia Restaurant', clients: [] },
+  ] } };
+  const norm = normalizeConfig(raw);
+  assert.equal(norm.market.lists.length, 2);
+  assert.equal(norm.market.lists[1].title, 'Italia Restaurant');
+});
+
+test('normalizeConfig market products carry no weight (names only)', () => {
+  const raw = { market: { lists: [
+    { id: 'l1', title: 'O', clients: [{ id: 'm1', name: 'A', products: [{ id: 'om1', name: 'X', weight: 999 }] }] },
+  ] } };
+  const norm = normalizeConfig(raw);
+  const product = norm.market.lists[0].clients[0].products[0];
+  assert.deepEqual(product, { id: 'om1', name: 'X' });
+});
+
+test('normalizeConfig falls back to a default market when missing/garbage', () => {
+  assert.ok(normalizeConfig({}).market.lists.length > 0);
+  assert.ok(normalizeConfig({ market: 'oops' }).market.lists.length > 0);
 });

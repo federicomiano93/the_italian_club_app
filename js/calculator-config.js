@@ -67,25 +67,27 @@ export const DEFAULT_CONFIG = {
       ] },
     ],
   },
-  // The WhatsApp "market order" modal. Not part of the dough math: products are
-  // just { id (om-*), name } grouped under clients, plus a modal title. Client
-  // names are configurable too, so no real client name is hard-coded here.
+  // The WhatsApp order section. Not part of the dough math. It holds one or more
+  // ordering "lists" (e.g. the market, and later other restaurants); each list has
+  // a title (used as the WhatsApp message heading) and clients, whose products are
+  // just { id (om-*), name }. Names are configurable, so none are hard-coded here.
   market: {
-    title: 'Market order',
-    clients: [
-      { id: 'm-1', name: 'Client 1', products: [
-        { id: 'om-ciabatta',   name: 'Ciabatta' },
-        { id: 'om-burgerbuns', name: 'Seeded burger buns' },
-        { id: 'om-subrolls',   name: 'Brioche rolls' },
-      ] },
-      { id: 'm-2', name: 'Client 2', products: [
-        { id: 'om-trayfocaccia', name: 'Tray focaccia' },
-        { id: 'om-bun',          name: 'Buns' },
-        { id: 'om-rolls',        name: 'Rolls' },
-        { id: 'om-loaves',       name: 'Loaf of bread' },
-      ] },
-      { id: 'm-3', name: 'Client 3', products: [
-        { id: 'om-panini', name: 'Panini' },
+    lists: [
+      { id: 'list-market', title: 'Market order', clients: [
+        { id: 'm-1', name: 'Client 1', products: [
+          { id: 'om-ciabatta',   name: 'Ciabatta' },
+          { id: 'om-burgerbuns', name: 'Seeded burger buns' },
+          { id: 'om-subrolls',   name: 'Brioche rolls' },
+        ] },
+        { id: 'm-2', name: 'Client 2', products: [
+          { id: 'om-trayfocaccia', name: 'Tray focaccia' },
+          { id: 'om-bun',          name: 'Buns' },
+          { id: 'om-rolls',        name: 'Rolls' },
+          { id: 'om-loaves',       name: 'Loaf of bread' },
+        ] },
+        { id: 'm-3', name: 'Client 3', products: [
+          { id: 'om-panini', name: 'Panini' },
+        ] },
       ] },
     ],
   },
@@ -162,11 +164,45 @@ function normalizeClient(client) {
   };
 }
 
+// A WhatsApp client: like a dough client but its products carry no weight/kind
+// (they are just names in the order message), so it is normalized separately to
+// avoid injecting a weight that would be meaningless here.
+function normalizeMarketClient(client) {
+  if (!client || typeof client !== 'object') return null;
+  const products = Array.isArray(client.products)
+    ? client.products.filter(p => p && p.id).map(p => ({ id: String(p.id), name: String(p.name || 'Product') }))
+    : [];
+  return { id: String(client.id || ''), name: String(client.name || 'Client'), products };
+}
+
+function normalizeMarketList(list) {
+  if (!list || typeof list !== 'object') return null;
+  const clients = Array.isArray(list.clients)
+    ? list.clients.map(normalizeMarketClient).filter(Boolean)
+    : [];
+  return { id: String(list.id || 'list'), title: String(list.title || 'Order'), clients };
+}
+
+// Normalize the WhatsApp section, migrating the legacy single-order shape
+// ({ title, clients }) into the new multi-list shape ({ lists: [...] }) so old
+// Firestore data keeps working. Missing/garbage falls back to the default.
+function normalizeMarket(raw) {
+  if (raw && Array.isArray(raw.lists)) {
+    const lists = raw.lists.map(normalizeMarketList).filter(Boolean);
+    return { lists: lists.length ? lists : cloneConfig(DEFAULT_CONFIG).market.lists };
+  }
+  if (raw && typeof raw === 'object' && Array.isArray(raw.clients)) {
+    // Legacy shape → wrap the existing order as the first list (data preserved).
+    return { lists: [normalizeMarketList({ id: 'list-market', title: raw.title || 'Market order', clients: raw.clients })] };
+  }
+  return cloneConfig(DEFAULT_CONFIG).market;
+}
+
 // Produce a safe, well-formed config from arbitrary (e.g. Firestore) input: the
 // three dough tabs always exist with a clients array, every product has a
-// clamped numeric weight and a valid kind, and any extra section (the WhatsApp
-// `market` order) is preserved untouched. A missing/malformed tab falls back to
-// its default so the calculator can always render something usable.
+// clamped numeric weight and a valid kind, and the WhatsApp `market` section is
+// migrated/normalized into its multi-list shape. A missing/malformed tab falls
+// back to its default so the calculator can always render something usable.
 export function normalizeConfig(raw) {
   const base = cloneConfig(DEFAULT_CONFIG);
   if (!raw || typeof raw !== 'object') return base;
@@ -177,6 +213,6 @@ export function normalizeConfig(raw) {
       ? { clients: rawTab.clients.map(normalizeClient).filter(Boolean) }
       : { clients: base[tab].clients };
   }
-  out.market = (raw.market && typeof raw.market === 'object') ? raw.market : base.market;
+  out.market = normalizeMarket(raw.market);
   return out;
 }

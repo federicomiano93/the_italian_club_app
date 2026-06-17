@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v106';
+const CACHE_NAME = 'theitalianclub-v117';
 const ASSETS = [
   './',
   './index.html',
@@ -18,6 +18,7 @@ const ASSETS = [
   './js/calc.js',
   './js/log.js',
   './js/whatsapp.js',
+  './js/calculator-confirm.js',
   './js/calculator-config.js',
   './js/calculator-config-store.js',
   './js/calculator-render.js',

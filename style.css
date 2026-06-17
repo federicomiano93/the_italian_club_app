@@ -436,9 +436,11 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   background: var(--bg);
 }
 #settings-overlay.visible, #cp-overlay.visible { display: flex; }
+/* Clients & products opens on top of the Settings hub, which stays mounted
+   underneath (z-index 510) so "back" simply reveals it again. */
+#cp-overlay { z-index: 520; }
 
 #cp-save-btn {
-  margin-left: auto;
   background: none;
   border: 1.5px solid rgba(255,255,255,0.3);
   border-radius: var(--radius-sm);
@@ -467,6 +469,28 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .settings-menu-btn:active { background: var(--surface2); }
 .settings-menu-title { font-size: 16px; font-weight: 700; color: var(--text); font-family: 'DM Sans', sans-serif; }
 .settings-menu-sub { font-size: 13px; color: var(--text2); }
+
+/* Tappable "drill-in" row: the recipe picker and the client list both use it to
+   let the user pick one item to edit, instead of showing everything at once. */
+.drill-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 18px;
+  margin-bottom: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+.drill-item:active { background: var(--surface2); }
+.drill-chevron { color: var(--accent); opacity: 0.6; font-size: 20px; flex-shrink: 0; }
 
 .cp-tabs {
   display: flex;
@@ -583,12 +607,27 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   width: 100%;
   margin-top: 4px;
 }
+.cp-del-client-btn {
+  margin-top: 22px;
+  width: 100%;
+  background: none;
+  border: 1px solid #B23A2E;
+  border-radius: var(--radius-sm);
+  color: #B23A2E;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px;
+  cursor: pointer;
+}
+.cp-del-client-btn:active { background: rgba(178,58,46,0.08); }
 
 /* Recipe overlay */
 #recipe-overlay {
   position: fixed;
   inset: 0;
-  z-index: 500;
+  /* Above #settings-overlay (510): Recipes opens on top of the Settings hub,
+     which stays mounted underneath so "back" simply reveals it again. */
+  z-index: 520;
   display: none;
   flex-direction: column;
   background: var(--bg);
@@ -624,8 +663,28 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   color: #fff;
   letter-spacing: -0.3px;
 }
-#recipe-save-btn {
+/* Home shortcut in the overlay headers (Settings, Clients & products, Recipes):
+   same round style as the back button, pushed to the right edge. Lets the user
+   jump straight to the home screen instead of stepping back. When a Save button
+   follows, it sits just to the right of Home (header gap handles the spacing). */
+.overlay-home-btn {
   margin-left: auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  border: 1.5px solid rgba(255,255,255,0.35);
+  color: #fff;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  cursor: pointer;
+  padding: 0;
+}
+.overlay-home-btn:active { background: rgba(255,255,255,0.28); }
+#recipe-save-btn {
   background: none;
   border: 1.5px solid rgba(255,255,255,0.3);
   border-radius: var(--radius-sm);
@@ -759,8 +818,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .confirm-btn-primary:active { background: #1e3810; box-shadow: none; }
 .confirm-btn-primary:disabled { opacity: 0.6; cursor: default; }
 
-/* Order modal */
-#loaf-modal {
+/* Order modal + list picker (same bottom-sheet style) */
+#loaf-modal, #list-select-modal {
   display: none;
   position: fixed;
   inset: 0;
@@ -770,8 +829,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   justify-content: center;
   padding: 0;
 }
-#loaf-modal.visible { display: flex; }
-#loaf-modal-box {
+#loaf-modal.visible, #list-select-modal.visible { display: flex; }
+#loaf-modal-box, #list-select-box {
   background: var(--surface);
   border-radius: var(--radius) var(--radius) 0 0;
   padding: 24px 20px 32px;
@@ -819,7 +878,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .order-qty-input::-webkit-outer-spin-button { -webkit-appearance: none; }
 .order-qty-input:focus { outline: none; border-color: var(--accent); background: #fff; }
 .loaf-modal-actions { display: flex; gap: 10px; margin-top: 20px; }
-.loaf-modal-cancel {
+.loaf-modal-cancel, .list-select-cancel {
   flex: 1;
   padding: 13px;
   background: var(--surface2);

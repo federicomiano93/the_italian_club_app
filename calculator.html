@@ -71,6 +71,9 @@
   <div class="recipe-overlay-header">
     <button class="recipe-back-btn">&#8592;</button>
     <span class="recipe-overlay-title">Recipes</span>
+    <button class="overlay-home-btn" id="recipe-home-btn" type="button" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </button>
     <button id="recipe-save-btn" disabled>Save</button>
   </div>
   <div class="recipe-scroll">
@@ -82,6 +85,9 @@
   <div class="recipe-overlay-header">
     <button class="settings-back-btn">&#8592;</button>
     <span class="recipe-overlay-title">Settings</span>
+    <a class="overlay-home-btn" href="index.html" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </a>
   </div>
   <div class="recipe-scroll">
     <div class="settings-menu">
@@ -101,13 +107,16 @@
   <div class="recipe-overlay-header">
     <button class="cp-back-btn">&#8592;</button>
     <span class="recipe-overlay-title">Clients &amp; products</span>
+    <button class="overlay-home-btn" id="cp-home-btn" type="button" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </button>
     <button id="cp-save-btn" disabled>Save</button>
   </div>
   <div class="cp-tabs">
     <button class="cp-tab active" data-tab="focaccia">Focaccia</button>
     <button class="cp-tab" data-tab="brioche">Brioche</button>
     <button class="cp-tab" data-tab="sourdough">Sourdough</button>
-    <button class="cp-tab" data-tab="market">Market</button>
+    <button class="cp-tab" data-tab="market">WhatsApp</button>
   </div>
   <div class="recipe-scroll">
     <div id="cp-content"></div>
@@ -297,6 +306,16 @@
     <div class="loaf-modal-actions">
       <button class="loaf-modal-cancel">Cancel</button>
       <button class="loaf-modal-send">📤 Send</button>
+    </div>
+  </div>
+</div>
+
+<div id="list-select-modal">
+  <div id="list-select-box">
+    <div class="loaf-modal-title">Choose a list</div>
+    <div id="list-select-body"></div>
+    <div class="loaf-modal-actions">
+      <button class="list-select-cancel">Cancel</button>
     </div>
   </div>
 </div>

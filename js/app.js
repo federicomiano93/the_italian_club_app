@@ -1,9 +1,9 @@
 import './firebase.js';
 import { calcFocaccia, calcBrioche, calcSourdough, copyRecipe, shareRecipeWA, unlockInputs } from './calc.js';
 import { confirmAndSave, renderLog, restoreConfirmed, clearConfirmed } from './log.js';
-import { saveRecipes, closeRecipes } from './recipes.js';
+import { saveRecipes, closeRecipes, goHomeFromRecipes } from './recipes.js';
 import { openSettings } from './calculator-settings.js';
-import { shareMarketOrder, closeLoafModal, sendWithLoaves } from './whatsapp.js';
+import { shareMarketOrder, closeLoafModal, sendWithLoaves, closeListPicker } from './whatsapp.js';
 import { getConfig, initConfig } from './calculator-config-store.js';
 import { renderTab } from './calculator-render.js';
 import { getTabProducts } from './calculator-config.js';
@@ -225,9 +225,11 @@ document.querySelectorAll('.reset-btn').forEach((btn, i) => {
 document.querySelector('.recipe-footer-btn').addEventListener('click', openSettings);
 document.getElementById('recipe-save-btn').addEventListener('click', saveRecipes);
 document.querySelector('.recipe-back-btn').addEventListener('click', closeRecipes);
+document.getElementById('recipe-home-btn').addEventListener('click', goHomeFromRecipes);
 
 document.querySelector('.loaf-modal-cancel').addEventListener('click', closeLoafModal);
 document.querySelector('.loaf-modal-send').addEventListener('click', sendWithLoaves);
+document.querySelector('.list-select-cancel').addEventListener('click', closeListPicker);
 
 // ── Cross-module events ───────────────────────────────────────────────────────
 document.addEventListener('switch-tab', e => switchTab(e.detail));
