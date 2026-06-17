@@ -111,10 +111,15 @@ export function saveDailyEntry(entry) {
   ).catch(err => { console.error('saveDailyEntry failed:', err); });
 }
 
-// ── Calculator configuration (clients / products / weights) ──────────────────
+// ── Calculator configuration (single client address book) ────────────────────
 // One shared document: config/calculator. Shared across the team like the log,
-// under Anonymous Auth. Holds the configurable clients, products and per-client
-// weights for the three dough tabs (+ the market order). See firestore.rules.
+// under Anonymous Auth. Shape:
+//   { clients: [ { id, name, products: [ { id, name, dough, weight, kind } ] } ],
+//     groups:  [ { id, title, clientIds: [...] } ] }
+// Each product knows its dough (focaccia|brioche|sourdough); the dough tabs are
+// filtered views of `clients`. `groups` are saved WhatsApp order lists referencing
+// clients by id. Legacy per-tab documents are migrated on read by normalizeConfig
+// in js/calculator-config.js. See firestore.rules.
 
 // Subscribe to the config document in real time. onChange receives the raw data
 // object, or null when the document does not exist yet (fresh project).

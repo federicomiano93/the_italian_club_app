@@ -6,7 +6,7 @@ import { openSettings } from './calculator-settings.js';
 import { shareMarketOrder, closeLoafModal, sendWithLoaves, closeListPicker } from './whatsapp.js';
 import { getConfig, initConfig } from './calculator-config-store.js';
 import { renderTab } from './calculator-render.js';
-import { getTabProducts } from './calculator-config.js';
+import { getTabProducts, isExtraDoughEnabled } from './calculator-config.js';
 
 // ── Service Worker ────────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
@@ -107,6 +107,9 @@ function renderAll() {
     renderTab(getConfig(), tab, document.getElementById(tab[0] + '-orders'));
     wireProductInputs(tab);
     restoreQty(tab);
+    restoreExtra(tab);
+    const extraRow = document.querySelector('#tab-' + tab + ' .extra-dough-row');
+    if (extraRow) extraRow.style.display = isExtraDoughEnabled(getConfig(), tab) ? '' : 'none';
   });
   calcFocaccia();
   calcBrioche();
@@ -131,8 +134,50 @@ function resetTab(tab) {
   });
   document.querySelectorAll('#tab-'+tab+' select.qty-select').forEach(sel => { sel.value = '0'; });
   clearQty(tab);
+  const extraUnit = document.getElementById(tab[0] + '-extra-unit');
+  if (extraUnit) extraUnit.value = 'kg'; // the number field is already reset to 0 above
+  clearExtra(tab);
   CALC[tab]();
 }
+
+// ── Extra-dough box (one free amount per tab, in g or kg) ─────────────────────
+// Static inputs (they live in the HTML, not rebuilt by renderTab). Persisted in
+// localStorage, like the product quantities, so they survive a reload.
+function saveExtra(tab) {
+  const v = document.getElementById(tab[0] + '-extra');
+  const u = document.getElementById(tab[0] + '-extra-unit');
+  if (v) localStorage.setItem('extra-' + tab, v.value);
+  if (u) localStorage.setItem('extra-unit-' + tab, u.value);
+}
+function restoreExtra(tab) {
+  const v = document.getElementById(tab[0] + '-extra');
+  const u = document.getElementById(tab[0] + '-extra-unit');
+  const sv = localStorage.getItem('extra-' + tab);
+  const su = localStorage.getItem('extra-unit-' + tab);
+  if (v && sv !== null) v.value = sv;
+  if (u && su !== null) u.value = su;
+}
+function clearExtra(tab) {
+  localStorage.removeItem('extra-' + tab);
+  localStorage.removeItem('extra-unit-' + tab);
+}
+
+DOUGH_TABS.forEach(tab => {
+  const v = document.getElementById(tab[0] + '-extra');
+  const u = document.getElementById(tab[0] + '-extra-unit');
+  if (v) {
+    v.addEventListener('input', () => { CALC[tab](); saveExtra(tab); });
+    v.addEventListener('focus', function() {
+      if (this.value === '0' || this.value === '') this.value = '';
+      else this.select();
+    });
+    v.addEventListener('blur', function() {
+      if (this.value === '' || isNaN(parseFloat(this.value))) this.value = '0';
+      CALC[tab](); saveExtra(tab);
+    });
+  }
+  if (u) u.addEventListener('change', () => { CALC[tab](); saveExtra(tab); });
+});
 
 // ── Static parameter / divisor inputs (not products) ──────────────────────────
 const STATIC_NUMBER_IDS = ['f-yeast-pct', 'b-yeast-pct', 's-starter-pct', 'f-panini-div', 'b-dough-div', 's-dough-div'];

@@ -99,6 +99,28 @@
         <span class="settings-menu-title">Recipes</span>
         <span class="settings-menu-sub">Edit the dough ingredient amounts</span>
       </button>
+      <button id="open-extra-btn" class="settings-menu-btn">
+        <span class="settings-menu-title">Extra dough</span>
+        <span class="settings-menu-sub">Show or hide the extra-dough box in each tab</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="extra-overlay">
+  <div class="recipe-overlay-header">
+    <button class="extra-back-btn">&#8592;</button>
+    <span class="recipe-overlay-title">Extra dough</span>
+    <button class="overlay-home-btn" id="extra-home-btn" type="button" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </button>
+  </div>
+  <div class="recipe-scroll">
+    <div id="extra-content">
+      <p class="extra-help">Show the "Extra dough" box in each tab. Changes apply right away.</p>
+      <label class="extra-toggle-row"><span>Focaccia</span><input type="checkbox" id="extra-toggle-focaccia"></label>
+      <label class="extra-toggle-row"><span>Brioche</span><input type="checkbox" id="extra-toggle-brioche"></label>
+      <label class="extra-toggle-row"><span>Sourdough</span><input type="checkbox" id="extra-toggle-sourdough"></label>
     </div>
   </div>
 </div>
@@ -113,10 +135,8 @@
     <button id="cp-save-btn" disabled>Save</button>
   </div>
   <div class="cp-tabs">
-    <button class="cp-tab active" data-tab="focaccia">Focaccia</button>
-    <button class="cp-tab" data-tab="brioche">Brioche</button>
-    <button class="cp-tab" data-tab="sourdough">Sourdough</button>
-    <button class="cp-tab" data-tab="market">WhatsApp</button>
+    <button class="cp-tab active" data-tab="clients">Clients</button>
+    <button class="cp-tab" data-tab="whatsapp">WhatsApp</button>
   </div>
   <div class="recipe-scroll">
     <div id="cp-content"></div>
@@ -151,6 +171,17 @@
     <div class="section-label">Orders</div>
 
     <div class="orders-cards" id="f-orders"></div>
+
+    <div class="extra-dough-row">
+      <span class="extra-dough-label">Extra dough</span>
+      <div class="qty-group">
+        <input type="number" id="f-extra" value="0" min="0" step="0.1" inputmode="decimal">
+        <select id="f-extra-unit" class="extra-unit-select" aria-label="Extra dough unit">
+          <option value="g">g</option>
+          <option value="kg" selected>kg</option>
+        </select>
+      </div>
+    </div>
 
     <button class="confirm-btn-primary" id="f-confirm-btn">✓ Confirm</button>
 
@@ -204,6 +235,17 @@
 
     <div class="orders-cards" id="b-orders"></div>
 
+    <div class="extra-dough-row">
+      <span class="extra-dough-label">Extra dough</span>
+      <div class="qty-group">
+        <input type="number" id="b-extra" value="0" min="0" step="0.1" inputmode="decimal">
+        <select id="b-extra-unit" class="extra-unit-select" aria-label="Extra dough unit">
+          <option value="g">g</option>
+          <option value="kg" selected>kg</option>
+        </select>
+      </div>
+    </div>
+
     <button class="confirm-btn-primary" id="b-confirm-btn">✓ Confirm</button>
 
     <div class="result-block" id="brioche-result">
@@ -250,6 +292,17 @@
     <div class="section-label">Production</div>
 
     <div class="orders-cards" id="s-orders"></div>
+
+    <div class="extra-dough-row">
+      <span class="extra-dough-label">Extra dough</span>
+      <div class="qty-group">
+        <input type="number" id="s-extra" value="0" min="0" step="0.1" inputmode="decimal">
+        <select id="s-extra-unit" class="extra-unit-select" aria-label="Extra dough unit">
+          <option value="g">g</option>
+          <option value="kg" selected>kg</option>
+        </select>
+      </div>
+    </div>
 
     <button class="confirm-btn-primary" id="s-confirm-btn">✓ Confirm</button>
 

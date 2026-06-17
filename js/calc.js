@@ -1,5 +1,5 @@
 import { RECIPES, recipeTotal } from './recipes.js';
-import { computeTarget, getTabProducts } from './calculator-config.js';
+import { computeTarget, getTabProducts, doughExtraGrams, isExtraDoughEnabled } from './calculator-config.js';
 import { getConfig } from './calculator-config-store.js';
 
 export function showResult(id) { document.getElementById(id).classList.add('visible'); }
@@ -10,6 +10,16 @@ export function hideResult(id) { document.getElementById(id).classList.remove('v
 function qtyOf(id) {
   const el = document.getElementById(id);
   return el ? (+el.value || 0) : 0;
+}
+
+// Extra dough: a free amount entered per tab (in g or kg), added on top of the
+// products' total. Independent of any product. Exported so the log can report it.
+export function extraDoughGramsFor(tab) {
+  if (!isExtraDoughEnabled(getConfig(), tab)) return 0; // box hidden for this tab
+  const valEl = document.getElementById(tab[0] + '-extra');
+  if (!valEl) return 0;
+  const unitEl = document.getElementById(tab[0] + '-extra-unit');
+  return doughExtraGrams(valEl.value, unitEl ? unitEl.value : 'g');
 }
 
 // True if a product with this id is configured in the tab.
@@ -32,6 +42,7 @@ const PARAM_ID = { focaccia: 'f-yeast-pct', brioche: 'b-yeast-pct', sourdough: '
 function lockIds(tab) {
   const ids = getTabProducts(getConfig(), tab).map(p => p.id);
   if (PARAM_ID[tab]) ids.push(PARAM_ID[tab]);
+  ids.push(tab[0] + '-extra', tab[0] + '-extra-unit'); // the extra-dough box is locked too
   return ids;
 }
 function setDisabled(tab, disabled) {
@@ -83,7 +94,7 @@ function updateCiabattaBox() {
 
 export function calcFocaccia() {
   const yeastPct = +document.getElementById('f-yeast-pct').value || 0.65;
-  const target = computeTarget(getConfig(), 'focaccia', qtyOf);
+  const target = computeTarget(getConfig(), 'focaccia', qtyOf) + extraDoughGramsFor('focaccia');
   if (target === 0) {
     hideResult('focaccia-result');
     const fbtn0 = document.getElementById('f-confirm-btn');
@@ -139,7 +150,7 @@ export function calcFocaccia() {
 
 export function calcBrioche() {
   const yeastPct = +document.getElementById('b-yeast-pct').value || 4;
-  const target = computeTarget(getConfig(), 'brioche', qtyOf);
+  const target = computeTarget(getConfig(), 'brioche', qtyOf) + extraDoughGramsFor('brioche');
   if (target === 0) {
     hideResult('brioche-result');
     const bbtn0 = document.getElementById('b-confirm-btn');
@@ -184,7 +195,7 @@ export function calcBrioche() {
 
 export function calcSourdough() {
   const starterPct = +document.getElementById('s-starter-pct').value || 18;
-  const target = computeTarget(getConfig(), 'sourdough', qtyOf);
+  const target = computeTarget(getConfig(), 'sourdough', qtyOf) + extraDoughGramsFor('sourdough');
 
   if (target === 0) {
     hideResult('sourdough-result');

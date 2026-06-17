@@ -1,4 +1,4 @@
-import { showResult, hideResult, lockInputs, unlockInputs } from './calc.js';
+import { showResult, hideResult, lockInputs, unlockInputs, extraDoughGramsFor } from './calc.js';
 import { saveLogToFirestore, deleteLogFromFirestore, saveDailyEntry } from './firebase.js';
 import { getConfig } from './calculator-config-store.js';
 import { getTabProducts } from './calculator-config.js';
@@ -53,6 +53,7 @@ function buildDailyEntry(tab, record) {
     time: record.time,
     dough: record.dough,
     total_g: parseInt(document.getElementById(tab[0] + '-total').textContent, 10) || 0,
+    extra_g: extraDoughGramsFor(tab),
   };
   for (const product of getTabProducts(getConfig(), tab)) {
     base['qty_' + product.id] = qtyOf(product.id);
@@ -60,20 +61,31 @@ function buildDailyEntry(tab, record) {
   return base;
 }
 
-// Builds the saved log text grouped by client, from the configured products.
-// Each client with at least one ordered product gets a "Client name:" header
-// followed by indented "  Product: N pz" (or " kg") lines.
+// Builds the saved log text grouped by client, from this dough's configured
+// products. Each client with at least one ordered product gets a "Client name:"
+// header followed by indented "  Product: N pz" (or " kg") lines. The tab's
+// products come pre-filtered to this dough and tagged with their owning client,
+// contiguous per client, so we just flush a block whenever the client changes.
 function buildTabLog(tab) {
   const { date, time } = logTimestamp();
-  const tabConfig = getConfig()[tab];
   const lines = [];
-  for (const client of ((tabConfig && tabConfig.clients) || [])) {
-    const items = [];
-    for (const product of (client.products || [])) {
-      const qty = qtyOf(product.id);
-      if (qty > 0) items.push('  ' + product.name + ': ' + qty + (product.kind === 'kg' ? ' kg' : ' pz'));
-    }
-    if (items.length) { lines.push(client.name + ':'); lines.push(...items); }
+  let currentId = null;
+  let header = null;
+  let items = [];
+  const flush = () => {
+    if (header && items.length) { lines.push(header + ':'); lines.push(...items); }
+    items = [];
+  };
+  for (const product of getTabProducts(getConfig(), tab)) {
+    if (product.clientId !== currentId) { flush(); currentId = product.clientId; header = product.clientName; }
+    const qty = qtyOf(product.id);
+    if (qty > 0) items.push('  ' + product.name + ': ' + qty + (product.kind === 'kg' ? ' kg' : ' pz'));
+  }
+  flush();
+  const extraVal = document.getElementById(tab[0] + '-extra');
+  if (extraVal && extraDoughGramsFor(tab) > 0) {
+    const extraUnit = document.getElementById(tab[0] + '-extra-unit');
+    lines.push('Extra dough: ' + extraVal.value + ' ' + (extraUnit ? extraUnit.value : 'g'));
   }
   return { date, time, text: lines.join('\n') };
 }

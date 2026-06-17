@@ -1,70 +1,99 @@
-// whatsapp.js — the order modal and its WhatsApp share.
+// whatsapp.js — the order picker, order modal and its WhatsApp share.
 //
-// The WhatsApp section holds one or more order "lists" (config.market.lists),
-// each with a title and clients. Tapping the header WhatsApp button picks a list
-// (directly when there is only one), then shows that list's order modal; entered
-// quantities become a WhatsApp message grouped by client. Names/titles all come
-// from the configuration, nothing is hard-coded.
+// WhatsApp orders reuse the single address book — there are no separate WhatsApp
+// clients any more. Tapping the header WhatsApp button opens a "Send order"
+// picker listing every saved group (e.g. the market and its stalls) and every
+// individual client. Picking one shows the order modal: a section per client,
+// one row per product, with the quantities you type becoming a WhatsApp message
+// grouped by client. All names come from the address book.
+//
+// The modal inputs are namespaced `wa-<productId>` so they never collide with the
+// calculator's own quantity fields (same product id) living in the same document.
 
 import { getConfig } from './calculator-config-store.js';
+import { getClients, getGroups, resolveGroupClients } from './calculator-config.js';
 import { el } from './calculator-render.js';
 
-let selectedListIndex = 0;
+let selectedClients = []; // the client objects whose order we are sending
+let selectedTitle = '';   // message heading: a group title or a single client name
 
-function lists() {
-  const m = getConfig().market;
-  return (m && Array.isArray(m.lists)) ? m.lists : [];
-}
-
-// The order list currently chosen for sending.
-function market() {
-  return lists()[selectedListIndex] || { title: 'Market order', clients: [] };
-}
-
-// Entry point from the header WhatsApp button: pick a list first when there is
-// more than one, otherwise open that single list's order directly.
+// Entry point from the header WhatsApp button.
 export function shareMarketOrder() {
-  const all = lists();
-  if (all.length === 0) { alert('No order lists yet. Add one in Settings → WhatsApp.'); return; }
-  if (all.length === 1) { selectedListIndex = 0; openOrderModal(); return; }
-  openListPicker();
+  const config = getConfig();
+  const clients = getClients(config);
+  const groups = getGroups(config);
+  if (clients.length === 0) {
+    alert('No clients yet. Add one in Settings → Clients.');
+    return;
+  }
+  // Shortcut: a single client and no groups → open it directly.
+  if (clients.length === 1 && groups.length === 0) {
+    sendTo([clients[0]], clients[0].name);
+    return;
+  }
+  openSendPicker(config, clients, groups);
 }
 
-// ── List picker (only when there is more than one list) ───────────────────────
-function openListPicker() {
+// Set the current selection and open the order modal (or warn on an empty group).
+function sendTo(clientList, title) {
+  if (!clientList.length) { alert('This group has no clients yet. Add some in Settings → WhatsApp.'); return; }
+  selectedClients = clientList;
+  selectedTitle = title || 'Order';
+  openOrderModal();
+}
+
+// ── "Send order" picker: groups first, then individual clients ────────────────
+function openSendPicker(config, clients, groups) {
+  const box = document.querySelector('#list-select-box .loaf-modal-title');
+  if (box) box.textContent = 'Send order';
   const body = document.getElementById('list-select-body');
   body.textContent = '';
-  lists().forEach((list, li) => {
-    const btn = el('button', { class: 'drill-item', type: 'button' }, [
-      el('span', {}, list.title || 'Untitled list'),
-      el('span', { class: 'drill-chevron' }, '→'),
-    ]);
-    btn.addEventListener('click', () => { selectedListIndex = li; closeListPicker(); openOrderModal(); });
-    body.appendChild(btn);
+
+  if (groups.length) {
+    body.appendChild(el('div', { class: 'send-picker-label' }, 'Groups'));
+    groups.forEach(group => {
+      body.appendChild(pickerItem(group.title || 'Untitled group',
+        () => sendTo(resolveGroupClients(config, group), group.title)));
+    });
+    body.appendChild(el('div', { class: 'send-picker-label' }, 'Clients'));
+  }
+
+  clients.forEach(client => {
+    body.appendChild(pickerItem(client.name || 'Unnamed client',
+      () => sendTo([client], client.name)));
   });
+
   document.getElementById('list-select-modal').classList.add('visible');
+}
+
+function pickerItem(label, onPick) {
+  const btn = el('button', { class: 'drill-item', type: 'button' }, [
+    el('span', {}, label),
+    el('span', { class: 'drill-chevron' }, '→'),
+  ]);
+  btn.addEventListener('click', () => { closeListPicker(); onPick(); });
+  return btn;
 }
 
 export function closeListPicker() {
   document.getElementById('list-select-modal').classList.remove('visible');
 }
 
-// ── Order modal for the chosen list ───────────────────────────────────────────
+// ── Order modal for the chosen client(s) ──────────────────────────────────────
 function openOrderModal() {
-  renderMarketModal();
+  renderOrderModal();
   document.getElementById('loaf-modal').classList.add('visible');
 }
 
-// Rebuild the modal body (one section per client, one row per product) from the
-// chosen list. CSP-safe DOM building, no innerHTML.
-function renderMarketModal() {
-  const m = market();
-  document.getElementById('loaf-modal-title').textContent = m.title || 'Market order';
+// Rebuild the modal body (one section per selected client, one row per product)
+// from the address book. CSP-safe DOM building, no innerHTML.
+function renderOrderModal() {
+  document.getElementById('loaf-modal-title').textContent = selectedTitle || 'Order';
   const body = document.getElementById('loaf-order-body');
   body.textContent = '';
-  for (const client of (m.clients || [])) {
+  for (const client of selectedClients) {
     const rows = (client.products || []).map(p => {
-      const input = el('input', { type: 'number', id: p.id, class: 'order-qty-input', value: '0', min: '0', inputmode: 'numeric' });
+      const input = el('input', { type: 'number', id: 'wa-' + p.id, class: 'order-qty-input', value: '0', min: '0', inputmode: 'numeric' });
       // Same focus/blur convenience as the calculator fields: tapping a 0 clears
       // it, leaving it empty restores 0.
       input.addEventListener('focus', function() {
@@ -90,22 +119,24 @@ export function closeLoafModal() {
 export function sendWithLoaves() {
   closeLoafModal();
 
-  const m = market();
-  const sections = (m.clients || [])
+  const multi = selectedClients.length > 1;
+  const sections = selectedClients
     .map(client => {
       const lines = (client.products || [])
         .map(p => {
-          const input = document.getElementById(p.id);
+          const input = document.getElementById('wa-' + p.id);
           return { name: p.name, val: input ? (+input.value || 0) : 0 };
         })
         .filter(p => p.val > 0)
         .map(p => `- ${p.name}: ${p.val}`);
-      return lines.length ? `*${client.name}*\n` + lines.join('\n') : null;
+      if (!lines.length) return null;
+      // A single-client order does not repeat the client name (it is the heading).
+      return (multi ? `*${client.name}*\n` : '') + lines.join('\n');
     })
     .filter(Boolean);
 
   if (!sections.length) { alert('No orders to share'); return; }
 
-  const text = `📋 *${m.title || 'Market order'}*\n\n` + sections.join('\n\n');
+  const text = `📋 *${selectedTitle || 'Order'}*\n\n` + sections.join('\n\n');
   window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
 }

@@ -247,6 +247,33 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 }
 .param-label { flex: 1; font-size: 13px; color: var(--accent); font-weight: 500; }
 
+/* Extra-dough box: a free amount of dough (g or kg) added on top of the products,
+   present in every dough tab. Dashed border marks it as a separate, optional add-on. */
+.extra-dough-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-top: 12px;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+}
+.extra-dough-label { flex: 1; font-size: 14px; font-weight: 600; color: var(--text); }
+.extra-dough-row .qty-group { width: auto; gap: 6px; }
+.extra-dough-row input[type="number"] { width: 70px; }
+.extra-unit-select {
+  padding: 8px 6px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  min-height: 40px;
+}
+
 /* Result */
 .result-block { margin-top: 14px; display: none; }
 .result-block.visible { display: block; }
@@ -492,6 +519,13 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .drill-item:active { background: var(--surface2); }
 .drill-chevron { color: var(--accent); opacity: 0.6; font-size: 20px; flex-shrink: 0; }
 
+/* Client boxes reordered with SortableJS (long-press to grab, drag to reorder).
+   No text-selection / iOS callout on long press. */
+.drill-reorder { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.cp-sortable-ghost { opacity: 0.35; }                              /* the gap placeholder */
+.cp-sortable-chosen { box-shadow: 0 8px 20px rgba(0,0,0,0.22); }   /* the grabbed item */
+.cp-sortable-drag { opacity: 0.95; background: var(--surface2); }  /* the moving clone */
+
 .cp-tabs {
   display: flex;
   gap: 6px;
@@ -621,6 +655,87 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 }
 .cp-del-client-btn:active { background: rgba(178,58,46,0.08); }
 
+/* Name + small delete-icon row (client / group / product heading). */
+.cp-name-row { display: flex; align-items: center; gap: 8px; }
+.cp-del-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 17px;
+  line-height: 1;
+  padding: 6px 8px;
+  flex-shrink: 0;
+  opacity: 0.5;            /* low-key: deleting should not compete with Save */
+}
+.cp-del-icon:active { opacity: 0.9; }
+
+/* Product card: each product is clearly boxed and separated, with a prominent
+   name on top and the dough selector + weight on a second line. */
+.cp-prod-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.cp-prod-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.cp-prod-card-head .cp-prod-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+.cp-prod-card-row { display: flex; align-items: center; gap: 8px; }
+.cp-prod-dough {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* A required field left empty when the user tried to Save. */
+.cp-invalid { border-color: #B23A2E !important; background: rgba(178,58,46,0.06) !important; }
+
+/* Prominent Save at the bottom of a detail screen. */
+.cp-save-bottom {
+  margin-top: 24px;
+  width: 100%;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 15px;
+  cursor: pointer;
+}
+.cp-save-bottom:active { filter: brightness(0.95); }
+
+/* Group editor: one checkbox row per address-book client. */
+.cp-check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cp-check-row input { width: 20px; height: 20px; accent-color: var(--accent); flex-shrink: 0; }
+.cp-empty-hint { color: var(--text2); font-size: 14px; padding: 8px 2px; }
+
 /* Recipe overlay */
 #recipe-overlay {
   position: fixed;
@@ -633,6 +748,36 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   background: var(--bg);
 }
 #recipe-overlay.visible { display: flex; }
+
+/* Extra-dough visibility screen — same overlay style as Recipes, opened on top of
+   the Settings hub. */
+#extra-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 520;
+  display: none;
+  flex-direction: column;
+  background: var(--bg);
+}
+#extra-overlay.visible { display: flex; }
+#extra-content { padding: 14px 16px; }
+.extra-help { font-size: 13px; color: var(--text2); margin: 0 2px 16px; }
+.extra-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.extra-toggle-row input { width: 22px; height: 22px; accent-color: var(--accent); flex-shrink: 0; }
 
 .recipe-overlay-header {
   background: var(--accent);
@@ -841,6 +986,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   text-align: left;
 }
 .loaf-modal-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 20px; text-align: center; }
+/* Section labels ("Groups" / "Clients") inside the Send-order picker. */
+.send-picker-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text2); margin: 6px 2px 8px; }
 .order-section { margin-bottom: 20px; }
 .order-section-title {
   font-size: 15px;

@@ -4,8 +4,14 @@
 // user enters quantities do not change. Only the *content* (which clients,
 // products and weights) now comes from config instead of being fixed.
 //
+// A dough tab is a FILTERED VIEW of the single address book: it shows only the
+// products whose `dough` matches, grouped back into a card per owning client. A
+// client with no product in this dough simply does not appear here.
+//
 // CSP-safe: elements are created via the DOM API (no innerHTML, no inline style
 // attributes), matching the page's strict Content-Security-Policy.
+
+import { getTabProducts } from './calculator-config.js';
 
 // Small element helper. attrs: { class, id, ... } set as attributes; children
 // can be strings or nodes. 'style' is never accepted (CSP forbids style attrs).
@@ -63,15 +69,22 @@ function productRow(product) {
 }
 
 // Render all client cards for a tab into `container`, replacing its contents.
+// The tab's products (already filtered to this dough and tagged with their owning
+// client) are grouped back into one card per client, preserving address-book order.
 export function renderTab(config, tab, container) {
   if (!container) return;
   container.textContent = '';
-  const clients = (config[tab] && config[tab].clients) || [];
-  for (const client of clients) {
-    const card = el('div', { class: 'card' }, [
-      el('div', { class: 'card-title' }, client.name),
-      ...(client.products || []).map(productRow),
-    ]);
-    container.appendChild(card);
+  const products = getTabProducts(config, tab);
+  let currentCard = null;
+  let currentClientId = null;
+  for (const product of products) {
+    if (product.clientId !== currentClientId || currentCard === null) {
+      currentClientId = product.clientId;
+      currentCard = el('div', { class: 'card' }, [
+        el('div', { class: 'card-title' }, product.clientName),
+      ]);
+      container.appendChild(currentCard);
+    }
+    currentCard.appendChild(productRow(product));
   }
 }
