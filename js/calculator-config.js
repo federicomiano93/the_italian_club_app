@@ -21,9 +21,14 @@
 // display-only helper showing how many crates its order fills. It is bound to the
 // product's identity (not kind, not name), so renaming never breaks it.
 //
-// WhatsApp orders reuse the SAME clients/products: `groups` are saved lists of
-// client ids (e.g. the market's stalls) sent in one message. Sending a single
-// client needs no config — it is chosen at send time.
+// WhatsApp orders are INDEPENDENT saved lists (`whatsappLists`), decoupled from the
+// dough tabs. A list has a title and a set of client entries; each entry references
+// an address-book client (by id, for its name) and an explicitly chosen set of
+// product ids — drawn from ANY client in the address book, not only that client's
+// own products. This lets a client appear on WhatsApp with a product whose dough it
+// does not actually produce, WITHOUT polluting that dough's tab. Names are resolved
+// live from the address book (a rename propagates; a deleted client/product is
+// pruned). The dough math never reads this — it is purely for the order message.
 
 export const TABS = ['focaccia', 'brioche', 'sourdough'];
 
@@ -60,11 +65,17 @@ export const DEFAULT_CONFIG = {
       { id: 'f-panini', name: 'Panini', dough: 'focaccia', weight: 131, kind: 'number' },
     ] },
   ],
-  // Saved WhatsApp order lists: each groups several address-book clients into one
-  // message (e.g. the market and its three stalls). Sending a single client needs
-  // no group. clientIds reference clients above; dangling ids are dropped.
-  groups: [
-    { id: 'g-market', title: 'Market order', clientIds: ['c-client-1', 'c-client-2', 'c-client-3'] },
+  // Independent WhatsApp order lists (decoupled from the dough tabs): a title plus
+  // client entries, each naming an address-book client and the product ids it should
+  // show in the order message. Product ids may come from ANY client. References are
+  // resolved live; deleted clients/products are pruned. The default reproduces the
+  // old "Market order" group, each client carrying all its current products.
+  whatsappLists: [
+    { id: 'wl-market', title: 'Market order', clients: [
+      { clientId: 'c-client-1', products: ['f-ciabatta', 'b-burgerbuns', 'b-subrolls'] },
+      { clientId: 'c-client-2', products: ['f-trayfocaccia', 'b-bun', 'b-rolls', 's-loaf'] },
+      { clientId: 'c-client-3', products: ['f-panini'] },
+    ] },
   ],
   // Whether the per-tab "Extra dough" box is shown in each dough tab. Toggled from
   // a separate Settings screen. Default: shown everywhere.
@@ -139,9 +150,61 @@ export function getClientById(config, id) {
   return getClients(config).find(c => c && c.id === id) || null;
 }
 
-// The saved WhatsApp groups (empty array for a missing/garbage config).
+// The saved WhatsApp groups (empty array for a missing/garbage config). Legacy
+// shape, still read by the old send path until it is rewritten; new configs use
+// `whatsappLists` below.
 export function getGroups(config) {
   return (config && Array.isArray(config.groups)) ? config.groups : [];
+}
+
+// The saved independent WhatsApp lists (empty array for a missing/garbage config).
+export function getWhatsappLists(config) {
+  return (config && Array.isArray(config.whatsappLists)) ? config.whatsappLists : [];
+}
+
+// Find a product by id anywhere in the address book (across all clients). Returns
+// the product object, or null if no client owns that id. Used to resolve the
+// product ids a WhatsApp list references, regardless of which client owns them.
+export function getProductById(config, id) {
+  for (const client of getClients(config)) {
+    for (const product of (client.products || [])) {
+      if (product && product.id === id) return product;
+    }
+  }
+  return null;
+}
+
+// Every product in the address book, each tagged with its owning client, as a flat
+// list. This is the pool the WhatsApp list editor picks from — a client entry on a
+// list may include ANY of these products, not only its own.
+export function getAllProducts(config) {
+  const out = [];
+  for (const client of getClients(config)) {
+    for (const product of (client.products || [])) {
+      if (product && product.id) {
+        out.push({ ...product, ownerClientId: client.id, ownerClientName: client.name });
+      }
+    }
+  }
+  return out;
+}
+
+// Resolve a WhatsApp list to the data the order message needs: for each client
+// entry, the live client object plus the chosen product objects, with dangling
+// references (deleted client or product) skipped. The "stay linked to the address
+// book" behaviour lives here — names always come from the current address book.
+export function resolveListClients(config, list) {
+  if (!list || !Array.isArray(list.clients)) return [];
+  const out = [];
+  for (const entry of list.clients) {
+    if (!entry) continue;
+    const client = getClientById(config, entry.clientId);
+    if (!client) continue; // a deleted client drops out of the list
+    const productIds = Array.isArray(entry.products) ? entry.products : [];
+    const products = productIds.map(id => getProductById(config, id)).filter(Boolean);
+    out.push({ client, products });
+  }
+  return out;
 }
 
 // Whether the per-tab "Extra dough" box is shown for a given tab. Defaults to
@@ -302,18 +365,52 @@ function normalizeClient(client) {
   };
 }
 
-function normalizeGroup(raw, validIds) {
+// One client entry on a WhatsApp list: a reference to an address-book client plus
+// the product ids it should show. Both are validated against the current address
+// book — an entry for a deleted client is dropped (returns null), and product ids
+// that no longer exist anywhere are pruned. This enforces "stay linked".
+function normalizeListClient(raw, validClientIds, validProductIds) {
   if (!raw || typeof raw !== 'object') return null;
-  const clientIds = Array.isArray(raw.clientIds)
-    ? raw.clientIds.map(String).filter(id => validIds.has(id))
+  const clientId = String(raw.clientId || '');
+  if (!validClientIds.has(clientId)) return null;
+  const products = Array.isArray(raw.products)
+    ? raw.products.map(String).filter(id => validProductIds.has(id))
     : [];
-  return { id: String(raw.id || 'group'), title: String(raw.title || 'Order'), clientIds };
+  return { clientId, products };
 }
 
-function normalizeGroups(raw, clients) {
+function normalizeWhatsappList(raw, validClientIds, validProductIds) {
+  if (!raw || typeof raw !== 'object') return null;
+  const clients = Array.isArray(raw.clients)
+    ? raw.clients.map(c => normalizeListClient(c, validClientIds, validProductIds)).filter(Boolean)
+    : [];
+  return { id: String(raw.id || 'wl'), title: String(raw.title || 'Order'), clients };
+}
+
+function normalizeWhatsappLists(raw, clients) {
   if (!Array.isArray(raw)) return [];
-  const validIds = new Set(clients.map(c => c.id));
-  return raw.map(g => normalizeGroup(g, validIds)).filter(Boolean);
+  const validClientIds = new Set(clients.map(c => c.id));
+  const validProductIds = new Set();
+  for (const c of clients) for (const p of (c.products || [])) validProductIds.add(p.id);
+  return raw.map(l => normalizeWhatsappList(l, validClientIds, validProductIds)).filter(Boolean);
+}
+
+// Convert the OLD `groups` shape (a group = a title + client ids, implicitly
+// carrying each client's whole product list) into the new independent-list shape.
+// Each client entry is seeded with all the products that client currently owns, so
+// a migrated list reproduces exactly what the old group would have sent.
+function groupsToLists(groups, clients) {
+  if (!Array.isArray(groups)) return [];
+  const byId = new Map(clients.map(c => [c.id, c]));
+  return groups.map((g, gi) => {
+    const clientIds = Array.isArray(g && g.clientIds) ? g.clientIds : [];
+    const entries = clientIds.map(cid => {
+      const client = byId.get(String(cid));
+      if (!client) return null;
+      return { clientId: client.id, products: (client.products || []).map(p => p.id) };
+    }).filter(Boolean);
+    return { id: String((g && g.id) || 'wl-' + gi), title: String((g && g.title) || 'Order'), clients: entries };
+  });
 }
 
 // Per-tab "show Extra dough box" flags. Each tab defaults to shown (true) unless
@@ -406,7 +503,7 @@ function migrateLegacy(raw) {
   const clients = order.map(normalizeClient);
   return {
     clients,
-    groups: normalizeGroups(groups, clients),
+    whatsappLists: normalizeWhatsappLists(groupsToLists(groups, clients), clients),
     extraDough: normalizeExtraDough(raw.extraDough),
     divisorIncluded: normalizeDivisorIncluded(raw.divisorIncluded, clients),
   };
@@ -422,9 +519,14 @@ export function normalizeConfig(raw) {
 
   if (Array.isArray(raw.clients)) {
     const clients = raw.clients.map(normalizeClient).filter(Boolean);
+    // Prefer the new independent-list shape; fall back to migrating the legacy
+    // `groups` shape (so existing documents keep their saved lists).
+    const rawLists = Array.isArray(raw.whatsappLists)
+      ? raw.whatsappLists
+      : groupsToLists(raw.groups, clients);
     return {
       clients,
-      groups: normalizeGroups(raw.groups, clients),
+      whatsappLists: normalizeWhatsappLists(rawLists, clients),
       extraDough: normalizeExtraDough(raw.extraDough),
       divisorIncluded: normalizeDivisorIncluded(raw.divisorIncluded, clients),
     };

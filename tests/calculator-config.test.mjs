@@ -14,8 +14,10 @@ import {
   getTabProducts,
   getClients,
   getClientById,
-  getGroups,
-  resolveGroupClients,
+  getWhatsappLists,
+  getProductById,
+  getAllProducts,
+  resolveListClients,
   isExtraDoughEnabled,
   normalizeConfig,
   getDivisorProducts,
@@ -148,23 +150,61 @@ test('getTabProducts tolerates a missing or malformed config', () => {
   assert.deepEqual(getTabProducts(null, 'focaccia'), []);
 });
 
-test('getClientById / getGroups / resolveGroupClients on the default config', () => {
+test('getClientById / getWhatsappLists / resolveListClients on the default config', () => {
   assert.equal(getClients(DEFAULT_CONFIG).length, 4);
   assert.equal(getClientById(DEFAULT_CONFIG, 'c-client-2').name, 'Client 2');
   assert.equal(getClientById(DEFAULT_CONFIG, 'nope'), null);
 
-  const groups = getGroups(DEFAULT_CONFIG);
-  assert.equal(groups.length, 1);
-  const members = resolveGroupClients(DEFAULT_CONFIG, groups[0]);
-  assert.deepEqual(members.map(c => c.id), ['c-client-1', 'c-client-2', 'c-client-3']);
+  const lists = getWhatsappLists(DEFAULT_CONFIG);
+  assert.equal(lists.length, 1);
+  assert.equal(lists[0].title, 'Market order');
+  const resolved = resolveListClients(DEFAULT_CONFIG, lists[0]);
+  assert.deepEqual(resolved.map(r => r.client.id), ['c-client-1', 'c-client-2', 'c-client-3']);
+  // Each client entry resolves to real product objects, names from the address book.
+  const client1 = resolved.find(r => r.client.id === 'c-client-1');
+  assert.deepEqual(client1.products.map(p => p.id), ['f-ciabatta', 'b-burgerbuns', 'b-subrolls']);
 });
 
-test('resolveGroupClients drops ids no longer in the address book', () => {
+test('a WhatsApp list can attach a product owned by ANOTHER client (decoupled)', () => {
+  // The whole point: Client B's WhatsApp entry shows a product that, in the address
+  // book, belongs to Client A — without Client B having that dough product itself.
   const config = {
-    clients: [{ id: 'c1', name: 'A', products: [] }],
-    groups: [{ id: 'g1', title: 'G', clientIds: ['c1', 'ghost'] }],
+    clients: [
+      { id: 'cA', name: 'A', products: [{ id: 'pA', name: 'Loaf', dough: 'sourdough', weight: 900, kind: 'number' }] },
+      { id: 'cB', name: 'B', products: [{ id: 'pB', name: 'Panini', dough: 'focaccia', weight: 130, kind: 'number' }] },
+    ],
+    whatsappLists: [
+      { id: 'wl1', title: 'Order', clients: [{ clientId: 'cB', products: ['pB', 'pA'] }] },
+    ],
   };
-  assert.deepEqual(resolveGroupClients(config, config.groups[0]).map(c => c.id), ['c1']);
+  const resolved = resolveListClients(config, config.whatsappLists[0]);
+  assert.equal(resolved.length, 1);
+  assert.equal(resolved[0].client.name, 'B');
+  // B's WhatsApp entry carries B's own Panini AND A's Loaf — the cross-client link.
+  assert.deepEqual(resolved[0].products.map(p => p.name), ['Panini', 'Loaf']);
+});
+
+test('getProductById finds a product across all clients; getAllProducts tags owners', () => {
+  assert.equal(getProductById(DEFAULT_CONFIG, 's-loaf').name, 'Loaf');
+  assert.equal(getProductById(DEFAULT_CONFIG, 'nope'), null);
+  const all = getAllProducts(DEFAULT_CONFIG);
+  assert.equal(all.length, 10); // every product across the four default clients
+  const loaf = all.find(p => p.id === 's-loaf');
+  assert.equal(loaf.ownerClientId, 'c-client-2');
+  assert.equal(loaf.ownerClientName, 'Client 2');
+});
+
+test('resolveListClients drops a deleted client and prunes deleted product ids', () => {
+  const config = {
+    clients: [{ id: 'c1', name: 'A', products: [{ id: 'p1', name: 'X', dough: 'focaccia', weight: 100, kind: 'number' }] }],
+    whatsappLists: [{ id: 'wl1', title: 'L', clients: [
+      { clientId: 'c1', products: ['p1', 'ghost'] }, // ghost product pruned
+      { clientId: 'gone', products: ['p1'] },         // deleted client dropped entirely
+    ] }],
+  };
+  const resolved = resolveListClients(config, config.whatsappLists[0]);
+  assert.deepEqual(resolved.map(r => r.client.id), ['c1']);
+  assert.deepEqual(resolved[0].products.map(p => p.id), ['p1']);
 });
 
 test('normalizeConfig clamps weights, repairs kind/dough and drops junk products', () => {
@@ -185,13 +225,40 @@ test('normalizeConfig clamps weights, repairs kind/dough and drops junk products
   assert.equal(client.products[1].kind, 'number');
 });
 
-test('normalizeConfig prunes group client ids that no longer exist', () => {
+test('normalizeConfig prunes WhatsApp list entries for clients/products that no longer exist', () => {
   const raw = {
-    clients: [{ id: 'c1', name: 'A', products: [] }],
-    groups: [{ id: 'g1', title: 'G', clientIds: ['c1', 'gone'] }],
+    clients: [{ id: 'c1', name: 'A', products: [{ id: 'p1', name: 'X', dough: 'focaccia', weight: 100, kind: 'number' }] }],
+    whatsappLists: [{ id: 'wl1', title: 'L', clients: [
+      { clientId: 'c1', products: ['p1', 'ghost'] }, // ghost product id pruned
+      { clientId: 'gone', products: ['p1'] },         // deleted client entry dropped
+    ] }],
   };
   const norm = normalizeConfig(raw);
-  assert.deepEqual(norm.groups[0].clientIds, ['c1']);
+  assert.equal(norm.whatsappLists[0].clients.length, 1);
+  assert.deepEqual(norm.whatsappLists[0].clients[0], { clientId: 'c1', products: ['p1'] });
+});
+
+test('normalizeConfig migrates the legacy `groups` shape into independent lists', () => {
+  // An old document still carrying `groups` (client ids only): each client entry
+  // is seeded with that client's current products, reproducing the old message.
+  const raw = {
+    clients: [
+      { id: 'c1', name: 'A', products: [
+        { id: 'p1', name: 'X', dough: 'focaccia', weight: 100, kind: 'number' },
+        { id: 'p2', name: 'Y', dough: 'brioche',  weight: 80,  kind: 'number' },
+      ] },
+      { id: 'c2', name: 'B', products: [{ id: 'p3', name: 'Z', dough: 'sourdough', weight: 900, kind: 'number' }] },
+    ],
+    groups: [{ id: 'g1', title: 'Market order', clientIds: ['c1', 'c2'] }],
+  };
+  const norm = normalizeConfig(raw);
+  assert.equal(norm.groups, undefined);            // legacy field gone
+  assert.equal(norm.whatsappLists.length, 1);
+  assert.equal(norm.whatsappLists[0].title, 'Market order');
+  assert.deepEqual(norm.whatsappLists[0].clients, [
+    { clientId: 'c1', products: ['p1', 'p2'] },
+    { clientId: 'c2', products: ['p3'] },
+  ]);
 });
 
 test('isExtraDoughEnabled defaults to true and honours an explicit false', () => {
@@ -237,10 +304,13 @@ test('normalizeConfig migrates the legacy per-tab + market shape into the addres
   assert.deepEqual(client.products.map(p => p.id).sort(), ['b-bb', 'f-cia']);
   assert.equal(client.products.find(p => p.id === 'f-cia').dough, 'focaccia');
   assert.equal(client.products.find(p => p.id === 'b-bb').dough, 'brioche');
-  // The market list became a group pointing at the merged client.
-  assert.equal(norm.groups.length, 1);
-  assert.equal(norm.groups[0].title, 'Market order');
-  assert.deepEqual(norm.groups[0].clientIds, [client.id]);
+  // The market list became an independent WhatsApp list: one client entry pointing
+  // at the merged client, seeded with that client's products.
+  assert.equal(norm.whatsappLists.length, 1);
+  assert.equal(norm.whatsappLists[0].title, 'Market order');
+  assert.equal(norm.whatsappLists[0].clients.length, 1);
+  assert.equal(norm.whatsappLists[0].clients[0].clientId, client.id);
+  assert.deepEqual(norm.whatsappLists[0].clients[0].products.sort(), ['b-bb', 'f-cia']);
 });
 
 // ── Divisor (display-only crate split) ────────────────────────────────────────
