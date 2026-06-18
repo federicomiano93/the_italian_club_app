@@ -1,4 +1,9 @@
 import { confirmDiscard } from './calculator-confirm.js';
+import { recipeTotal } from './calculator-dough-math.js';
+
+// recipeTotal now lives with the dough math; re-exported so existing importers
+// (calc.js, this module) keep their import path unchanged.
+export { recipeTotal };
 
 export const RECIPE_DEFAULTS = {
   focaccia: { flourBlu:278, flourT65:278, malt:3, sugar:8, salt:11, yeast:3.6, oil:56, water1:334, water2:24 },
@@ -12,8 +17,6 @@ export let RECIPES;
   if (saved) { try { RECIPES = JSON.parse(saved); } catch(e) {} }
   if (!RECIPES) RECIPES = JSON.parse(JSON.stringify(RECIPE_DEFAULTS));
 })();
-
-export function recipeTotal(r) { return Object.values(r).reduce((s, v) => s + v, 0); }
 
 const OVERLAY_FIELDS = {
   focaccia: [

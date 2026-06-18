@@ -482,3 +482,41 @@ input.ing-stock {
   border-radius: var(--radius-sm);
   padding: 12px 14px;
 }
+
+/* ── Splash overlay ───────────────────────────────────────────────────────────
+   Full-screen loading screen shown the instant index.html opens, before the
+   home is ready. boot.js adds .splash--hide to fade it out, then removes it from
+   the DOM. The safety timeout in boot.js guarantees it never stays stuck on top.
+   prefers-reduced-motion: skip the fade for users who ask for less animation. */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: #ffffff;
+  opacity: 1;
+  transition: opacity 0.45s ease;
+}
+.splash--hide {
+  opacity: 0;
+}
+.splash-logo {
+  width: 160px;
+  height: 160px;
+  max-width: 45vw;
+  max-height: 45vw;
+}
+.splash-title {
+  color: #2D5016; /* app green — readable on the white background */
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-align: center;
+}
+@media (prefers-reduced-motion: reduce) {
+  .splash { transition: none; }
+}
