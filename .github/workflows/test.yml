@@ -1,0 +1,19 @@
+name: Tests
+
+# The owner cannot review code, so these automated tests are the main safety net
+# against regressions (P15). They run on every push and pull request.
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # No install step: the suite is pure Node with zero dependencies, run by the
+      # built-in test runner (`node --test`, see package.json).
+      - run: npm test
