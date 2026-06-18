@@ -7,3 +7,6 @@ node_modules/
 # CLAUDE.md (project context) and CLAUDE.global.md (transport copy of the global
 # rules) stay local and must never be committed or published.
 CLAUDE*.md
+# One-off artifacts for the git-history client-name scrub (local only)
+history-name-replacements.txt
+*.bundle

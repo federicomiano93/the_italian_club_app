@@ -3,28 +3,19 @@
   Repo:   https://github.com/federicomiano93/the_italian_club_app
   Deploy: https://federicomiano93.github.io/the_italian_club_app/
 
+  Clients, products and per-client unit weights are configurable in Settings and
+  stored in Firestore (config/calculator) — they are NOT hard-coded here. See
+  js/calculator-config.js for the default structure and weights.
+
   ── FOCACCIA ──────────────────────────────────────────────
-  Clienti: Bakery, Bone&Block, Club Fish, Cahita
-  Pesi unitari:
-    Pizzas        201g
-    Focaccias     181g
-    Ciabatta      151g  (Bone&Block — NO burger buns, NO sub rolls)
-    Tray focaccia 1800g (Club Fish)
-    Panini        131g  (Cahita)
-    Kg            1000g (extra dough diretto in kg)
-  Scala base: 995.6g raw
-  Yeast default: 0.65%
+  Default unit weights: Pizzas 201g · Focaccias 181g · Ciabatta 151g ·
+    Tray focaccia 1800g · Panini 131g · Kg 1000g (extra dough direct in kg)
+  Scala base: 995.6g raw · Yeast default: 0.65%
 
   ── BRIOCHE ───────────────────────────────────────────────
-  Clienti: Bone&Block, Club Fish
-  Pesi unitari:
-    Burger buns  81g   (Bone&Block)
-    Sub rolls    121g  (Bone&Block)
-    Buns         71g   (Club Fish)
-    Rolls        71g   (Club Fish)
-    Kg           1000g (extra dough diretto in kg)
-  Scala base: 4887.4g raw
-  Yeast default: 4%
+  Default unit weights: Burger buns 81g · Sub rolls 121g · Buns 71g ·
+    Rolls 71g · Kg 1000g (extra dough direct in kg)
+  Scala base: 4887.4g raw · Yeast default: 4%
 
   ── SOURDOUGH ─────────────────────────────────────────────
   Input: numero pagnotte + peso per pagnotta (default 905g)
@@ -80,10 +71,105 @@
   <div class="recipe-overlay-header">
     <button class="recipe-back-btn">&#8592;</button>
     <span class="recipe-overlay-title">Recipes</span>
+    <button class="overlay-home-btn" id="recipe-home-btn" type="button" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </button>
     <button id="recipe-save-btn" disabled>Save</button>
   </div>
   <div class="recipe-scroll">
     <div class="recipe-content" id="recipe-content"></div>
+  </div>
+</div>
+
+<div id="settings-overlay">
+  <div class="recipe-overlay-header">
+    <button class="settings-back-btn">&#8592;</button>
+    <span class="recipe-overlay-title">Settings</span>
+    <a class="overlay-home-btn" href="index.html" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </a>
+  </div>
+  <div class="recipe-scroll">
+    <div class="settings-menu">
+      <button id="open-clients-btn" class="settings-menu-btn">
+        <span class="settings-menu-title">Clients &amp; products</span>
+        <span class="settings-menu-sub">Add or rename clients, set product weights per client</span>
+      </button>
+      <button id="open-whatsapp-btn" class="settings-menu-btn">
+        <span class="settings-menu-title">WhatsApp</span>
+        <span class="settings-menu-sub">Build order lists: pick clients and the products to send</span>
+      </button>
+      <button id="open-recipes-btn" class="settings-menu-btn">
+        <span class="settings-menu-title">Recipes</span>
+        <span class="settings-menu-sub">Edit the dough ingredient amounts</span>
+      </button>
+      <button id="open-extra-btn" class="settings-menu-btn">
+        <span class="settings-menu-title">Extra dough</span>
+        <span class="settings-menu-sub">Show or hide the extra-dough box in each tab</span>
+      </button>
+      <button id="open-divisor-btn" class="settings-menu-btn">
+        <span class="settings-menu-title">Divisor</span>
+        <span class="settings-menu-sub">Choose which products the divisor box splits, per tab</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="extra-overlay">
+  <div class="recipe-overlay-header">
+    <button class="extra-back-btn">&#8592;</button>
+    <span class="recipe-overlay-title">Extra dough</span>
+    <button class="overlay-home-btn" id="extra-home-btn" type="button" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </button>
+  </div>
+  <div class="recipe-scroll">
+    <div id="extra-content">
+      <p class="extra-help">Show the "Extra dough" box in each tab. Changes apply right away.</p>
+      <label class="extra-toggle-row"><span>Focaccia</span><input type="checkbox" id="extra-toggle-focaccia"></label>
+      <label class="extra-toggle-row"><span>Brioche</span><input type="checkbox" id="extra-toggle-brioche"></label>
+      <label class="extra-toggle-row"><span>Sourdough</span><input type="checkbox" id="extra-toggle-sourdough"></label>
+    </div>
+  </div>
+</div>
+
+<div id="divisor-overlay">
+  <div class="recipe-overlay-header">
+    <button class="divisor-back-btn">&#8592;</button>
+    <span class="recipe-overlay-title">Divisor</span>
+    <button class="overlay-home-btn" id="divisor-home-btn" type="button" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </button>
+  </div>
+  <div class="recipe-scroll">
+    <div id="divisor-content"></div>
+  </div>
+</div>
+
+<div id="wa-overlay">
+  <div class="recipe-overlay-header">
+    <button class="wa-back-btn">&#8592;</button>
+    <span class="recipe-overlay-title">WhatsApp</span>
+    <button class="overlay-home-btn" id="wa-home-btn" type="button" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </button>
+  </div>
+  <div class="recipe-scroll">
+    <div id="wa-content"></div>
+  </div>
+</div>
+
+<div id="cp-overlay">
+  <div class="recipe-overlay-header">
+    <button class="cp-back-btn">&#8592;</button>
+    <span class="recipe-overlay-title">Clients &amp; products</span>
+    <button class="overlay-home-btn" id="cp-home-btn" type="button" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </button>
+    <button id="cp-save-btn" disabled>Save</button>
+  </div>
+  <div class="recipe-scroll">
+    <div id="cp-content"></div>
   </div>
 </div>
 
@@ -114,47 +200,16 @@
 
     <div class="section-label">Orders</div>
 
-    <div class="card">
-      <div class="card-title">Bakery</div>
-      <div class="product-row">
-        <span class="product-label">Pizzas <span class="product-weight">(200g)</span></span>
-        <div class="qty-group"><input type="number" id="f-pizze" value="0" min="0" inputmode="numeric"><span class="unit">pz</span></div>
-      </div>
-      <div class="product-row">
-        <span class="product-label">Focaccias <span class="product-weight">(180g)</span></span>
-        <div class="qty-group"><input type="number" id="f-focacce" value="0" min="0" inputmode="numeric"><span class="unit">pz</span></div>
-      </div>
-    </div>
+    <div class="orders-cards" id="f-orders"></div>
 
-    <div class="card">
-      <div class="card-title">Bone&amp;Block</div>
-      <div class="product-row">
-        <span class="product-label">Ciabatta <span class="product-weight">(150g)</span></span>
-        <div class="qty-group"><select id="f-ciabatta" class="qty-select"><option value="0">0</option><option value="20">20</option><option value="40">40</option><option value="60">60</option><option value="80">80</option><option value="100">100</option></select><span class="unit">pz</span></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Club Fish</div>
-      <div class="product-row">
-        <span class="product-label">Tray focaccia <span class="product-weight">(1800g)</span></span>
-        <div class="qty-group"><input type="number" id="f-trayfocaccia" value="0" min="0" inputmode="numeric"><span class="unit">pz</span></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Cahita</div>
-      <div class="product-row">
-        <span class="product-label">Panini <span class="product-weight">(130g)</span></span>
-        <div class="qty-group"><input type="number" id="f-panini" value="0" min="0" inputmode="numeric"><span class="unit">pz</span></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Extra dough</div>
-      <div class="product-row">
-        <span class="product-label">Kg</span>
-        <div class="qty-group"><input type="number" id="f-kg" value="0" min="0" step="0.5" inputmode="decimal"><span class="unit">kg</span></div>
+    <div class="extra-dough-row">
+      <span class="extra-dough-label">Extra dough</span>
+      <div class="qty-group">
+        <input type="number" id="f-extra" value="0" min="0" step="0.1" inputmode="decimal">
+        <select id="f-extra-unit" class="extra-unit-select" aria-label="Extra dough unit">
+          <option value="g">g</option>
+          <option value="kg" selected>kg</option>
+        </select>
       </div>
     </div>
 
@@ -176,22 +231,8 @@
           <button class="copy-btn" id="f-copy-btn">Copy recipe</button>
           <button class="copy-wa-btn" id="f-wa-recipe-btn" title="Share via WhatsApp"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></button>
         </div>
-        <div class="panini-box">
-          <div class="panini-box-title">Panini Dough</div>
-          <div class="panini-box-total"><span id="f-panini-total">0</span><span class="panini-unit">g</span></div>
-          <div class="panini-box-divider-row">
-            <span class="panini-div-sym">÷</span>
-            <input type="number" id="f-panini-div" min="0" max="20" value="0" inputmode="numeric" class="panini-div-input">
-            <span class="panini-div-eq">=</span>
-            <span class="panini-split-val" id="f-panini-split">0</span>
-            <span class="panini-split-unit">g</span>
-          </div>
-        </div>
-        <div class="panini-box" id="f-ciabatta-box">
-          <div class="panini-box-title">Ciabatta</div>
-          <div class="ciabatta-count"><span id="f-ciabatta-boxes">0</span><span class="ciabatta-count-unit"> box</span></div>
-          <div class="ciabatta-sub">3000g each box</div>
-        </div>
+        <div class="divisor-box" id="f-divisor-box"></div>
+        <div class="crate-boxes" id="f-crate-boxes"></div>
       </div>
     </div>
 
@@ -208,35 +249,16 @@
 
     <div class="section-label">Orders</div>
 
-    <div class="card">
-      <div class="card-title">Bone&amp;Block</div>
-      <div class="product-row">
-        <span class="product-label">Burger buns <span class="product-weight">(80g)</span></span>
-        <div class="qty-group"><input type="number" id="b-burgerbuns" value="0" min="0" inputmode="numeric"><span class="unit">pz</span></div>
-      </div>
-      <div class="product-row">
-        <span class="product-label">Sub rolls <span class="product-weight">(120g)</span></span>
-        <div class="qty-group"><input type="number" id="b-subrolls" value="0" min="0" inputmode="numeric"><span class="unit">pz</span></div>
-      </div>
-    </div>
+    <div class="orders-cards" id="b-orders"></div>
 
-    <div class="card">
-      <div class="card-title">Club Fish</div>
-      <div class="product-row">
-        <span class="product-label">Buns <span class="product-weight">(70g)</span></span>
-        <div class="qty-group"><input type="number" id="b-bun" value="0" min="0" inputmode="numeric"><span class="unit">pz</span></div>
-      </div>
-      <div class="product-row">
-        <span class="product-label">Rolls <span class="product-weight">(70g)</span></span>
-        <div class="qty-group"><input type="number" id="b-rolls" value="0" min="0" inputmode="numeric"><span class="unit">pz</span></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Extra dough</div>
-      <div class="product-row">
-        <span class="product-label">Kg</span>
-        <div class="qty-group"><input type="number" id="b-kg" value="0" min="0" step="0.5" inputmode="decimal"><span class="unit">kg</span></div>
+    <div class="extra-dough-row">
+      <span class="extra-dough-label">Extra dough</span>
+      <div class="qty-group">
+        <input type="number" id="b-extra" value="0" min="0" step="0.1" inputmode="decimal">
+        <select id="b-extra-unit" class="extra-unit-select" aria-label="Extra dough unit">
+          <option value="g">g</option>
+          <option value="kg" selected>kg</option>
+        </select>
       </div>
     </div>
 
@@ -258,17 +280,8 @@
           <button class="copy-btn" id="b-copy-btn">Copy recipe</button>
           <button class="copy-wa-btn" id="b-wa-recipe-btn" title="Share via WhatsApp"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></button>
         </div>
-        <div class="panini-box">
-          <div class="panini-box-title">Dough</div>
-          <div class="panini-box-total"><span id="b-dough-display">0</span><span class="panini-unit">g</span></div>
-          <div class="panini-box-divider-row">
-            <span class="panini-div-sym">÷</span>
-            <input type="number" id="b-dough-div" min="0" max="20" value="0" inputmode="numeric" class="panini-div-input">
-            <span class="panini-div-eq">=</span>
-            <span class="panini-split-val" id="b-dough-split">0</span>
-            <span class="panini-split-unit">g</span>
-          </div>
-        </div>
+        <div class="divisor-box" id="b-divisor-box"></div>
+        <div class="crate-boxes" id="b-crate-boxes"></div>
       </div>
     </div>
 
@@ -285,14 +298,16 @@
 
     <div class="section-label">Production</div>
 
-    <div class="card">
-      <div class="product-row">
-        <span class="product-label">Number of loaves</span>
-        <div class="qty-group"><input type="number" id="s-loaves" value="0" min="0" inputmode="numeric"><span class="unit">pz</span></div>
-      </div>
-      <div class="product-row">
-        <span class="product-label">Weight per loaf</span>
-        <div class="qty-group"><input type="number" id="s-weight" value="905" min="100" step="5" inputmode="numeric"><span class="unit">g</span></div>
+    <div class="orders-cards" id="s-orders"></div>
+
+    <div class="extra-dough-row">
+      <span class="extra-dough-label">Extra dough</span>
+      <div class="qty-group">
+        <input type="number" id="s-extra" value="0" min="0" step="0.1" inputmode="decimal">
+        <select id="s-extra-unit" class="extra-unit-select" aria-label="Extra dough unit">
+          <option value="g">g</option>
+          <option value="kg" selected>kg</option>
+        </select>
       </div>
     </div>
 
@@ -314,17 +329,8 @@
           <button class="copy-btn" id="s-copy-btn">Copy recipe</button>
           <button class="copy-wa-btn" id="s-wa-recipe-btn" title="Share via WhatsApp"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></button>
         </div>
-        <div class="panini-box">
-          <div class="panini-box-title">Dough</div>
-          <div class="panini-box-total"><span id="s-dough-display">0</span><span class="panini-unit">g</span></div>
-          <div class="panini-box-divider-row">
-            <span class="panini-div-sym">÷</span>
-            <input type="number" id="s-dough-div" min="0" max="20" value="0" inputmode="numeric" class="panini-div-input">
-            <span class="panini-div-eq">=</span>
-            <span class="panini-split-val" id="s-dough-split">0</span>
-            <span class="panini-split-unit">g</span>
-          </div>
-        </div>
+        <div class="divisor-box" id="s-divisor-box"></div>
+        <div class="crate-boxes" id="s-crate-boxes"></div>
       </div>
     </div>
 
@@ -337,62 +343,30 @@
   </div>
 
   <div class="recipe-footer">
-    <button class="recipe-footer-btn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Recipe Settings</button>
+    <button class="recipe-footer-btn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
   </div>
 
 </div><!-- end scroll-area -->
 
 <div id="loaf-modal">
   <div id="loaf-modal-box">
-    <div class="loaf-modal-title">Duke Street Market</div>
+    <div class="loaf-modal-title" id="loaf-modal-title">Market order</div>
 
-    <div class="order-section">
-      <div class="order-section-title">Bone&amp;Block</div>
-      <div class="order-row">
-        <span class="order-label">Ciabatta</span>
-        <input type="number" id="om-ciabatta" class="order-qty-input" value="0" min="0" inputmode="numeric">
-      </div>
-      <div class="order-row">
-        <span class="order-label">Seeded burger buns</span>
-        <input type="number" id="om-burgerbuns" class="order-qty-input" value="0" min="0" inputmode="numeric">
-      </div>
-      <div class="order-row">
-        <span class="order-label">Brioche rolls</span>
-        <input type="number" id="om-subrolls" class="order-qty-input" value="0" min="0" inputmode="numeric">
-      </div>
-    </div>
-
-    <div class="order-section">
-      <div class="order-section-title">Club Fish</div>
-      <div class="order-row">
-        <span class="order-label">Tray focaccia</span>
-        <input type="number" id="om-trayfocaccia" class="order-qty-input" value="0" min="0" inputmode="numeric">
-      </div>
-      <div class="order-row">
-        <span class="order-label">Buns</span>
-        <input type="number" id="om-bun" class="order-qty-input" value="0" min="0" inputmode="numeric">
-      </div>
-      <div class="order-row">
-        <span class="order-label">Rolls</span>
-        <input type="number" id="om-rolls" class="order-qty-input" value="0" min="0" inputmode="numeric">
-      </div>
-      <div class="order-row">
-        <span class="order-label">Loaf of bread</span>
-        <input type="number" id="om-loaves" class="order-qty-input" value="0" min="0" inputmode="numeric">
-      </div>
-    </div>
-
-    <div class="order-section">
-      <div class="order-section-title">Cahita</div>
-      <div class="order-row">
-        <span class="order-label">Panini</span>
-        <input type="number" id="om-panini" class="order-qty-input" value="0" min="0" inputmode="numeric">
-      </div>
-    </div>
+    <div id="loaf-order-body"></div>
 
     <div class="loaf-modal-actions">
       <button class="loaf-modal-cancel">Cancel</button>
       <button class="loaf-modal-send">📤 Send</button>
+    </div>
+  </div>
+</div>
+
+<div id="list-select-modal">
+  <div id="list-select-box">
+    <div class="loaf-modal-title">Choose a list</div>
+    <div id="list-select-body"></div>
+    <div class="loaf-modal-actions">
+      <button class="list-select-cancel">Cancel</button>
     </div>
   </div>
 </div>

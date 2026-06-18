@@ -80,6 +80,17 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Calculator configuration: a single shared document (config/calculator)
+    // holding the configurable clients, products and per-client unit weights for
+    // the dough tabs (+ the market order). Shared across the team under Anonymous
+    // Auth, like the log. bakery == 'main' is required on write, as elsewhere.
+    match /config/{doc} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.resource.data.bakery == 'main';
+      allow delete: if false;
+    }
+
     // Default deny: any collection not explicitly matched above is locked down,
     // so adding a new collection can never accidentally inherit open access.
     match /{document=**} {

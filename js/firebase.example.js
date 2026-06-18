@@ -16,6 +16,8 @@
 //   - saveLogToFirestore(record)      → js/log.js
 //   - deleteLogFromFirestore(dough)   → js/log.js
 //   - saveDailyEntry(entry)           → js/log.js
+//   - watchCalculatorConfig(onChange) → js/calculator-config-store.js
+//   - saveCalculatorConfig(config)    → js/calculator-config-store.js
 //   - side-effect `import './firebase.js'` for init → js/app.js
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
@@ -52,6 +54,14 @@ const db = getFirestore(app);
 // so we sign in anonymously and only start reading once auth is ready.
 signInAnonymously(auth).catch(err => {
   console.error('Anonymous sign-in failed:', err);
+});
+
+// Resolves once an authenticated user exists. Config read/write awaits this so
+// it never hits Firestore before request.auth is set (rules would reject it).
+const authReady = new Promise(resolve => {
+  const unsub = onAuthStateChanged(auth, user => {
+    if (user) { unsub(); resolve(user); }
+  });
 });
 
 // ── Real-time log listener ──────────────────────────────────────────────────
@@ -99,6 +109,47 @@ export function saveDailyEntry(entry) {
     { [key]: entry },
     { merge: true }
   ).catch(err => { console.error('saveDailyEntry failed:', err); });
+}
+
+// ── Calculator configuration (single client address book) ────────────────────
+// One shared document: config/calculator. Shared across the team like the log,
+// under Anonymous Auth. Shape:
+//   { clients: [ { id, name, products: [ { id, name, dough, weight, kind,
+//                    crate: { show: bool, perBox: number } } ] } ],
+//     whatsappLists: [ { id, title,
+//                        clients: [ { clientId, products: [productId, ...] } ] } ],
+//     extraDough:      { focaccia: bool, brioche: bool, sourdough: bool },
+//     divisorIncluded: { focaccia: [ids], brioche: [ids], sourdough: [ids] } }
+// Each product knows its dough (focaccia|brioche|sourdough); the dough tabs are
+// filtered views of `clients`. product.kind is the input widget: number|dropdown|kg.
+// product.crate optionally shows a per-product "crate box" (how many crates the order
+// fills) bound to the product, not its name. `whatsappLists` are INDEPENDENT WhatsApp
+// order lists, decoupled from the dough tabs: each list groups client entries, and an
+// entry pairs an address-book client (by id) with product ids chosen from ANY client.
+// Names resolve live from the address book; deleted clients/products are pruned.
+// `extraDough` toggles the per-tab extra-dough box. `divisorIncluded` lists products
+// kept IN each tab's divisor box (opt-in: empty = no product is split). Legacy per-tab
+// and legacy `groups` documents are migrated on read by normalizeConfig in
+// js/calculator-config.js. See firestore.rules.
+
+// Subscribe to the config document in real time. onChange receives the raw data
+// object, or null when the document does not exist yet (fresh project).
+export function watchCalculatorConfig(onChange) {
+  authReady.then(() => {
+    onSnapshot(
+      doc(db, 'config', 'calculator'),
+      snap => onChange(snap.exists() ? snap.data() : null),
+      err => { console.error('Config listener failed:', err); },
+    );
+  });
+}
+
+// Persist the whole config document (overwrite). bakery is stamped for
+// forward-compatibility with a future per-bakery split, like the orders system.
+export function saveCalculatorConfig(config) {
+  return authReady
+    .then(() => setDoc(doc(db, 'config', 'calculator'), { ...config, bakery: 'main' }))
+    .catch(err => { console.error('saveCalculatorConfig failed:', err); throw err; });
 }
 
 // ── Orders system (js/orders/*) ──────────────────────────────────────────────

@@ -1,3 +1,5 @@
+import { confirmDiscard } from './calculator-confirm.js';
+
 export const RECIPE_DEFAULTS = {
   focaccia: { flourBlu:278, flourT65:278, malt:3, sugar:8, salt:11, yeast:3.6, oil:56, water1:334, water2:24 },
   brioche:  { flour:3185, yeast:127.4, water:1575 },
@@ -44,10 +46,18 @@ const OVERLAY_FIELDS = {
 
 const CARD_TITLES = { focaccia:'Focaccia', brioche:'Brioche', sourdough:'Sourdough' };
 
+// null = showing the recipe picker (Level 1); a tab name = editing that one
+// recipe (Level 2). Editing one recipe at a time means a Save only ever writes
+// the recipe on screen — the others are left exactly as they were.
+let activeRecipe = null;
 let isDirty = false;
 
+function titleEl()  { return document.querySelector('#recipe-overlay .recipe-overlay-title'); }
+function saveBtnEl() { return document.getElementById('recipe-save-btn'); }
+function contentEl() { return document.getElementById('recipe-content'); }
+
 function updateSaveBtn() {
-  const btn = document.getElementById('recipe-save-btn');
+  const btn = saveBtnEl();
   btn.disabled = !isDirty;
   btn.classList.toggle('dirty', isDirty);
 }
@@ -61,47 +71,70 @@ function onRecipeInput(tab) {
   updateSaveBtn();
 }
 
-export function openRecipes() {
-  document.getElementById('recipe-content').innerHTML =
-    Object.entries(OVERLAY_FIELDS).map(([tab, fields]) => {
-      const rows = fields.map(f => {
-        const id = 'ri-' + tab + '-' + f.key;
-        const val = parseFloat((RECIPES[tab][f.key] || 0).toFixed(1));
-        return `<div class="recipe-ing-row">
-          <span class="recipe-ing-name">${f.label}</span>
-          <input class="recipe-ing-input" type="number" id="${id}" value="${val}" step="0.1" inputmode="decimal" data-tab="${tab}">
-          <span class="recipe-unit">g</span>
-        </div>`;
-      }).join('');
-      const total = recipeTotal(RECIPES[tab]);
-      return `<div class="recipe-card">
-        <div class="recipe-card-title">${CARD_TITLES[tab]}</div>
-        ${rows}
-        <div class="recipe-total-row">
-          <span class="recipe-total-label">Total</span>
-          <span class="recipe-total-val" id="ri-total-${tab}">${Math.round(total * 10) / 10} g</span>
-        </div>
-      </div>`;
-    }).join('');
-
-  // Attach listeners after inserting HTML
-  Object.entries(OVERLAY_FIELDS).forEach(([tab, fields]) => {
-    fields.forEach(f => {
-      document.getElementById('ri-' + tab + '-' + f.key)
-        .addEventListener('input', () => onRecipeInput(tab));
-    });
-  });
-
+// Level 1 — the three recipe boxes. No Save here: you cannot edit a recipe
+// without first opening it (and confirming).
+function renderRecipeList() {
+  activeRecipe = null;
   isDirty = false;
+  titleEl().textContent = 'Recipes';
+  saveBtnEl().style.display = 'none';
+  const content = contentEl();
+  content.innerHTML = Object.keys(OVERLAY_FIELDS).map(tab =>
+    `<button class="drill-item" type="button" data-recipe="${tab}">
+       <span>${CARD_TITLES[tab]}</span>
+       <span class="drill-chevron">&#8594;</span>
+     </button>`).join('');
+  content.querySelectorAll('.drill-item').forEach(btn =>
+    btn.addEventListener('click', () => openRecipe(btn.dataset.recipe)));
+}
+
+// Open a recipe for editing. No confirmation on entry (the recipe is still
+// protected by the save confirmation and the unsaved-changes guard on exit).
+function openRecipe(tab) {
+  activeRecipe = tab;
+  isDirty = false;
+  titleEl().textContent = CARD_TITLES[tab];
+  saveBtnEl().style.display = '';
+  renderRecipeForm(tab);
   updateSaveBtn();
+}
+
+// Level 2 — the ingredient amounts for one recipe, plus its live total.
+function renderRecipeForm(tab) {
+  const fields = OVERLAY_FIELDS[tab];
+  const rows = fields.map(f => {
+    const id = 'ri-' + tab + '-' + f.key;
+    const val = parseFloat((RECIPES[tab][f.key] || 0).toFixed(1));
+    return `<div class="recipe-ing-row">
+        <span class="recipe-ing-name">${f.label}</span>
+        <input class="recipe-ing-input" type="number" id="${id}" value="${val}" step="0.1" inputmode="decimal" data-tab="${tab}">
+        <span class="recipe-unit">g</span>
+      </div>`;
+  }).join('');
+  const total = recipeTotal(RECIPES[tab]);
+  contentEl().innerHTML = `<div class="recipe-card">
+      ${rows}
+      <div class="recipe-total-row">
+        <span class="recipe-total-label">Total</span>
+        <span class="recipe-total-val" id="ri-total-${tab}">${Math.round(total * 10) / 10} g</span>
+      </div>
+    </div>`;
+  fields.forEach(f =>
+    document.getElementById('ri-' + tab + '-' + f.key)
+      .addEventListener('input', () => onRecipeInput(tab)));
+}
+
+export function openRecipes() {
+  renderRecipeList();
   document.getElementById('recipe-overlay').classList.add('visible');
 }
 
 export function saveRecipes() {
-  Object.entries(OVERLAY_FIELDS).forEach(([tab, fields]) => {
-    fields.forEach(f => {
-      RECIPES[tab][f.key] = +document.getElementById('ri-' + tab + '-' + f.key).value || 0;
-    });
+  if (!activeRecipe) return;                 // nothing to save from the picker
+  if (!confirm('Save changes to the ' + CARD_TITLES[activeRecipe] + ' recipe?')) return;
+  const tab = activeRecipe;
+  OVERLAY_FIELDS[tab].forEach(f => {
+    RECIPES[tab][f.key] = +document.getElementById('ri-' + tab + '-' + f.key).value || 0;
   });
   localStorage.setItem('bakery-recipes', JSON.stringify(RECIPES));
   isDirty = false;
@@ -109,11 +142,20 @@ export function saveRecipes() {
   document.dispatchEvent(new CustomEvent('recipes-saved'));
 }
 
+// Contextual "back": from an open recipe go back to the picker (guarding unsaved
+// edits); from the picker close the overlay, revealing the Settings hub beneath.
 export function closeRecipes() {
-  if (isDirty) {
-    if (!confirm('You have unsaved changes. Leave without saving?')) return;
+  if (activeRecipe) {
+    if (!confirmDiscard(isDirty)) return;
+    renderRecipeList();
+    return;
   }
-  isDirty = false;
-  updateSaveBtn();
   document.getElementById('recipe-overlay').classList.remove('visible');
+}
+
+// Jump straight to the home screen, guarding unsaved edits (isDirty is false on
+// the picker, so it only ever prompts while a recipe is open and changed).
+export function goHomeFromRecipes() {
+  if (!confirmDiscard(isDirty)) return;
+  window.location.href = 'index.html';
 }

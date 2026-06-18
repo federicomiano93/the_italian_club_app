@@ -30,7 +30,11 @@ Live: https://federicomiano93.github.io/the_italian_club_app/
 │   ├── calc.js             ← calcFocaccia, calcBrioche, calcSourdough
 │   ├── log.js              ← Calculator production log
 │   ├── recipes.js          ← recipe data + overlay UI
-│   ├── whatsapp.js         ← Duke Street Market order modal + WhatsApp send
+│   ├── whatsapp.js         ← market order modal + WhatsApp send (config-driven)
+│   ├── calculator-config.js        ← clients/products/weights data model + dough-total math (pure, tested)
+│   ├── calculator-config-store.js  ← config load/save: Firestore + localStorage cache (offline)
+│   ├── calculator-render.js        ← builds the client/product input cards from config
+│   ├── calculator-settings.js      ← Settings panel: add/rename/delete clients & products
 │   ├── install.js          ← Home-screen install helper (Android button / iOS tip)
 │   ├── install-guide.js    ← drives the device-first install guide
 │   └── orders/             ← Orders feature (vanilla ESM modules)

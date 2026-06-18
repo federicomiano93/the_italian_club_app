@@ -217,7 +217,7 @@ select.qty-select {
 }
 select.qty-select:focus { outline: none; border-color: var(--accent); background: #fff; }
 
-.ciabatta-count {
+.crate-count {
   font-size: 36px;
   font-weight: 700;
   font-family: 'DM Mono', monospace;
@@ -225,8 +225,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   line-height: 1;
   margin-bottom: 6px;
 }
-.ciabatta-count-unit { font-size: 15px; color: var(--text3); font-weight: 400; }
-.ciabatta-sub {
+.crate-count-unit { font-size: 15px; color: var(--text3); font-weight: 400; }
+.crate-sub {
   font-size: 13px;
   font-family: 'DM Mono', monospace;
   color: var(--text3);
@@ -246,6 +246,33 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   margin-bottom: 10px;
 }
 .param-label { flex: 1; font-size: 13px; color: var(--accent); font-weight: 500; }
+
+/* Extra-dough box: a free amount of dough (g or kg) added on top of the products,
+   present in every dough tab. Dashed border marks it as a separate, optional add-on. */
+.extra-dough-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin-top: 12px;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+}
+.extra-dough-label { flex: 1; font-size: 14px; font-weight: 600; color: var(--text); }
+.extra-dough-row .qty-group { width: auto; gap: 6px; }
+.extra-dough-row input[type="number"] { width: 70px; }
+.extra-unit-select {
+  padding: 8px 6px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  min-height: 40px;
+}
 
 /* Result */
 .result-block { margin-top: 14px; display: none; }
@@ -294,17 +321,17 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .total-dough-val { font-size: 26px; font-weight: 700; color: var(--accent); font-family: 'DM Mono', monospace; }
 .total-dough-unit { font-size: 13px; color: var(--text3); margin-left: 2px; }
 
-.panini-box {
+/* Crate boxes: one card per product that opted into a crate count, built by calc.js
+   inside the result block. .crate-boxes is just the stacking wrapper. */
+.crate-boxes { display: flex; flex-direction: column; gap: 10px; }
+.crate-box {
   background: var(--surface);
   border-radius: var(--radius-sm);
   padding: 16px 20px 18px;
   margin-top: 10px;
   text-align: center;
 }
-/* Hidden by default; shown by calc.js when ciabatta orders exist.
-   Replaces an inline style="display:none" that violated the CSP. */
-#f-ciabatta-box { display: none; }
-.panini-box-title {
+.crate-box-title {
   font-size: 11px;
   font-family: 'DM Mono', monospace;
   text-transform: uppercase;
@@ -312,40 +339,49 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   color: var(--text3);
   margin-bottom: 6px;
 }
-.panini-box-total {
-  font-size: 36px;
+
+/* Divisor box: the included product names on top, then "total ÷ N = per crate". */
+.divisor-box {
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 16px 20px 18px;
+  margin-top: 10px;
+  text-align: center;
+}
+.divisor-names {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text2);
+  line-height: 1.35;
+  margin-bottom: 12px;
+}
+.divisor-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.divisor-total, .divisor-result {
+  font-size: 26px;
   font-weight: 700;
   font-family: 'DM Mono', monospace;
   color: var(--accent);
   line-height: 1;
-  margin-bottom: 14px;
 }
-.panini-box-total .panini-unit { font-size: 15px; color: var(--text3); margin-left: 3px; font-weight: 400; }
-.panini-box-divider-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-.panini-div-sym { font-size: 20px; font-weight: 700; color: var(--text3); line-height: 1; }
-.panini-div-input {
-  width: 52px;
+.divisor-unit { font-size: 13px; color: var(--text3); }
+.divisor-sym, .divisor-eq { font-size: 20px; font-weight: 700; color: var(--text3); line-height: 1; }
+.divisor-select {
   height: 40px;
+  padding: 0 12px;
   font-size: 20px;
   font-weight: 700;
   font-family: 'DM Mono', monospace;
   color: var(--accent);
   background: var(--surface2);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
-  text-align: center;
-  -moz-appearance: textfield;
 }
-.panini-div-input::-webkit-outer-spin-button,
-.panini-div-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.panini-div-eq { font-size: 18px; color: var(--text3); }
-.panini-split-val { font-size: 26px; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--accent); }
-.panini-split-unit { font-size: 13px; color: var(--text3); }
 
 .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
 .summary-item {
@@ -426,16 +462,355 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 }
 .recipe-footer-btn:active { background: var(--surface2); }
 
+/* Settings overlays (hub + clients/products editor) */
+#settings-overlay, #cp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 510;
+  display: none;
+  flex-direction: column;
+  background: var(--bg);
+}
+#settings-overlay.visible, #cp-overlay.visible { display: flex; }
+/* Clients & products opens on top of the Settings hub, which stays mounted
+   underneath (z-index 510) so "back" simply reveals it again. */
+#cp-overlay { z-index: 520; }
+
+#cp-save-btn {
+  background: none;
+  border: 1.5px solid rgba(255,255,255,0.3);
+  border-radius: var(--radius-sm);
+  color: rgba(255,255,255,0.3);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 5px 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+#cp-save-btn.dirty { color: #fff; border-color: rgba(255,255,255,0.8); }
+
+.settings-menu { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.settings-menu-btn {
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.settings-menu-btn:active { background: var(--surface2); }
+.settings-menu-title { font-size: 16px; font-weight: 700; color: var(--text); font-family: 'DM Sans', sans-serif; }
+.settings-menu-sub { font-size: 13px; color: var(--text2); }
+
+/* Tappable "drill-in" row: the recipe picker and the client list both use it to
+   let the user pick one item to edit, instead of showing everything at once. */
+.drill-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 18px;
+  margin-bottom: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+.drill-item:active { background: var(--surface2); }
+.drill-chevron { color: var(--accent); opacity: 0.6; font-size: 20px; flex-shrink: 0; }
+
+/* Client boxes reordered with SortableJS (long-press to grab, drag to reorder).
+   No text-selection / iOS callout on long press. */
+.drill-reorder { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.cp-sortable-ghost { opacity: 0.35; }                              /* the gap placeholder */
+.cp-sortable-chosen { box-shadow: 0 8px 20px rgba(0,0,0,0.22); }   /* the grabbed item */
+.cp-sortable-drag { opacity: 0.95; background: var(--surface2); }  /* the moving clone */
+
+#cp-content { padding: 14px 16px; }
+
+.cp-field { margin-bottom: 14px; }
+.cp-label { display: block; font-size: 13px; color: var(--text2); margin-bottom: 6px; }
+
+.cp-client {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.cp-client-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.cp-client-name {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  font-family: 'DM Sans', sans-serif;
+}
+.cp-del-client, .cp-del-prod {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px 6px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.cp-prod-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.cp-prod-row:last-of-type { border-bottom: none; }
+.cp-prod-name {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 14px;
+}
+.cp-prod-weight {
+  width: 70px;
+  flex-shrink: 0;
+  padding: 6px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  font-family: 'DM Mono', monospace;
+  text-align: right;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.cp-unit, .cp-kg-note { font-size: 13px; color: var(--text2); flex-shrink: 0; }
+.cp-add-prod {
+  margin-top: 8px;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 12px;
+  cursor: pointer;
+  width: 100%;
+}
+.cp-add-client {
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 4px;
+}
+.cp-del-client-btn {
+  margin-top: 22px;
+  width: 100%;
+  background: none;
+  border: 1px solid #B23A2E;
+  border-radius: var(--radius-sm);
+  color: #B23A2E;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px;
+  cursor: pointer;
+}
+.cp-del-client-btn:active { background: rgba(178,58,46,0.08); }
+
+/* Name + small delete-icon row (client / group / product heading). */
+.cp-name-row { display: flex; align-items: center; gap: 8px; }
+.cp-del-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 17px;
+  line-height: 1;
+  padding: 6px 8px;
+  flex-shrink: 0;
+  opacity: 0.5;            /* low-key: deleting should not compete with Save */
+}
+.cp-del-icon:active { opacity: 0.9; }
+
+/* Product card: each product is clearly boxed and separated, with a prominent
+   name on top and the dough selector + weight on a second line. */
+.cp-prod-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.cp-prod-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.cp-prod-card-head .cp-prod-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+.cp-prod-card-row { display: flex; align-items: center; gap: 8px; }
+.cp-prod-dough {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* A required field left empty when the user tried to Save. */
+.cp-invalid { border-color: #B23A2E !important; background: rgba(178,58,46,0.06) !important; }
+
+/* Prominent Save at the bottom of a detail screen. */
+.cp-save-bottom {
+  margin-top: 24px;
+  width: 100%;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 15px;
+  cursor: pointer;
+}
+.cp-save-bottom:active { filter: brightness(0.95); }
+
+/* Group editor: one checkbox row per address-book client. */
+.cp-check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cp-check-row input { width: 20px; height: 20px; accent-color: var(--accent); flex-shrink: 0; }
+.cp-empty-hint { color: var(--text2); font-size: 14px; padding: 8px 2px; }
+
 /* Recipe overlay */
 #recipe-overlay {
   position: fixed;
   inset: 0;
-  z-index: 500;
+  /* Above #settings-overlay (510): Recipes opens on top of the Settings hub,
+     which stays mounted underneath so "back" simply reveals it again. */
+  z-index: 520;
   display: none;
   flex-direction: column;
   background: var(--bg);
 }
 #recipe-overlay.visible { display: flex; }
+
+/* Extra-dough visibility screen — same overlay style as Recipes, opened on top of
+   the Settings hub. */
+#extra-overlay,
+#divisor-overlay,
+#wa-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 520;
+  display: none;
+  flex-direction: column;
+  background: var(--bg);
+}
+#extra-overlay.visible,
+#divisor-overlay.visible,
+#wa-overlay.visible { display: flex; }
+#extra-content, #divisor-content, #wa-content { padding: 14px 16px; }
+
+/* WhatsApp lists editor: a list/client/entry row pairs a drill-in with a low-key
+   remove icon beside it (the top screen deletes lists & direct clients there). */
+.wa-entry-card { display: flex; align-items: stretch; gap: 8px; }
+.wa-entry-open { flex: 1; margin-bottom: 12px; }
+.wa-entry-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; text-align: left; }
+.wa-entry-name { font-size: 16px; font-weight: 700; color: var(--text); }
+.wa-entry-sub { font-size: 13px; font-weight: 400; color: var(--text2); white-space: normal; }
+/* An added-product row in a client entry: name on the left, low-key remove icon. */
+.wa-prod-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+}
+.extra-help { font-size: 13px; color: var(--text2); margin: 0 2px 16px; }
+
+/* Divisor settings: "Untick all" button at the foot of a tab's checklist. */
+.divisor-clear-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text2);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.divisor-clear-btn:active { background: var(--surface2); }
+
+/* Crate-box toggle in a product card: checkbox + "Crate box" label, inline. */
+.cp-crate-label { display: flex; align-items: center; gap: 8px; flex: 1; font-size: 14px; font-weight: 600; color: var(--text); }
+.cp-crate-label input { width: 20px; height: 20px; accent-color: var(--accent); flex-shrink: 0; }
+.extra-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.extra-toggle-row input { width: 22px; height: 22px; accent-color: var(--accent); flex-shrink: 0; }
 
 .recipe-overlay-header {
   background: var(--accent);
@@ -466,8 +841,28 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   color: #fff;
   letter-spacing: -0.3px;
 }
-#recipe-save-btn {
+/* Home shortcut in the overlay headers (Settings, Clients & products, Recipes):
+   same round style as the back button, pushed to the right edge. Lets the user
+   jump straight to the home screen instead of stepping back. When a Save button
+   follows, it sits just to the right of Home (header gap handles the spacing). */
+.overlay-home-btn {
   margin-left: auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  border: 1.5px solid rgba(255,255,255,0.35);
+  color: #fff;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  cursor: pointer;
+  padding: 0;
+}
+.overlay-home-btn:active { background: rgba(255,255,255,0.28); }
+#recipe-save-btn {
   background: none;
   border: 1.5px solid rgba(255,255,255,0.3);
   border-radius: var(--radius-sm);
@@ -601,8 +996,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .confirm-btn-primary:active { background: #1e3810; box-shadow: none; }
 .confirm-btn-primary:disabled { opacity: 0.6; cursor: default; }
 
-/* Order modal */
-#loaf-modal {
+/* Order modal + list picker (same bottom-sheet style) */
+#loaf-modal, #list-select-modal {
   display: none;
   position: fixed;
   inset: 0;
@@ -612,8 +1007,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   justify-content: center;
   padding: 0;
 }
-#loaf-modal.visible { display: flex; }
-#loaf-modal-box {
+#loaf-modal.visible, #list-select-modal.visible { display: flex; }
+#loaf-modal-box, #list-select-box {
   background: var(--surface);
   border-radius: var(--radius) var(--radius) 0 0;
   padding: 24px 20px 32px;
@@ -624,6 +1019,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   text-align: left;
 }
 .loaf-modal-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 20px; text-align: center; }
+/* Section labels ("Groups" / "Clients") inside the Send-order picker. */
+.send-picker-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text2); margin: 6px 2px 8px; }
 .order-section { margin-bottom: 20px; }
 .order-section-title {
   font-size: 15px;
@@ -661,7 +1058,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .order-qty-input::-webkit-outer-spin-button { -webkit-appearance: none; }
 .order-qty-input:focus { outline: none; border-color: var(--accent); background: #fff; }
 .loaf-modal-actions { display: flex; gap: 10px; margin-top: 20px; }
-.loaf-modal-cancel {
+.loaf-modal-cancel, .list-select-cancel {
   flex: 1;
   padding: 13px;
   background: var(--surface2);

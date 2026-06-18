@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v104';
+const CACHE_NAME = 'theitalianclub-v124';
 const ASSETS = [
   './',
   './index.html',
@@ -18,6 +18,13 @@ const ASSETS = [
   './js/calc.js',
   './js/log.js',
   './js/whatsapp.js',
+  './js/calculator-confirm.js',
+  './js/calculator-config.js',
+  './js/calculator-config-store.js',
+  './js/calculator-render.js',
+  './js/calculator-settings.js',
+  './js/calculator-whatsapp-settings.js',
+  './js/vendor/sortable.esm.js',
   './js/orders/boot.js',
   './js/orders/firebase-orders.js',
   './js/orders/orders-main.js',

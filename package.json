@@ -1,0 +1,10 @@
+{
+  "name": "the-italian-club-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "PWA: dough scaling calculator + supplier orders. Vanilla JS + Firebase.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

@@ -53,6 +53,14 @@ signInAnonymously(auth).catch(err => {
   console.error('Anonymous sign-in failed:', err);
 });
 
+// Resolves once an authenticated user exists. Config read/write awaits this so
+// it never hits Firestore before request.auth is set (rules would reject it).
+const authReady = new Promise(resolve => {
+  const unsub = onAuthStateChanged(auth, user => {
+    if (user) { unsub(); resolve(user); }
+  });
+});
+
 // ── Real-time log listener ──────────────────────────────────────────────────
 // Mirrors the `log` collection into window.firestoreLog and notifies the app.
 // Each document id is the lowercase dough name ('focaccia' | 'brioche' | 'sourdough')
@@ -98,4 +106,29 @@ export function saveDailyEntry(entry) {
     { [key]: entry },
     { merge: true }
   ).catch(err => { console.error('saveDailyEntry failed:', err); });
+}
+
+// ── Calculator configuration (clients / products / weights) ──────────────────
+// One shared document: config/calculator. Shared across the team like the log,
+// under Anonymous Auth (same per-bakery caveat). Holds the configurable clients,
+// products and per-client weights for the three dough tabs (+ the market order).
+
+// Subscribe to the config document in real time. onChange receives the raw data
+// object, or null when the document does not exist yet (fresh project).
+export function watchCalculatorConfig(onChange) {
+  authReady.then(() => {
+    onSnapshot(
+      doc(db, 'config', 'calculator'),
+      snap => onChange(snap.exists() ? snap.data() : null),
+      err => { console.error('Config listener failed:', err); },
+    );
+  });
+}
+
+// Persist the whole config document (overwrite). bakery is stamped for
+// forward-compatibility with a future per-bakery split, like the orders system.
+export function saveCalculatorConfig(config) {
+  return authReady
+    .then(() => setDoc(doc(db, 'config', 'calculator'), { ...config, bakery: 'main' }))
+    .catch(err => { console.error('saveCalculatorConfig failed:', err); throw err; });
 }
