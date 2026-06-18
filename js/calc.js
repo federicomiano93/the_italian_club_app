@@ -1,4 +1,4 @@
-import { RECIPES, recipeTotal } from './recipes.js';
+import { RECIPES } from './recipes.js';
 import {
   computeTarget, getTabProducts, doughExtraGrams, isExtraDoughEnabled,
   getDivisorProducts, divisorTotal, splitDough, DIVISOR_MAX,
@@ -6,6 +6,7 @@ import {
 } from './calculator-config.js';
 import { getConfig } from './calculator-config-store.js';
 import { el } from './calculator-render.js';
+import { scaleFocaccia, scaleBrioche, scaleSourdough } from './calculator-dough-math.js';
 
 export function showResult(id) { document.getElementById(id).classList.add('visible'); }
 export function hideResult(id) { document.getElementById(id).classList.remove('visible'); }
@@ -47,18 +48,6 @@ export function unlockInputs(tab) { setDisabled(tab, false); }
 
 function ing(name, grams) {
   return `<div class="ing-row"><span class="ing-name">${name}</span><span class="ing-val">${Math.round(grams)} g</span></div>`;
-}
-
-// Rounds an array of gram values so their displayed integers sum exactly to Math.round(total).
-// Assigns any ±1-2g rounding residual to the largest ingredient.
-function fixRounding(amounts, total) {
-  const rounded = amounts.map(Math.round);
-  const diff = Math.round(total) - rounded.reduce((a, b) => a + b, 0);
-  if (diff !== 0) {
-    const maxIdx = rounded.indexOf(Math.max(...rounded));
-    rounded[maxIdx] += diff;
-  }
-  return rounded;
 }
 
 // ── Divisor box (display-only crate split) ────────────────────────────────────
@@ -156,26 +145,7 @@ export function calcFocaccia() {
     return;
   }
 
-  const R = RECIPES.focaccia;
-  const base_total = recipeTotal(R);
-  const scale = target / base_total;
-  const total_flour = R.flourBlu + R.flourT65;
-  const yeast = total_flour * scale * (yeastPct / 100);
-  const remaining = target - yeast;
-  const non_yeast_base = base_total - R.yeast;
-
-  const amounts = [
-    R.flourBlu * remaining / non_yeast_base,
-    R.flourT65 * remaining / non_yeast_base,
-    R.malt     * remaining / non_yeast_base,
-    R.sugar    * remaining / non_yeast_base,
-    R.salt     * remaining / non_yeast_base,
-    yeast,
-    R.oil      * remaining / non_yeast_base,
-    R.water1   * remaining / non_yeast_base,
-    R.water2   * remaining / non_yeast_base,
-  ];
-  const [flu, flt, mlt, sug, slt, yst, oyl, w1, w2] = fixRounding(amounts, target);
+  const [flu, flt, mlt, sug, slt, yst, oyl, w1, w2] = scaleFocaccia(RECIPES.focaccia, target, yeastPct);
 
   document.getElementById('f-ingredients').innerHTML =
     ing('Flour uniqua blue', flu) + ing('Flour T65', flt) +
@@ -212,24 +182,14 @@ export function calcBrioche() {
     return;
   }
 
-  const R = RECIPES.brioche;
-  const yeastBase       = R.yeast * (yeastPct / 4);
-  const provisionalTotal = R.flour + yeastBase + R.water;
-  const factor = target / provisionalTotal;
-
-  const flour = R.flour * factor;
-  const yeast = yeastBase * factor;
-  const water = R.water * factor;
-  const raw   = target;
-
-  const [fl, ys, wt] = fixRounding([flour, yeast, water], raw);
+  const [fl, ys, wt] = scaleBrioche(RECIPES.brioche, target, yeastPct);
 
   document.getElementById('b-ingredients').innerHTML =
     ing('Mella brioche pof', fl) + ing('Yeast', ys) + ing('Water', wt);
 
   document.getElementById('b-yeast-display').textContent = yeastPct;
-  document.getElementById('b-badge').textContent = Math.round(raw) + ' g raw';
-  document.getElementById('b-total').textContent  = Math.round(raw);
+  document.getElementById('b-badge').textContent = Math.round(target) + ' g raw';
+  document.getElementById('b-total').textContent  = Math.round(target);
   updateDivisorBox('brioche');
   renderCrateBoxes('brioche');
   const bbtn = document.getElementById('b-confirm-btn');
@@ -257,24 +217,7 @@ export function calcSourdough() {
     return;
   }
 
-  const R = RECIPES.sourdough;
-  const starterBase      = R.starter * (starterPct / 18);
-  const provisionalTotal = R.flourBlu + R.flourT65 + R.flourWhole + R.water1 + starterBase + R.malt + R.salt + R.water2;
-  const factor = target / provisionalTotal;
-
-  const flourBlu   = R.flourBlu   * factor;
-  const flourT65   = R.flourT65   * factor;
-  const flourWhole = R.flourWhole * factor;
-  const water1     = R.water1     * factor;
-  const starter    = starterBase  * factor;
-  const malt       = R.malt       * factor;
-  const salt       = R.salt       * factor;
-  const water2     = R.water2     * factor;
-  const raw = target;
-
-  const [flu, flt, flw, w1, st, mlt, slt, w2] = fixRounding(
-    [flourBlu, flourT65, flourWhole, water1, starter, malt, salt, water2], raw
-  );
+  const [flu, flt, flw, w1, st, mlt, slt, w2] = scaleSourdough(RECIPES.sourdough, target, starterPct);
 
   document.getElementById('s-ingredients').innerHTML =
     ing('Flour uniqua blue', flu) + ing('Flour T65', flt) +
@@ -282,8 +225,8 @@ export function calcSourdough() {
     ing('Starter', st) +
     ing('Malt', mlt) + ing('Salt', slt) + ing('2° Water', w2);
 
-  document.getElementById('s-badge').textContent  = Math.round(raw) + ' g raw';
-  document.getElementById('s-total').textContent  = Math.round(raw);
+  document.getElementById('s-badge').textContent  = Math.round(target) + ' g raw';
+  document.getElementById('s-total').textContent  = Math.round(target);
   updateDivisorBox('sourdough');
   renderCrateBoxes('sourdough');
   const sbtn = document.getElementById('s-confirm-btn');
