@@ -23,6 +23,14 @@
 </head>
 <body>
 
+<!-- Splash overlay: shown instantly on open, faded out by boot.js once ready.
+     Styles live in orders.css and hide logic in js/orders/boot.js (CSP forbids
+     inline style/script). Decorative only — aria-hidden so screen readers skip it. -->
+<div id="splash" class="splash" aria-hidden="true">
+  <img src="icons/icon-512.png" alt="" class="splash-logo" width="160" height="160">
+  <span class="splash-title">The Italian Club</span>
+</div>
+
 <header>
   <div>
     <h1>The Italian Club</h1>
