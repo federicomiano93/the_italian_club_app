@@ -10,3 +10,6 @@ CLAUDE*.md
 # One-off artifacts for the git-history client-name scrub (local only)
 history-name-replacements.txt
 *.bundle
+# Claude Code: local machine-specific settings stay private; the shared
+# .claude/settings.json (permissions allow/deny) is committed on purpose.
+.claude/settings.local.json
