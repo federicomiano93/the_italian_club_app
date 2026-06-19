@@ -2,6 +2,7 @@ import { showResult, hideResult, lockInputs, unlockInputs, extraDoughGramsFor } 
 import { saveLogToFirestore, deleteLogFromFirestore, saveDailyEntry } from './firebase.js';
 import { getConfig } from './calculator-config-store.js';
 import { getTabProducts } from './calculator-config.js';
+import { logTimestamp } from './log-time.js';
 
 // Reads a quantity input/select by id; 0 when absent or empty.
 function qtyOf(id) {
@@ -25,15 +26,6 @@ export function restoreConfirmed(tab) {
   btn.disabled = false;
   showResult(tab + '-result');
   lockInputs(tab);
-}
-
-function logTimestamp() {
-  const now = new Date();
-  const DAY = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const MON = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  const d = String(now.getDate()).padStart(2,'0');
-  const t = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-  return { date: `${DAY[now.getDay()]} ${d} ${MON[now.getMonth()]}`, time: t };
 }
 
 function isoDate() {
