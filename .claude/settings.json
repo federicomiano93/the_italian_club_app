@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/claude-workspace/the_italian_club_app/**)",
+      "Bash(npm test)",
+      "Bash(npm test:*)",
+      "Bash(node --check:*)",
+      "Bash(npx serve:*)",
+      "Bash(npx --yes serve:*)",
+      "Bash(npx http-server:*)",
+      "Bash(npx --yes http-server:*)",
+      "Bash(python -m http.server:*)",
+      "Bash(git status)",
+      "Bash(git status:*)",
+      "Bash(git push origin feature/:*)",
+      "Bash(git push -u origin feature/:*)"
+    ],
+    "deny": [
+      "Bash(git reset --hard:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease:*)"
+    ]
+  }
+}
