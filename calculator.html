@@ -40,7 +40,33 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com; img-src 'self' data:; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com">
+<!--
+  CSP bootstrap. A <meta> Content-Security-Policy cannot be loosened at runtime
+  (multiple policies combine by intersection), so to allow the LOCAL Firebase
+  emulator on localhost WITHOUT touching the live site's policy, the meta is
+  emitted here. On the live domain the string is byte-identical to the production
+  policy; on localhost only, connect-src additionally allows the Auth (9099) and
+  Firestore (8080) emulators. This inline script runs before any CSP is in effect
+  (only <meta charset> precedes it) and before any network request.
+-->
+<script>
+(function () {
+  var local = ['localhost', '127.0.0.1', '::1', '[::1]'].indexOf(location.hostname) !== -1;
+  var emu = local
+    ? ' http://localhost:8080 http://localhost:9099 http://127.0.0.1:8080 http://127.0.0.1:9099'
+    : '';
+  document.write(
+    '<meta http-equiv="Content-Security-Policy" content="' +
+    "default-src 'self'; " +
+    "script-src 'self' https://www.gstatic.com; " +
+    "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com" + emu + "; " +
+    "img-src 'self' data:; " +
+    "style-src 'self' https://fonts.googleapis.com; " +
+    "font-src 'self' https://fonts.gstatic.com" +
+    '">'
+  );
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#2D5016">
 <meta name="mobile-web-app-capable" content="yes">

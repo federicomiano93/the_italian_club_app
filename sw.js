@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v128';
+const CACHE_NAME = 'theitalianclub-v129';
 const ASSETS = [
   './',
   './index.html',
@@ -65,9 +65,14 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Never cache cross-origin requests (Firebase SDK CDN, Firestore API, etc.)
+  // Never touch cross-origin requests (Firebase SDK CDN, Firestore/Auth API and,
+  // on localhost, the Firebase emulator). Returning WITHOUT respondWith lets the
+  // browser perform them directly: re-issuing a cross-origin request through the
+  // service worker (the old e.respondWith(fetch(...)) ) could fail transiently on
+  // the very first call — e.g. a spurious auth/network-request-failed on anonymous
+  // sign-in. Bypassing the SW entirely is the correct pattern and also removes a
+  // pointless round-trip for the live Firebase calls.
   if (new URL(e.request.url).origin !== self.location.origin) {
-    e.respondWith(fetch(e.request));
     return;
   }
 
