@@ -22,6 +22,7 @@ import {
   getAuth,
   signInAnonymously,
   onAuthStateChanged,
+  connectAuthEmulator,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
   getFirestore,
@@ -30,6 +31,7 @@ import {
   setDoc,
   deleteDoc,
   onSnapshot,
+  connectFirestoreEmulator,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ── Configuration (placeholders only — fill these in js/firebase.js) ──────────
@@ -46,6 +48,33 @@ export const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
+// ── Local emulator switch (AUTOMATIC, by hostname) ────────────────────────────
+// On localhost / 127.0.0.1 the app talks to the LOCAL Firebase Emulator Suite, so
+// development and manual browser testing NEVER touch production Firestore. On any
+// other hostname (the live github.io domain) it connects to production as before.
+//
+// This decision is made automatically from the URL — there is deliberately NO
+// manual flag. A flag could be left in the wrong state and either point the live
+// site at the emulator or point local testing at production. Hostname can't be
+// forgotten: it is simply where the page is being served from.
+//
+// The production config above is unchanged; we only REDIRECT the SDK's traffic to
+// the local emulator ports (firebase.json: auth 9099, firestore 8080) when local.
+const isLocalhost =
+  typeof location !== 'undefined' &&
+  ['localhost', '127.0.0.1', '::1', '[::1]'].includes(location.hostname);
+
+if (isLocalhost) {
+  // connectAuthEmulator must run before any sign-in; connectFirestoreEmulator
+  // before any Firestore read/write. Both happen here, before either is used.
+  connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+  connectFirestoreEmulator(db, 'localhost', 8080);
+  console.info('%c[Firebase] LOCAL EMULATOR mode — production data is NOT touched.',
+    'color:#0a0;font-weight:bold');
+} else {
+  console.info('[Firebase] PRODUCTION mode.');
+}
 
 // Firestore Security Rules require an authenticated user (request.auth != null),
 // so we sign in anonymously and only start reading once auth is ready.
