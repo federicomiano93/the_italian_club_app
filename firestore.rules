@@ -91,6 +91,22 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Production logs (new model): each log is its own document logs/{id} with an
+    // append-only version chain INSIDE the document (see js/log-model.js). Replaces
+    // the old one-doc-per-dough `log` collection above (kept for migration reads).
+    // Delete is allowed here — unlike history-keeping collections — because the
+    // append-only history lives inside the document, so a delete is the user
+    // explicitly removing a whole log (confirmed in the UI). Editing only ever
+    // appends a version; it never deletes one.
+    match /logs/{id} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.resource.data.bakery == 'main'
+        && request.resource.data.dough is string
+        && request.resource.data.versions is list;
+      allow delete: if request.auth != null;
+    }
+
     // Default deny: any collection not explicitly matched above is locked down,
     // so adding a new collection can never accidentally inherit open access.
     match /{document=**} {

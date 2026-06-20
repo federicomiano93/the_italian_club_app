@@ -31,6 +31,7 @@ import {
   setDoc,
   deleteDoc,
   onSnapshot,
+  getDocs,
   connectFirestoreEmulator,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
@@ -90,38 +91,56 @@ const authReady = new Promise(resolve => {
   });
 });
 
-// ── Real-time log listener ──────────────────────────────────────────────────
-// Mirrors the `log` collection into window.firestoreLog and notifies the app.
-// Each document id is the lowercase dough name ('focaccia' | 'brioche' | 'sourdough')
-// and holds { dough, date, time, text } — see firestore.rules.
-onAuthStateChanged(auth, user => {
-  if (!user) return;
-  onSnapshot(
-    collection(db, 'log'),
-    snapshot => {
-      window.firestoreLog = snapshot.docs.map(d => d.data());
-      document.dispatchEvent(new CustomEvent('firestore-log-updated'));
-    },
-    err => { console.error('Log listener failed:', err); }
-  );
-});
+// ── Logs collection (new model) ───────────────────────────────────────────────
+// Each log is its OWN document logs/{id} with an append-only version chain (see
+// js/log-model.js). This replaces the old one-document-per-dough `log` collection,
+// which overwrote two logs of the same dough on the same day. The old `log`
+// collection is kept read-only for the one-time migration below.
 
-// ── Write helpers ─────────────────────────────────────────────────────────────
-
-// Current-session log: one document per dough type, overwritten on each confirm.
-// record = { dough: 'Focaccia' | 'Brioche' | 'Sourdough', date, time, text }
-export function saveLogToFirestore(record) {
-  const id = record.dough.toLowerCase();
-  return setDoc(doc(db, 'log', id), record)
-    .catch(err => { console.error('saveLogToFirestore failed:', err); });
+// Subscribe to the whole logs collection in real time. onChange receives an array
+// of log documents (each with its id); ordering/sorting is done by the caller.
+export function watchLogs(onChange) {
+  authReady.then(() => {
+    onSnapshot(
+      collection(db, 'logs'),
+      snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      err => { console.error('Logs listener failed:', err); },
+    );
+  });
 }
 
-// Removes the current-session log entry for a dough type.
-// dough = 'Focaccia' | 'Brioche' | 'Sourdough'
-export function deleteLogFromFirestore(dough) {
-  const id = dough.toLowerCase();
-  return deleteDoc(doc(db, 'log', id))
-    .catch(err => { console.error('deleteLogFromFirestore failed:', err); });
+// Persist one log document (create or overwrite). bakery is stamped for
+// forward-compatibility, like the rest of the app. Append-only history lives
+// INSIDE the document (the versions array), so overwriting the doc is correct.
+export function saveLogDoc(log) {
+  return authReady
+    .then(() => setDoc(doc(db, 'logs', log.id), { ...log, bakery: 'main' }))
+    .catch(err => { console.error('saveLogDoc failed:', err); throw err; });
+}
+
+// Delete one whole log document (the user explicitly deleted that log).
+export function deleteLogDoc(id) {
+  return authReady
+    .then(() => deleteDoc(doc(db, 'logs', String(id))))
+    .catch(err => { console.error('deleteLogDoc failed:', err); throw err; });
+}
+
+// One-shot read of the new logs collection (used by the migration to decide
+// whether anything already exists before importing the old records).
+export function getLogsOnce() {
+  return authReady
+    .then(() => getDocs(collection(db, 'logs')))
+    .then(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    .catch(err => { console.error('getLogsOnce failed:', err); return []; });
+}
+
+// One-shot read of the OLD `log` collection (one doc per dough), used only by the
+// migration to convert legacy records into the new model without losing them.
+export function readOldLogsOnce() {
+  return authReady
+    .then(() => getDocs(collection(db, 'log')))
+    .then(snap => snap.docs.map(d => d.data()))
+    .catch(err => { console.error('readOldLogsOnce failed:', err); return []; });
 }
 
 // Daily production log: one document per day (entry.date_iso, 'YYYY-MM-DD'),
