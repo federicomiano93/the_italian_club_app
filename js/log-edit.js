@@ -1,0 +1,304 @@
+// log-edit.js — the dedicated log-edit screen (B) and the version history (C).
+//
+// EDIT (B): NOT the calculator. Shows all of the category's products with editable
+// quantities only (weights/recipe stay as configured), plus "occasional clients"
+// that live ONLY in this log (their products can be picked from the address book or
+// typed by hand). A free "calculated by" name is recorded. Saving APPENDS a new
+// version (append-only) — the previous version is never destroyed. Leaving with
+// unsaved changes asks to confirm (the log stays exactly as before on cancel).
+//
+// HISTORY (C): lists every version (append-only chain), opens any one read-only and
+// can RESTORE it — restoring appends a copy on top as the new current version, so
+// the history is never truncated.
+
+import { el } from './calculator-render.js';
+import { getConfig } from './calculator-config-store.js';
+import { getTabProducts, getDivisorIncluded, getAllProducts } from './calculator-config.js';
+import { RECIPES } from './recipes.js';
+import { logTimestamp } from './log-time.js';
+import { confirmDiscard } from './calculator-confirm.js';
+import { buildSheet, buildLogText, latestVersion } from './log-model.js';
+import { getLogById, appendAndSave, restoreAndSave } from './log-store.js';
+import { renderVersion } from './log-view.js';
+
+const DOUGH_TAB = { Focaccia: 'focaccia', Brioche: 'brioche', Sourdough: 'sourdough' };
+const PARAM_DEFAULT = { Focaccia: 0.65, Brioche: 4, Sourdough: 18 };
+const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+
+// ── Edit screen state ─────────────────────────────────────────────────────────
+let working = null; // { logId, dough, tab, items[], occasional[], calculatedBy }
+let dirty = false;
+
+export function openLogEdit(logId) {
+  const log = getLogById(logId);
+  if (!log) return;
+  const v = latestVersion(log) || {};
+  const tab = DOUGH_TAB[log.dough] || 'focaccia';
+
+  // ALL current category products (so products added since the log appear too),
+  // prefilled with the saved quantities by product id.
+  const savedQty = new Map((v.items || []).map(it => [it.id, num(it.qty)]));
+  const items = getTabProducts(getConfig(), tab).map(p => ({
+    id: p.id, name: p.name, clientName: p.clientName, weightG: p.weight, kind: p.kind,
+    crate: p.crate || { show: false, perBox: 20 },
+    qty: savedQty.has(p.id) ? savedQty.get(p.id) : 0,
+  }));
+  const occasional = (v.occasional || []).map(o => ({
+    name: o.name || '',
+    products: (o.products || []).map(p => ({
+      name: p.name || '', qty: num(p.qty), weightG: num(p.weightG),
+      unit: p.unit === 'kg' ? 'kg' : 'pz', productId: p.productId || '',
+    })),
+  }));
+
+  working = { logId, dough: log.dough, tab, items, occasional, calculatedBy: v.calculatedBy || '' };
+  dirty = false;
+  render();
+  updateSaveBtn();
+  document.getElementById('logedit-overlay').classList.add('visible');
+}
+
+function updateSaveBtn() {
+  const b = document.getElementById('logedit-save-btn');
+  b.disabled = !dirty;
+  b.classList.toggle('dirty', dirty);
+}
+function markDirty() { dirty = true; updateSaveBtn(); }
+
+function render() {
+  const c = document.getElementById('logedit-content');
+  c.textContent = '';
+  c.appendChild(el('div', { class: 'logedit-dough' }, working.dough + ' log'));
+
+  const by = el('input', { class: 'cp-client-name', type: 'text', value: working.calculatedBy, placeholder: 'Name (optional)' });
+  by.addEventListener('input', () => { working.calculatedBy = by.value; markDirty(); });
+  c.appendChild(el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, 'Calculated by'), by]));
+
+  c.appendChild(el('div', { class: 'cp-label' }, 'Products — quantities only'));
+  let lastClient = null;
+  let card = null;
+  if (!working.items.length) {
+    c.appendChild(el('div', { class: 'cp-empty-hint' }, 'No products in this category.'));
+  }
+  for (const it of working.items) {
+    if (it.clientName !== lastClient || card === null) {
+      lastClient = it.clientName;
+      card = el('div', { class: 'card' }, [el('div', { class: 'card-title' }, it.clientName || 'Client')]);
+      c.appendChild(card);
+    }
+    card.appendChild(qtyRow(it));
+  }
+
+  c.appendChild(el('div', { class: 'cp-label logedit-occ-label' }, 'Occasional clients — this log only'));
+  working.occasional.forEach((o, oi) => c.appendChild(occCard(o, oi)));
+  const addOcc = el('button', { class: 'cp-add-client', type: 'button' }, '+ Add occasional client');
+  addOcc.addEventListener('click', () => { working.occasional.push({ name: '', products: [] }); markDirty(); render(); });
+  c.appendChild(addOcc);
+
+  c.appendChild(saveBottom());
+}
+
+function qtyRow(it) {
+  const input = it.kind === 'dropdown' ? selectQty(it) : numQty(it);
+  const unit = it.kind === 'kg' ? 'kg' : 'pz';
+  const label = it.kind === 'kg'
+    ? el('span', { class: 'product-label' }, it.name)
+    : el('span', { class: 'product-label' }, [it.name + ' ', el('span', { class: 'product-weight' }, '(' + it.weightG + 'g)')]);
+  return el('div', { class: 'product-row' }, [label, el('div', { class: 'qty-group' }, [input, el('span', { class: 'unit' }, unit)])]);
+}
+function numQty(it) {
+  const inp = el('input', { type: 'number', min: '0', value: String(num(it.qty)), inputmode: it.kind === 'kg' ? 'decimal' : 'numeric' });
+  if (it.kind === 'kg') inp.setAttribute('step', '0.5');
+  inp.addEventListener('input', () => { it.qty = num(inp.value); markDirty(); });
+  inp.addEventListener('focus', function () { if (this.value === '0' || this.value === '') this.value = ''; else this.select(); });
+  inp.addEventListener('blur', function () { if (this.value === '' || isNaN(parseFloat(this.value))) { this.value = '0'; it.qty = 0; } });
+  return inp;
+}
+function selectQty(it) {
+  const sel = el('select', { class: 'qty-select' });
+  for (const v of [0, 20, 40, 60, 80, 100]) sel.appendChild(el('option', { value: String(v) }, String(v)));
+  sel.value = String(num(it.qty));
+  sel.addEventListener('change', () => { it.qty = num(sel.value); markDirty(); });
+  return sel;
+}
+
+// ── Occasional client (this-log-only) ─────────────────────────────────────────
+function occCard(o, oi) {
+  const nameInp = el('input', { class: 'cp-client-name', type: 'text', value: o.name, placeholder: 'Occasional client name' });
+  nameInp.addEventListener('input', () => { o.name = nameInp.value; markDirty(); });
+  const del = el('button', { class: 'cp-del-icon', type: 'button', 'aria-label': 'Remove occasional client' }, '🗑');
+  del.addEventListener('click', () => { working.occasional.splice(oi, 1); markDirty(); render(); });
+
+  const card = el('div', { class: 'cp-prod-card' }, [el('div', { class: 'cp-prod-card-head' }, [nameInp, del])]);
+  (o.products || []).forEach((p, pi) => card.appendChild(occProductRow(o, p, pi)));
+  const addP = el('button', { class: 'cp-add-prod', type: 'button' }, '+ Add product');
+  addP.addEventListener('click', () => { o.products.push({ name: '', qty: 0, weightG: 0, unit: 'pz', productId: '' }); markDirty(); render(); });
+  card.appendChild(addP);
+  return card;
+}
+
+function occProductRow(o, p, pi) {
+  const all = getAllProducts(getConfig());
+  const picker = el('select', { class: 'cp-prod-dough', 'aria-label': 'Pick a product' });
+  picker.appendChild(el('option', { value: '' }, '— type a new product —'));
+  for (const ap of all) picker.appendChild(el('option', { value: ap.id }, ap.name + ' · ' + ap.ownerClientName));
+  picker.value = p.productId || '';
+
+  const nameInp = el('input', { class: 'cp-prod-name', type: 'text', value: p.name, placeholder: 'Product name' });
+  const weightInp = el('input', { class: 'cp-prod-weight', type: 'number', min: '0', step: '1', value: String(num(p.weightG)), inputmode: 'numeric' });
+
+  function applyPickedState() {
+    const picked = !!p.productId;
+    nameInp.disabled = picked;
+    weightInp.disabled = picked;
+  }
+  picker.addEventListener('change', () => {
+    const ap = all.find(x => x.id === picker.value);
+    if (ap) { p.productId = ap.id; p.name = ap.name; p.weightG = num(ap.weight); nameInp.value = ap.name; weightInp.value = String(num(ap.weight)); }
+    else { p.productId = ''; }
+    applyPickedState();
+    markDirty();
+  });
+  nameInp.addEventListener('input', () => { p.name = nameInp.value; markDirty(); });
+  weightInp.addEventListener('input', () => { p.weightG = num(weightInp.value); markDirty(); });
+  applyPickedState();
+
+  const qty = el('input', { class: 'cp-prod-weight', type: 'number', min: '0', step: '1', value: String(num(p.qty)), inputmode: 'numeric' });
+  qty.addEventListener('input', () => { p.qty = num(qty.value); markDirty(); });
+  const unit = el('select', { class: 'cp-prod-dough', 'aria-label': 'Unit' });
+  unit.appendChild(el('option', { value: 'pz' }, 'pz'));
+  unit.appendChild(el('option', { value: 'kg' }, 'kg'));
+  unit.value = p.unit === 'kg' ? 'kg' : 'pz';
+  unit.addEventListener('change', () => { p.unit = unit.value; markDirty(); });
+
+  const del = el('button', { class: 'cp-del-icon', type: 'button', 'aria-label': 'Remove product' }, '🗑');
+  del.addEventListener('click', () => { o.products.splice(pi, 1); markDirty(); render(); });
+
+  return el('div', { class: 'logedit-occ-prod' }, [
+    el('div', { class: 'cp-prod-card-head' }, [picker, del]),
+    el('div', { class: 'cp-prod-card-row' }, [nameInp, weightInp, el('span', { class: 'cp-unit' }, 'g')]),
+    el('div', { class: 'cp-prod-card-row' }, [el('span', { class: 'cp-unit' }, 'Qty'), qty, unit]),
+  ]);
+}
+
+// ── Save (append a new version) ───────────────────────────────────────────────
+function saveBottom() {
+  const b = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Save changes');
+  b.addEventListener('click', save);
+  return b;
+}
+
+function save() {
+  if (!confirm('Save these changes as a new version?')) return;
+  const tab = working.tab;
+
+  const items = working.items.map(it => ({
+    id: it.id, name: it.name, clientName: it.clientName,
+    qty: num(it.qty), weightG: num(it.weightG), kind: it.kind, crate: it.crate,
+  }));
+
+  // Occasional clients → cleaned data + extra lines that feed the dough total.
+  const occClean = [];
+  const occLines = [];
+  working.occasional.forEach((o, oi) => {
+    const prods = (o.products || []).filter(p => (p.name || '').trim() !== '' && num(p.qty) > 0);
+    if (!(o.name || '').trim() && !prods.length) return; // drop fully empty
+    const name = (o.name || '').trim() || 'Occasional client';
+    occClean.push({ name, products: prods.map(p => ({ name: p.name.trim(), qty: num(p.qty), weightG: num(p.weightG), unit: p.unit === 'kg' ? 'kg' : 'pz', productId: p.productId || '' })) });
+    prods.forEach((p, pi) => occLines.push({
+      id: 'occ-' + oi + '-' + pi, name: p.name.trim(), clientName: name,
+      qty: num(p.qty), weightG: num(p.weightG), kind: p.unit === 'kg' ? 'kg' : 'number', crate: { show: false, perBox: 20 },
+    }));
+  });
+
+  // Keep param / extra / divisor from the previous version (this screen edits
+  // quantities only); recompute the sheet faithfully for the new quantities.
+  const prevSheet = (latestVersion(getLogById(working.logId)) || {}).sheet;
+  const param = prevSheet && prevSheet.param ? prevSheet.param.value : PARAM_DEFAULT[working.dough];
+  const extraG = prevSheet ? num(prevSheet.extra_g) : 0;
+  const divisor = { includedIds: getDivisorIncluded(getConfig(), tab), n: prevSheet && prevSheet.divisor ? prevSheet.divisor.n : 0 };
+
+  const sheet = buildSheet({ dough: working.dough, recipe: RECIPES[tab], items: items.concat(occLines), extraGrams: extraG, param, divisor });
+  const extra = { grams: extraG, value: extraG, unit: 'g' };
+  const text = buildLogText(items, occClean, extra);
+  const version = { calculatedBy: (working.calculatedBy || '').trim(), at: logTimestamp(), kind: 'edit', items, occasional: occClean, sheet, text };
+
+  appendAndSave(working.logId, version);
+  dirty = false;
+  updateSaveBtn();
+  closeEdit(true);
+}
+
+function closeEdit(saved) {
+  if (!saved && !confirmDiscard(dirty)) return; // "continue editing" on cancel
+  document.getElementById('logedit-overlay').classList.remove('visible');
+  working = null;
+  dirty = false;
+}
+
+// ── Version history (C) ───────────────────────────────────────────────────────
+let historyLogId = null;
+
+export function openLogHistory(logId) {
+  historyLogId = logId;
+  renderHistoryList();
+  document.getElementById('loghistory-overlay').classList.add('visible');
+}
+function closeHistory() { document.getElementById('loghistory-overlay').classList.remove('visible'); }
+
+function kindLabel(v, i, last) {
+  if (v.kind === 'restore') return 'Restored from v' + ((num(v.restoredFrom) || 0) + 1);
+  if (i === 0) return 'Created';
+  return 'Edited';
+}
+
+function renderHistoryList() {
+  const log = getLogById(historyLogId);
+  const c = document.getElementById('loghistory-content');
+  c.textContent = '';
+  if (!log) { c.appendChild(el('p', { class: 'log-empty' }, 'Log not found.')); return; }
+  c.appendChild(el('div', { class: 'logedit-dough' }, log.dough + ' — version history'));
+  const vs = log.versions || [];
+  for (let i = vs.length - 1; i >= 0; i--) {
+    const v = vs[i];
+    const last = i === vs.length - 1;
+    const at = v.at || {};
+    const box = el('button', { class: 'drill-item', type: 'button' }, [
+      el('div', { class: 'loghist-info' }, [
+        el('span', { class: 'loghist-kind' }, 'v' + (i + 1) + ' · ' + kindLabel(v, i) + (last ? ' · current' : '')),
+        el('span', { class: 'loghist-meta' }, (at.date ? at.date + ' — ' + at.time : '') + (v.calculatedBy ? ' · ' + v.calculatedBy : '')),
+      ]),
+      el('span', { class: 'drill-chevron' }, '→'),
+    ]);
+    box.addEventListener('click', () => openHistoryVersion(i));
+    c.appendChild(box);
+  }
+}
+
+function openHistoryVersion(i) {
+  const log = getLogById(historyLogId);
+  if (!log) return;
+  const vs = log.versions || [];
+  const v = vs[i];
+  if (!v) return;
+  const c = document.getElementById('loghistory-content');
+  c.textContent = '';
+  const back = el('button', { class: 'loghist-tolist', type: 'button' }, '← All versions');
+  back.addEventListener('click', renderHistoryList);
+  c.appendChild(back);
+  c.appendChild(renderVersion(v, log));
+  if (i !== vs.length - 1) {
+    const restore = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Restore this version');
+    restore.addEventListener('click', () => {
+      if (!confirm('Restore this version? It is added on top as the new current version — the history is kept.')) return;
+      restoreAndSave(historyLogId, i, { calculatedBy: v.calculatedBy || '', at: logTimestamp() });
+      renderHistoryList();
+    });
+    c.appendChild(restore);
+  }
+}
+
+// ── Wiring ────────────────────────────────────────────────────────────────────
+document.querySelector('.logedit-back-btn').addEventListener('click', () => closeEdit(false));
+document.getElementById('logedit-save-btn').addEventListener('click', save);
+document.querySelector('.loghistory-back-btn').addEventListener('click', closeHistory);

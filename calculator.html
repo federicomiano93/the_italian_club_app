@@ -207,7 +207,6 @@
   <button class="tab active">Focaccia</button>
   <button class="tab">Brioche</button>
   <button class="tab">Sourdough</button>
-  <button class="tab">Log</button>
 </div>
 
 <div id="yeast-banner">
@@ -369,6 +368,7 @@
   </div>
 
   <div class="recipe-footer">
+    <button class="recipe-footer-btn" id="log-footer-btn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/><path d="M8 9h2"/></svg>Log</button>
     <button class="recipe-footer-btn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
   </div>
 
@@ -395,6 +395,56 @@
       <button class="list-select-cancel">Cancel</button>
     </div>
   </div>
+</div>
+
+<!-- Save-log modal: pick Today/Tomorrow (required) + optional "calculated by". -->
+<div id="logday-modal">
+  <div id="logday-box">
+    <div class="loaf-modal-title">Save this log</div>
+    <p class="logday-q">When is this dough for?</p>
+    <div class="logday-choices">
+      <button class="logday-choice" type="button" data-day="today">Today</button>
+      <button class="logday-choice" type="button" data-day="tomorrow">Tomorrow</button>
+    </div>
+    <label class="logday-by-label" for="logday-by">Calculated by (optional)</label>
+    <input id="logday-by" class="logday-by-input" type="text" placeholder="Your name" autocomplete="off">
+    <div class="loaf-modal-actions">
+      <button class="logday-cancel" type="button">Cancel</button>
+      <button class="logday-save" type="button" disabled>Save log</button>
+    </div>
+  </div>
+</div>
+
+<!-- Read-only view of a log: the full calculator sheet for that log (D). -->
+<div id="logview-overlay" class="log-overlay">
+  <div class="recipe-overlay-header">
+    <button class="logview-back-btn">&#8592;</button>
+    <span class="recipe-overlay-title" id="logview-title">Log</span>
+    <button class="overlay-home-btn logview-home-btn" type="button" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </button>
+  </div>
+  <div class="recipe-scroll"><div id="logview-content"></div></div>
+</div>
+
+<!-- Dedicated log-edit screen (B): editable quantities + occasional clients. -->
+<div id="logedit-overlay" class="log-overlay">
+  <div class="recipe-overlay-header">
+    <button class="logedit-back-btn">&#8592;</button>
+    <span class="recipe-overlay-title">Edit log</span>
+    <button id="logedit-save-btn" disabled>Save</button>
+  </div>
+  <div class="recipe-scroll"><div id="logedit-content"></div></div>
+</div>
+
+<!-- Version history (C): past versions + restore. -->
+<div id="loghistory-overlay" class="log-overlay">
+  <div class="recipe-overlay-header">
+    <button class="loghistory-back-btn">&#8592;</button>
+    <span class="recipe-overlay-title">Version history</span>
+    <span class="overlay-home-spacer"></span>
+  </div>
+  <div class="recipe-scroll"><div id="loghistory-content"></div></div>
 </div>
 
 <script type="module" src="js/idle-reset.js"></script>
