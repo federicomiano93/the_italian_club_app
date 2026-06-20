@@ -12,6 +12,7 @@ import { getTabProducts, isExtraDoughEnabled } from './calculator-config.js';
 // ── Service Worker ────────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').then(reg => {
+    if (!reg) return; // registration unavailable (e.g. private mode) — fail safe
     setInterval(() => reg.update(), 30000);
 
     const showBanner = () => document.getElementById('update-banner').classList.add('visible');
@@ -251,7 +252,7 @@ document.querySelectorAll('.reset-btn').forEach((btn, i) => {
   btn.addEventListener('click', () => resetTab(tabs[i]));
 });
 
-document.querySelector('.recipe-footer-btn').addEventListener('click', openSettings);
+document.getElementById('settings-footer-btn').addEventListener('click', openSettings);
 document.getElementById('recipe-save-btn').addEventListener('click', saveRecipes);
 document.querySelector('.recipe-back-btn').addEventListener('click', closeRecipes);
 document.getElementById('recipe-home-btn').addEventListener('click', goHomeFromRecipes);
