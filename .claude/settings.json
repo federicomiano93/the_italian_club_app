@@ -1,7 +1,6 @@
 {
   "permissions": {
     "allow": [
-      "Read(//c/claude-workspace/the_italian_club_app/**)",
       "Bash(npm test)",
       "Bash(npm test:*)",
       "Bash(node --check:*)",
