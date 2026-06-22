@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildRecipeText, DOUGH_TITLES } from '../js/calculator-recipe-text.js';
 
-const SEP = '─'.repeat(22);
+const SEP = '-'.repeat(22);
 
 test('focaccia output: title, separator, lines and the "Flour uniqua blue" split', () => {
   const rows = [

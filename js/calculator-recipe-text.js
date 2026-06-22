@@ -11,7 +11,9 @@ export const DOUGH_TITLES = {
   sourdough: 'SOURDOUGH BREAD',
 };
 
-const SEP = '─'.repeat(22);
+// Plain ASCII divider: the box-drawing character used before (U+2500) renders as
+// a "missing glyph" box on some phone/WhatsApp fonts.
+const SEP = '-'.repeat(22);
 
 // One aligned "name:   value g" line, padded exactly as the old export did.
 function fmtLine(name, val) {
