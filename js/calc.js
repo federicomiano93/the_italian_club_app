@@ -159,7 +159,7 @@ export function calcFocaccia() {
   updateDivisorBox('focaccia');
   renderCrateBoxes('focaccia');
   const fbtn = document.getElementById('f-confirm-btn');
-  if (fbtn.dataset.mode !== 'edit') {
+  if (fbtn.dataset.mode !== 'saved') {
     fbtn.textContent = '✓ Confirm';
     fbtn.dataset.saved = '';
     fbtn.dataset.mode = '';
@@ -193,7 +193,7 @@ export function calcBrioche() {
   updateDivisorBox('brioche');
   renderCrateBoxes('brioche');
   const bbtn = document.getElementById('b-confirm-btn');
-  if (bbtn.dataset.mode !== 'edit') {
+  if (bbtn.dataset.mode !== 'saved') {
     bbtn.textContent = '✓ Confirm';
     bbtn.dataset.saved = '';
     bbtn.dataset.mode = '';
@@ -230,7 +230,7 @@ export function calcSourdough() {
   updateDivisorBox('sourdough');
   renderCrateBoxes('sourdough');
   const sbtn = document.getElementById('s-confirm-btn');
-  if (sbtn.dataset.mode !== 'edit') {
+  if (sbtn.dataset.mode !== 'saved') {
     sbtn.textContent = '✓ Confirm';
     sbtn.dataset.saved = '';
     sbtn.dataset.mode = '';

@@ -22,6 +22,7 @@ import {
   getAuth,
   signInAnonymously,
   onAuthStateChanged,
+  connectAuthEmulator,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import {
   getFirestore,
@@ -30,6 +31,8 @@ import {
   setDoc,
   deleteDoc,
   onSnapshot,
+  getDocs,
+  connectFirestoreEmulator,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // ── Configuration (placeholders only — fill these in js/firebase.js) ──────────
@@ -47,6 +50,33 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// ── Local emulator switch (AUTOMATIC, by hostname) ────────────────────────────
+// On localhost / 127.0.0.1 the app talks to the LOCAL Firebase Emulator Suite, so
+// development and manual browser testing NEVER touch production Firestore. On any
+// other hostname (the live github.io domain) it connects to production as before.
+//
+// This decision is made automatically from the URL — there is deliberately NO
+// manual flag. A flag could be left in the wrong state and either point the live
+// site at the emulator or point local testing at production. Hostname can't be
+// forgotten: it is simply where the page is being served from.
+//
+// The production config above is unchanged; we only REDIRECT the SDK's traffic to
+// the local emulator ports (firebase.json: auth 9099, firestore 8080) when local.
+const isLocalhost =
+  typeof location !== 'undefined' &&
+  ['localhost', '127.0.0.1', '::1', '[::1]'].includes(location.hostname);
+
+if (isLocalhost) {
+  // connectAuthEmulator must run before any sign-in; connectFirestoreEmulator
+  // before any Firestore read/write. Both happen here, before either is used.
+  connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
+  connectFirestoreEmulator(db, 'localhost', 8080);
+  console.info('%c[Firebase] LOCAL EMULATOR mode — production data is NOT touched.',
+    'color:#0a0;font-weight:bold');
+} else {
+  console.info('[Firebase] PRODUCTION mode.');
+}
+
 // Firestore Security Rules require an authenticated user (request.auth != null),
 // so we sign in anonymously and only start reading once auth is ready.
 signInAnonymously(auth).catch(err => {
@@ -61,38 +91,56 @@ const authReady = new Promise(resolve => {
   });
 });
 
-// ── Real-time log listener ──────────────────────────────────────────────────
-// Mirrors the `log` collection into window.firestoreLog and notifies the app.
-// Each document id is the lowercase dough name ('focaccia' | 'brioche' | 'sourdough')
-// and holds { dough, date, time, text } — see firestore.rules.
-onAuthStateChanged(auth, user => {
-  if (!user) return;
-  onSnapshot(
-    collection(db, 'log'),
-    snapshot => {
-      window.firestoreLog = snapshot.docs.map(d => d.data());
-      document.dispatchEvent(new CustomEvent('firestore-log-updated'));
-    },
-    err => { console.error('Log listener failed:', err); }
-  );
-});
+// ── Logs collection (new model) ───────────────────────────────────────────────
+// Each log is its OWN document logs/{id} with an append-only version chain (see
+// js/log-model.js). This replaces the old one-document-per-dough `log` collection,
+// which overwrote two logs of the same dough on the same day. The old `log`
+// collection is kept read-only for the one-time migration below.
 
-// ── Write helpers ─────────────────────────────────────────────────────────────
-
-// Current-session log: one document per dough type, overwritten on each confirm.
-// record = { dough: 'Focaccia' | 'Brioche' | 'Sourdough', date, time, text }
-export function saveLogToFirestore(record) {
-  const id = record.dough.toLowerCase();
-  return setDoc(doc(db, 'log', id), record)
-    .catch(err => { console.error('saveLogToFirestore failed:', err); });
+// Subscribe to the whole logs collection in real time. onChange receives an array
+// of log documents (each with its id); ordering/sorting is done by the caller.
+export function watchLogs(onChange) {
+  authReady.then(() => {
+    onSnapshot(
+      collection(db, 'logs'),
+      snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      err => { console.error('Logs listener failed:', err); },
+    );
+  });
 }
 
-// Removes the current-session log entry for a dough type.
-// dough = 'Focaccia' | 'Brioche' | 'Sourdough'
-export function deleteLogFromFirestore(dough) {
-  const id = dough.toLowerCase();
-  return deleteDoc(doc(db, 'log', id))
-    .catch(err => { console.error('deleteLogFromFirestore failed:', err); });
+// Persist one log document (create or overwrite). bakery is stamped for
+// forward-compatibility, like the rest of the app. Append-only history lives
+// INSIDE the document (the versions array), so overwriting the doc is correct.
+export function saveLogDoc(log) {
+  return authReady
+    .then(() => setDoc(doc(db, 'logs', log.id), { ...log, bakery: 'main' }))
+    .catch(err => { console.error('saveLogDoc failed:', err); throw err; });
+}
+
+// Delete one whole log document (the user explicitly deleted that log).
+export function deleteLogDoc(id) {
+  return authReady
+    .then(() => deleteDoc(doc(db, 'logs', String(id))))
+    .catch(err => { console.error('deleteLogDoc failed:', err); throw err; });
+}
+
+// One-shot read of the new logs collection (used by the migration to decide
+// whether anything already exists before importing the old records).
+export function getLogsOnce() {
+  return authReady
+    .then(() => getDocs(collection(db, 'logs')))
+    .then(snap => snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    .catch(err => { console.error('getLogsOnce failed:', err); return []; });
+}
+
+// One-shot read of the OLD `log` collection (one doc per dough), used only by the
+// migration to convert legacy records into the new model without losing them.
+export function readOldLogsOnce() {
+  return authReady
+    .then(() => getDocs(collection(db, 'log')))
+    .then(snap => snap.docs.map(d => d.data()))
+    .catch(err => { console.error('readOldLogsOnce failed:', err); return []; });
 }
 
 // Daily production log: one document per day (entry.date_iso, 'YYYY-MM-DD'),

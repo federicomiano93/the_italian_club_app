@@ -1,236 +1,210 @@
-import { showResult, hideResult, lockInputs, unlockInputs, extraDoughGramsFor } from './calc.js';
-import { saveLogToFirestore, deleteLogFromFirestore, saveDailyEntry } from './firebase.js';
+// log.js — the production log UI: the log list, the Confirm→save flow (with the
+// Today/Tomorrow choice), and the tap / edit / delete / history actions. The data
+// model and persistence live in log-model.js (pure) and log-store.js (Firestore).
+
+import { showResult, lockInputs } from './calc.js';
+import { saveDailyEntry } from './firebase.js';
 import { getConfig } from './calculator-config-store.js';
-import { getTabProducts } from './calculator-config.js';
+import {
+  getTabProducts, getDivisorIncluded, isExtraDoughEnabled, doughExtraGrams,
+} from './calculator-config.js';
+import { RECIPES } from './recipes.js';
 import { logTimestamp } from './log-time.js';
+import { el } from './calculator-render.js';
+import { buildSheet, buildLogText, latestVersion } from './log-model.js';
+import { getLogs, getLogById, createAndSave, deleteLog } from './log-store.js';
+import { renderOrder, renderVersion } from './log-view.js';
+import { openLogEdit, openLogHistory } from './log-edit.js';
 
-// Reads a quantity input/select by id; 0 when absent or empty.
-function qtyOf(id) {
-  const el = document.getElementById(id);
-  return el ? (+el.value || 0) : 0;
-}
+const DOUGH = { focaccia: 'Focaccia', brioche: 'Brioche', sourdough: 'Sourdough' };
+const PARAM_ID = { focaccia: 'f-yeast-pct', brioche: 'b-yeast-pct', sourdough: 's-starter-pct' };
+const PARAM_DEFAULT = { focaccia: 0.65, brioche: 4, sourdough: 18 };
 
-// Persisted "confirmed" flag per dough, so a locked recipe survives app restarts.
+function qtyOf(id) { const e = document.getElementById(id); return e ? (+e.value || 0) : 0; }
+
+// Persisted "saved" flag per dough so a saved recipe stays locked after a reload —
+// it never re-saves on restart (a new log is only created by a fresh Confirm).
 function setConfirmed(tab) { localStorage.setItem('confirmed-' + tab, '1'); }
 export function clearConfirmed(tab) { localStorage.removeItem('confirmed-' + tab); }
 
-// On app start, re-show + re-lock a previously confirmed recipe WITHOUT re-saving
-// the log, so reopening the app never changes the saved entry or its timestamp.
 export function restoreConfirmed(tab) {
   if (localStorage.getItem('confirmed-' + tab) !== '1') return;
   const btn = document.getElementById(tab[0] + '-confirm-btn');
-  if (!btn || !btn.classList.contains('visible')) return; // no current recipe (quantities empty)
-  btn.textContent = 'Edit';
-  btn.dataset.mode = 'edit';
-  btn.dataset.saved = '1';
-  btn.disabled = false;
+  if (!btn || !btn.classList.contains('visible')) return; // quantities empty → no recipe
+  btn.textContent = 'Saved ✓';
+  btn.dataset.mode = 'saved';
+  btn.disabled = true;
   showResult(tab + '-result');
   lockInputs(tab);
 }
 
 function isoDate() {
   const n = new Date();
-  return n.getFullYear() + '-' +
-    String(n.getMonth() + 1).padStart(2, '0') + '-' +
-    String(n.getDate()).padStart(2, '0');
+  return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0') + '-' + String(n.getDate()).padStart(2, '0');
 }
 
-// Daily production log entry (one map stored under daily-logs/{date}.{dough}).
-// Generic by product: total grams plus a "qty_<productId>" field per configured
-// product. Nothing reads these fields in the app — they are an archive only.
-function buildDailyEntry(tab, record) {
+// ── Gather the current calculator state for a dough tab ───────────────────────
+function gatherItems(tab) {
+  return getTabProducts(getConfig(), tab).map(p => ({
+    id: p.id, name: p.name, clientName: p.clientName,
+    qty: qtyOf(p.id), weightG: p.weight, kind: p.kind,
+    crate: p.crate || { show: false, perBox: 20 },
+  }));
+}
+function gatherExtra(tab) {
+  const v = document.getElementById(tab[0] + '-extra');
+  if (!v || !isExtraDoughEnabled(getConfig(), tab)) return { grams: 0, value: 0, unit: 'g' };
+  const u = document.getElementById(tab[0] + '-extra-unit');
+  const unit = u ? u.value : 'g';
+  return { grams: doughExtraGrams(v.value, unit), value: +v.value || 0, unit };
+}
+
+// ── Daily-logs archive (unchanged behaviour, kept for the production archive) ──
+function buildDailyEntry(tab, sheet, at) {
   const base = {
-    date_iso: isoDate(),
-    date: record.date,
-    time: record.time,
-    dough: record.dough,
-    total_g: parseInt(document.getElementById(tab[0] + '-total').textContent, 10) || 0,
-    extra_g: extraDoughGramsFor(tab),
+    date_iso: isoDate(), date: at.date, time: at.time, dough: DOUGH[tab],
+    total_g: sheet.total_g, extra_g: sheet.extra_g,
   };
-  for (const product of getTabProducts(getConfig(), tab)) {
-    base['qty_' + product.id] = qtyOf(product.id);
-  }
+  for (const p of getTabProducts(getConfig(), tab)) base['qty_' + p.id] = qtyOf(p.id);
   return base;
 }
 
-// Builds the saved log text grouped by client, from this dough's configured
-// products. Each client with at least one ordered product gets a "Client name:"
-// header followed by indented "  Product: N pz" (or " kg") lines. The tab's
-// products come pre-filtered to this dough and tagged with their owning client,
-// contiguous per client, so we just flush a block whenever the client changes.
-function buildTabLog(tab) {
-  const { date, time } = logTimestamp();
-  const lines = [];
-  let currentId = null;
-  let header = null;
-  let items = [];
-  const flush = () => {
-    if (header && items.length) { lines.push(header + ':'); lines.push(...items); }
-    items = [];
-  };
-  for (const product of getTabProducts(getConfig(), tab)) {
-    if (product.clientId !== currentId) { flush(); currentId = product.clientId; header = product.clientName; }
-    const qty = qtyOf(product.id);
-    if (qty > 0) items.push('  ' + product.name + ': ' + qty + (product.kind === 'kg' ? ' kg' : ' pz'));
-  }
-  flush();
-  const extraVal = document.getElementById(tab[0] + '-extra');
-  if (extraVal && extraDoughGramsFor(tab) > 0) {
-    const extraUnit = document.getElementById(tab[0] + '-extra-unit');
-    lines.push('Extra dough: ' + extraVal.value + ' ' + (extraUnit ? extraUnit.value : 'g'));
-  }
-  return { date, time, text: lines.join('\n') };
-}
+// ── Confirm → Save modal (Today / Tomorrow + optional "calculated by") ────────
+let pendingTab = null;
+let pendingDay = null;
 
 export function confirmAndSave(tab) {
   const btn = document.getElementById(tab[0] + '-confirm-btn');
+  if (btn.dataset.mode === 'saved') return; // already saved — Reset to start a new log
+  pendingTab = tab;
+  openLogDayModal();
+}
 
-  if (btn.dataset.mode === 'edit') {
-    if (!confirm('Change the quantities? You will need to Confirm again to update the recipe and the log.')) return;
-    hideResult(tab + '-result');
-    unlockInputs(tab);
-    clearConfirmed(tab);
-    btn.textContent = '✓ Confirm';
-    btn.dataset.mode = '';
-    btn.dataset.saved = '';
-    btn.disabled = false;
-    btn.classList.add('visible');
-    return;
-  }
+function openLogDayModal() {
+  pendingDay = null;
+  document.querySelectorAll('.logday-choice').forEach(b => b.classList.remove('selected'));
+  document.getElementById('logday-by').value = '';
+  document.querySelector('.logday-save').disabled = true;
+  document.getElementById('logday-modal').classList.add('visible');
+}
+function closeLogDayModal() {
+  document.getElementById('logday-modal').classList.remove('visible');
+  pendingTab = null;
+}
+
+function commitLog() {
+  const tab = pendingTab;
+  if (!tab || !pendingDay) return;
+  const by = document.getElementById('logday-by').value.trim();
+  const items = gatherItems(tab);
+  const extra = gatherExtra(tab);
+  const paramEl = document.getElementById(PARAM_ID[tab]);
+  const param = paramEl ? (+paramEl.value || PARAM_DEFAULT[tab]) : PARAM_DEFAULT[tab];
+  const divEl = document.getElementById(tab[0] + '-divisor-div');
+  const divisor = { includedIds: getDivisorIncluded(getConfig(), tab), n: divEl ? (+divEl.value || 0) : 0 };
+  const at = logTimestamp();
+  const sheet = buildSheet({ dough: DOUGH[tab], recipe: RECIPES[tab], items, extraGrams: extra.grams, param, divisor });
+  const text = buildLogText(items, [], extra);
+  const version = { calculatedBy: by, at, kind: 'create', items, occasional: [], sheet, text };
+
+  createAndSave({ dough: DOUGH[tab], forDay: pendingDay, version, createdAtMs: Date.now() });
+  saveDailyEntry(buildDailyEntry(tab, sheet, at)); // keep the production archive too
 
   showResult(tab + '-result');
-
-  const DOUGH = { focaccia: 'Focaccia', brioche: 'Brioche', sourdough: 'Sourdough' };
-  const { date, time, text } = buildTabLog(tab);
-  const record = { date, time, dough: DOUGH[tab], text };
-
-  let log = [];
-  try { log = JSON.parse(localStorage.getItem('bakery-log') || '[]'); } catch(e) {}
-  log = log.filter(r => r.dough !== record.dough);
-  log.push(record);
-  if (log.length > 3) log = log.slice(-3);
-  localStorage.setItem('bakery-log', JSON.stringify(log));
-  saveLogToFirestore(record);
-  saveDailyEntry(buildDailyEntry(tab, record));
-
   lockInputs(tab);
   setConfirmed(tab);
-
-  btn.textContent = 'Saved!';
+  const btn = document.getElementById(tab[0] + '-confirm-btn');
+  btn.textContent = 'Saved ✓';
+  btn.dataset.mode = 'saved';
   btn.disabled = true;
-  setTimeout(() => {
-    btn.textContent = 'Edit';
-    btn.dataset.mode = 'edit';
-    btn.disabled = false;
-  }, 1000);
+  closeLogDayModal();
 }
 
-function parseLogText(text) {
-  const frag = document.createDocumentFragment();
-  for (const line of (text || '').split('\n')) {
-    if (!line.trim()) continue;
-    const div = document.createElement('div');
-    // Headers are "Client name:" (no leading space, ends with a colon); items are
-    // indented "  Product: qty". Client names are user-typed, so accept any name
-    // (accents, digits, emoji) rather than ASCII only.
-    if (!/^\s/.test(line) && line.endsWith(':')) {
-      div.className = 'log-customer';
-      div.textContent = line.slice(0, -1);
-    } else {
-      div.className = 'log-item';
-      const t = line.trim();
-      const ci = t.lastIndexOf(': ');
-      if (ci !== -1) {
-        div.appendChild(document.createTextNode(t.slice(0, ci + 2)));
-        const strong = document.createElement('strong');
-        strong.textContent = t.slice(ci + 2);
-        div.appendChild(strong);
-      } else {
-        div.textContent = t;
-      }
-    }
-    frag.appendChild(div);
-  }
-  return frag;
-}
-
-export function getLog() {
-  if (window.firestoreLog && window.firestoreLog.length > 0) return window.firestoreLog;
-  try { return JSON.parse(localStorage.getItem('bakery-log') || '[]'); } catch(e) { return []; }
-}
-
+// ── Log list ──────────────────────────────────────────────────────────────────
 export function renderLog() {
   const container = document.getElementById('log-content');
-  const log = getLog();
-  if (log.length === 0) {
-    container.innerHTML = '<p class="log-empty">No records yet. Calculate and confirm a dough to save it here.</p>';
+  if (!container) return;
+  const logs = getLogs();
+  container.textContent = '';
+  if (!logs.length) {
+    container.appendChild(el('p', { class: 'log-empty' }, 'No logs yet. Calculate and confirm a dough to save it here.'));
     return;
   }
-  const ORDER = ['Focaccia', 'Brioche', 'Sourdough'];
-  const sorted = ORDER.map(d => log.find(r => r.dough === d)).filter(Boolean).filter(r => ORDER.includes(r.dough));
-  container.textContent = '';
-  for (const r of sorted) {
-    const card = document.createElement('div');
-    card.className = 'card';
-
-    const title = document.createElement('div');
-    title.className = 'card-title';
-    title.textContent = r.dough;
-    card.appendChild(title);
-
-    const ts = document.createElement('div');
-    ts.className = 'log-timestamp';
-    ts.textContent = `📅 ${r.date} — ${r.time}`;
-    card.appendChild(ts);
-
-    const body = document.createElement('div');
-    body.className = 'log-body';
-    body.appendChild(parseLogText(r.text));
-    card.appendChild(body);
-
-    const actions = document.createElement('div');
-    actions.className = 'log-actions';
-
-    const editBtn = document.createElement('button');
-    editBtn.className = 'log-edit-btn';
-    editBtn.dataset.dough = r.dough;
-    editBtn.textContent = 'Edit';
-    actions.appendChild(editBtn);
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'log-delete-btn';
-    deleteBtn.dataset.dough = r.dough;
-    deleteBtn.textContent = 'Delete';
-    actions.appendChild(deleteBtn);
-
-    card.appendChild(actions);
-    container.appendChild(card);
-  }
+  for (const log of logs) container.appendChild(logCard(log));
 }
 
-function deleteLog(dough) {
-  if (!confirm('Delete ' + dough + ' log entry?')) return;
-  let log = [];
-  try { log = JSON.parse(localStorage.getItem('bakery-log') || '[]'); } catch(e) {}
-  localStorage.setItem('bakery-log', JSON.stringify(log.filter(r => r.dough !== dough)));
-  deleteLogFromFirestore(dough);
+function logCard(log) {
+  const v = latestVersion(log) || {};
+  const card = el('div', { class: 'card log-card' });
+
+  // Tappable body → read-only full sheet (D).
+  const body = el('button', { class: 'log-card-body', type: 'button', 'data-id': log.id });
+  body.appendChild(el('div', { class: 'log-card-top' }, [
+    el('span', { class: 'card-title log-card-dough' }, log.dough),
+    el('span', { class: 'logday-badge' + (log.forDay === 'tomorrow' ? ' tomorrow' : '') }, log.forDay === 'tomorrow' ? 'Tomorrow' : 'Today'),
+  ]));
+  const at = v.at || {};
+  body.appendChild(el('div', { class: 'log-timestamp' }, '📅 ' + (at.date || '') + ' — ' + (at.time || '')));
+  if (v.calculatedBy) body.appendChild(el('div', { class: 'logview-by' }, 'by ' + v.calculatedBy));
+  if ((log.versions || []).length > 1) body.appendChild(el('div', { class: 'log-ver-count' }, 'v' + log.versions.length + ' (edited)'));
+  body.appendChild(renderOrder(v));
+  card.appendChild(body);
+
+  // Actions: history (icon), edit, delete (low-key).
+  const actions = el('div', { class: 'log-actions' });
+  const hist = el('button', { class: 'log-hist-btn', type: 'button', 'data-id': log.id, 'aria-label': 'Version history' }, '🕘 History');
+  const edit = el('button', { class: 'log-edit-btn', type: 'button', 'data-id': log.id }, 'Edit');
+  const del = el('button', { class: 'log-delete-btn', type: 'button', 'data-id': log.id, 'aria-label': 'Delete log' }, '🗑');
+  actions.appendChild(hist);
+  actions.appendChild(edit);
+  actions.appendChild(del);
+  card.appendChild(actions);
+  return card;
 }
 
-export function shareLogEntry(dough) {
-  const r = getLog().find(e => e.dough === dough);
-  if (!r) return;
-  const text = `📋 *${r.dough.toUpperCase()} — ${r.date}*\n\n${r.text}`;
-  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+// ── Read-only view (D) ────────────────────────────────────────────────────────
+function openLogView(id) {
+  const log = getLogById(id);
+  if (!log) return;
+  const c = document.getElementById('logview-content');
+  c.textContent = '';
+  document.getElementById('logview-title').textContent = log.dough + ' log';
+  c.appendChild(renderVersion(latestVersion(log), log));
+  document.getElementById('logview-overlay').classList.add('visible');
+}
+function closeLogView() { document.getElementById('logview-overlay').classList.remove('visible'); }
+
+// Edit (B): confirm first, then open the dedicated edit screen (never the calculator).
+function startEdit(id) {
+  if (!confirm('Edit this log?')) return;
+  openLogEdit(id);
 }
 
-// Event delegation for dynamically generated log buttons
+// ── Wiring (elements exist in calculator.html) ────────────────────────────────
+document.querySelectorAll('.logday-choice').forEach(b => {
+  b.addEventListener('click', () => {
+    pendingDay = b.dataset.day;
+    document.querySelectorAll('.logday-choice').forEach(x => x.classList.toggle('selected', x === b));
+    document.querySelector('.logday-save').disabled = false;
+  });
+});
+document.querySelector('.logday-cancel').addEventListener('click', closeLogDayModal);
+document.querySelector('.logday-save').addEventListener('click', commitLog);
+document.querySelector('.logview-back-btn').addEventListener('click', closeLogView);
+document.querySelector('.logview-home-btn').addEventListener('click', () => { window.location.href = 'index.html'; });
+
 document.getElementById('log-content').addEventListener('click', e => {
-  const editBtn = e.target.closest('.log-edit-btn');
-  const deleteBtn = e.target.closest('.log-delete-btn');
-  if (editBtn) {
-    document.dispatchEvent(new CustomEvent('switch-tab', { detail: editBtn.dataset.dough.toLowerCase() }));
+  const histB = e.target.closest('.log-hist-btn');
+  const editB = e.target.closest('.log-edit-btn');
+  const delB = e.target.closest('.log-delete-btn');
+  const bodyB = e.target.closest('.log-card-body');
+  if (histB) { openLogHistory(histB.dataset.id); return; }
+  if (editB) { startEdit(editB.dataset.id); return; }
+  if (delB) {
+    const id = delB.dataset.id;
+    const log = getLogById(id);
+    if (confirm('Delete this ' + (log ? log.dough : '') + ' log? This cannot be undone.')) deleteLog(id);
+    return;
   }
-  if (deleteBtn) {
-    deleteLog(deleteBtn.dataset.dough);
-  }
+  if (bodyB) { openLogView(bodyB.dataset.id); return; }
 });

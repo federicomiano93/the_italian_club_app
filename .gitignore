@@ -10,6 +10,11 @@ CLAUDE*.md
 # One-off artifacts for the git-history client-name scrub (local only)
 history-name-replacements.txt
 *.bundle
+# Firebase Emulator Suite local artifacts (generated when emulators run locally)
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+.firebase/
 # Claude Code: local machine-specific settings stay private; the shared
 # .claude/settings.json (permissions allow/deny) is committed on purpose.
 .claude/settings.local.json

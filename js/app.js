@@ -5,12 +5,14 @@ import { saveRecipes, closeRecipes, goHomeFromRecipes } from './recipes.js';
 import { openSettings } from './calculator-settings.js';
 import { shareMarketOrder, closeLoafModal, sendWithLoaves, closeListPicker } from './whatsapp.js';
 import { getConfig, initConfig } from './calculator-config-store.js';
+import { initLogs } from './log-store.js';
 import { renderTab } from './calculator-render.js';
 import { getTabProducts, isExtraDoughEnabled } from './calculator-config.js';
 
 // ── Service Worker ────────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').then(reg => {
+    if (!reg) return; // registration unavailable (e.g. private mode) — fail safe
     setInterval(() => reg.update(), 30000);
 
     const showBanner = () => document.getElementById('update-banner').classList.add('visible');
@@ -40,14 +42,15 @@ function applyUpdate() {
 }
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
+// The dough tab-bar holds only the three recipes now; the Log lives in the footer
+// (next to Settings), so showing it deactivates all dough tabs. The footer stays
+// visible everywhere so Log and Settings are always reachable.
 function switchTab(name) {
   document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach((el, i) => {
-    el.classList.toggle('active', ['focaccia','brioche','sourdough','log'][i] === name);
-  });
+  const DOUGH = ['focaccia', 'brioche', 'sourdough'];
+  document.querySelectorAll('.tab').forEach((el, i) => el.classList.toggle('active', DOUGH[i] === name));
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelector('.scroll-area').scrollTop = 0;
-  document.querySelector('.recipe-footer').style.display = name === 'log' ? 'none' : '';
   if (name === 'log') renderLog();
 }
 
@@ -129,6 +132,9 @@ function resetTab(tab) {
   if (!confirm('Reset all fields?')) return;
   unlockInputs(tab);
   clearConfirmed(tab);
+  // Clear the saved/locked state so the next Confirm creates a brand-new log.
+  const cbtn = document.getElementById(tab[0] + '-confirm-btn');
+  if (cbtn) { cbtn.dataset.mode = ''; cbtn.disabled = false; }
   document.querySelectorAll('#tab-'+tab+' input[type="number"]').forEach(input => {
     input.value = PARAM_DEFAULTS[input.id] || '0';
   });
@@ -223,9 +229,12 @@ document.getElementById('yeast-banner').addEventListener('click', () => {
 document.getElementById('header-wa-btn').addEventListener('click', shareMarketOrder);
 
 document.querySelectorAll('.tab').forEach((btn, i) => {
-  const tabs = ['focaccia','brioche','sourdough','log'];
+  const tabs = ['focaccia','brioche','sourdough'];
   btn.addEventListener('click', () => switchTab(tabs[i]));
 });
+
+// The Log now lives in the footer (next to Settings), not in the dough tab-bar.
+document.getElementById('log-footer-btn').addEventListener('click', () => switchTab('log'));
 
 document.getElementById('f-confirm-btn').addEventListener('click', () => confirmAndSave('focaccia'));
 document.getElementById('b-confirm-btn').addEventListener('click', () => confirmAndSave('brioche'));
@@ -243,7 +252,7 @@ document.querySelectorAll('.reset-btn').forEach((btn, i) => {
   btn.addEventListener('click', () => resetTab(tabs[i]));
 });
 
-document.querySelector('.recipe-footer-btn').addEventListener('click', openSettings);
+document.getElementById('settings-footer-btn').addEventListener('click', openSettings);
 document.getElementById('recipe-save-btn').addEventListener('click', saveRecipes);
 document.querySelector('.recipe-back-btn').addEventListener('click', closeRecipes);
 document.getElementById('recipe-home-btn').addEventListener('click', goHomeFromRecipes);
@@ -253,8 +262,6 @@ document.querySelector('.loaf-modal-send').addEventListener('click', sendWithLoa
 document.querySelector('.list-select-cancel').addEventListener('click', closeListPicker);
 
 // ── Cross-module events ───────────────────────────────────────────────────────
-document.addEventListener('switch-tab', e => switchTab(e.detail));
-document.addEventListener('firestore-log-updated', renderLog);
 document.addEventListener('recipes-saved', () => { calcFocaccia(); calcBrioche(); calcSourdough(); });
 
 // ── Init ──────────────────────────────────────────────────────────────────────
@@ -262,3 +269,5 @@ document.addEventListener('recipes-saved', () => { calcFocaccia(); calcBrioche()
 // a new configuration.
 initConfig(renderAll);
 renderAll();
+// Start the logs sync; re-render the log list whenever the logs change remotely.
+initLogs(renderLog);
