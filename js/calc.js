@@ -7,6 +7,7 @@ import {
 import { getConfig } from './calculator-config-store.js';
 import { el } from './calculator-render.js';
 import { scaleFocaccia, scaleBrioche, scaleSourdough } from './calculator-dough-math.js';
+import { buildRecipeText } from './calculator-recipe-text.js';
 
 export function showResult(id) { document.getElementById(id).classList.add('visible'); }
 export function hideResult(id) { document.getElementById(id).classList.remove('visible'); }
@@ -46,8 +47,25 @@ function setDisabled(tab, disabled) {
 export function lockInputs(tab) { setDisabled(tab, true); }
 export function unlockInputs(tab) { setDisabled(tab, false); }
 
-function ing(name, grams) {
-  return `<div class="ing-row"><span class="ing-name">${name}</span><span class="ing-val">${Math.round(grams)} g</span></div>`;
+// The computed ingredients for each dough's last calculation: the SINGLE source
+// of truth shared by the on-screen render and the Copy/WhatsApp export. Each entry
+// is { rows: [{ name, grams }], totalG }. Set only on a successful calculation
+// (target > 0), exactly like the rendered rows used to be.
+const lastRecipe = { focaccia: null, brioche: null, sourdough: null };
+
+// Render an ingredient list into a container, replacing its contents. CSP-safe:
+// built with the el() DOM helper (no innerHTML), matching js/log-view.js. Keeps
+// the .ing-row / .ing-name / .ing-val classes unchanged (shared with Log/Orders).
+function renderIngredients(containerId, rows) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.textContent = '';
+  for (const r of rows) {
+    container.appendChild(el('div', { class: 'ing-row' }, [
+      el('span', { class: 'ing-name' }, r.name),
+      el('span', { class: 'ing-val' }, Math.round(r.grams) + ' g'),
+    ]));
+  }
 }
 
 // ── Divisor box (display-only crate split) ────────────────────────────────────
@@ -147,11 +165,14 @@ export function calcFocaccia() {
 
   const [flu, flt, mlt, sug, slt, yst, oyl, w1, w2] = scaleFocaccia(RECIPES.focaccia, target, yeastPct);
 
-  document.getElementById('f-ingredients').innerHTML =
-    ing('Flour uniqua blue', flu) + ing('Flour T65', flt) +
-    ing('Malt', mlt) + ing('Sugar', sug) + ing('Salt', slt) +
-    ing('Yeast', yst) + ing('Oil', oyl) +
-    ing('1° Water', w1) + ing('2° Water', w2);
+  const rows = [
+    { name: 'Flour uniqua blue', grams: flu }, { name: 'Flour T65', grams: flt },
+    { name: 'Malt', grams: mlt }, { name: 'Sugar', grams: sug }, { name: 'Salt', grams: slt },
+    { name: 'Yeast', grams: yst }, { name: 'Oil', grams: oyl },
+    { name: '1° Water', grams: w1 }, { name: '2° Water', grams: w2 },
+  ];
+  renderIngredients('f-ingredients', rows);
+  lastRecipe.focaccia = { rows, totalG: Math.round(target) };
 
   document.getElementById('f-yeast-display').textContent = yeastPct;
   document.getElementById('f-badge').textContent = Math.round(target) + ' g raw';
@@ -184,8 +205,11 @@ export function calcBrioche() {
 
   const [fl, ys, wt] = scaleBrioche(RECIPES.brioche, target, yeastPct);
 
-  document.getElementById('b-ingredients').innerHTML =
-    ing('Mella brioche pof', fl) + ing('Yeast', ys) + ing('Water', wt);
+  const rows = [
+    { name: 'Mella brioche pof', grams: fl }, { name: 'Yeast', grams: ys }, { name: 'Water', grams: wt },
+  ];
+  renderIngredients('b-ingredients', rows);
+  lastRecipe.brioche = { rows, totalG: Math.round(target) };
 
   document.getElementById('b-yeast-display').textContent = yeastPct;
   document.getElementById('b-badge').textContent = Math.round(target) + ' g raw';
@@ -219,11 +243,14 @@ export function calcSourdough() {
 
   const [flu, flt, flw, w1, st, mlt, slt, w2] = scaleSourdough(RECIPES.sourdough, target, starterPct);
 
-  document.getElementById('s-ingredients').innerHTML =
-    ing('Flour uniqua blue', flu) + ing('Flour T65', flt) +
-    ing('Flour wholemeal', flw) + ing('1° Water', w1) +
-    ing('Starter', st) +
-    ing('Malt', mlt) + ing('Salt', slt) + ing('2° Water', w2);
+  const rows = [
+    { name: 'Flour uniqua blue', grams: flu }, { name: 'Flour T65', grams: flt },
+    { name: 'Flour wholemeal', grams: flw }, { name: '1° Water', grams: w1 },
+    { name: 'Starter', grams: st },
+    { name: 'Malt', grams: mlt }, { name: 'Salt', grams: slt }, { name: '2° Water', grams: w2 },
+  ];
+  renderIngredients('s-ingredients', rows);
+  lastRecipe.sourdough = { rows, totalG: Math.round(target) };
 
   document.getElementById('s-badge').textContent  = Math.round(target) + ' g raw';
   document.getElementById('s-total').textContent  = Math.round(target);
@@ -240,63 +267,23 @@ export function calcSourdough() {
   }
 }
 
-function buildRecipeText(tab) {
-  const SEP = '─'.repeat(22);
-
-  function fmtLine(name, val) {
-    return (name + ':').padEnd(11) + String(val).padStart(5) + ' g';
-  }
-
-  function readIngredients(prefix) {
-    const lines = [];
-    document.querySelectorAll('#' + prefix + '-ingredients .ing-row').forEach(row => {
-      const name = row.querySelector('.ing-name').textContent.trim();
-      const val  = parseInt(row.querySelector('.ing-val').textContent, 10);
-      if (name === 'Flour uniqua blue') {
-        lines.push('Flour uniqua');
-        lines.push(fmtLine('blue', val));
-      } else {
-        lines.push(fmtLine(name, val));
-      }
-    });
-    return lines;
-  }
-
-  if (tab === 'focaccia') {
-    const total = parseInt(document.getElementById('f-total').textContent, 10);
-    return [
-      'FOCACCIA DOUGH  ' + (total / 1000).toFixed(1) + ' kg',
-      SEP,
-      ...readIngredients('f'),
-    ].join('\n');
-
-  } else if (tab === 'brioche') {
-    const total = parseInt(document.getElementById('b-total').textContent, 10);
-    return [
-      'BRIOCHE DOUGH  ' + (total / 1000).toFixed(1) + ' kg',
-      SEP,
-      ...readIngredients('b'),
-    ].join('\n');
-
-  } else if (tab === 'sourdough') {
-    const total = parseInt(document.getElementById('s-total').textContent, 10);
-    return [
-      'SOURDOUGH BREAD  ' + (total / 1000).toFixed(1) + ' kg',
-      SEP,
-      ...readIngredients('s'),
-    ].join('\n');
-  }
-  return '';
+// Recipe text for the Copy/WhatsApp export, built from the in-memory ingredient
+// model (the same data the screen shows) — no DOM scraping. Empty until the dough
+// has been calculated at least once.
+function recipeTextFor(tab) {
+  const model = lastRecipe[tab];
+  if (!model) return '';
+  return buildRecipeText(tab, model.rows, model.totalG);
 }
 
 export function copyRecipe(tab) {
   const btn = document.getElementById(tab[0] + '-copy-btn');
-  navigator.clipboard.writeText(buildRecipeText(tab)).then(() => {
+  navigator.clipboard.writeText(recipeTextFor(tab)).then(() => {
     btn.textContent = 'Copied ✓';
     setTimeout(() => { btn.textContent = 'Copy recipe'; }, 2000);
   });
 }
 
 export function shareRecipeWA(tab) {
-  window.open('https://wa.me/?text=' + encodeURIComponent(buildRecipeText(tab)), '_blank');
+  window.open('https://wa.me/?text=' + encodeURIComponent(recipeTextFor(tab)), '_blank');
 }
