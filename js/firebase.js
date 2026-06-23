@@ -34,6 +34,10 @@ import {
   getDocs,
   connectFirestoreEmulator,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import {
+  initializeAppCheck,
+  ReCaptchaV3Provider,
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js';
 
 // ── Configuration (placeholders only — fill these in js/firebase.js) ──────────
 export const firebaseConfig = {
@@ -75,6 +79,24 @@ if (isLocalhost) {
     'color:#0a0;font-weight:bold');
 } else {
   console.info('[Firebase] PRODUCTION mode.');
+}
+
+// ── App Check (reCAPTCHA v3) ──────────────────────────────────────────────────
+// Verifies that requests genuinely come from THIS app, so a script that merely
+// reuses the public web API key is rejected. Rolled out in MONITOR mode:
+// enforcement is toggled separately in the Firebase console, so today this only
+// emits tokens for metrics and blocks nothing. Skipped on localhost — local
+// testing uses the Firebase emulator (which ignores App Check) and reCAPTCHA is
+// unreliable there. Wrapped in try/catch so a reCAPTCHA hiccup never breaks boot.
+if (!isLocalhost) {
+  try {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider('6Ldc0y4tAAAAAKhEn8mGHyVMryZPYao7l48AX-Rh'),
+      isTokenAutoRefreshEnabled: true,
+    });
+  } catch (err) {
+    console.error('App Check init failed:', err);
+  }
 }
 
 // Firestore Security Rules require an authenticated user (request.auth != null),
