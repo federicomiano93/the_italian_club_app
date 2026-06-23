@@ -2,19 +2,21 @@
 // Today/Tomorrow choice), and the tap / edit / delete / history actions. The data
 // model and persistence live in log-model.js (pure) and log-store.js (Firestore).
 
-import { showResult, lockInputs } from './calc.js';
+import { showResult, markRevealed } from './calc.js';
 import { saveDailyEntry } from './firebase.js';
 import { getConfig } from './calculator-config-store.js';
 import {
   getTabProducts, getDivisorIncluded, isExtraDoughEnabled, doughExtraGrams,
+  isLogVisible, getLogRetentionHours,
 } from './calculator-config.js';
 import { RECIPES } from './recipes.js';
 import { logTimestamp } from './log-time.js';
 import { el } from './calculator-render.js';
-import { buildSheet, buildLogText, latestVersion } from './log-model.js';
+import { buildSheet, buildLogText, latestVersion, filterVisibleLogs } from './log-model.js';
 import { getLogs, getLogById, createAndSave, deleteLog } from './log-store.js';
 import { renderOrder, renderVersion } from './log-view.js';
 import { openLogEdit, openLogHistory } from './log-edit.js';
+import { openLogAdd } from './log-add.js';
 
 const DOUGH = { focaccia: 'Focaccia', brioche: 'Brioche', sourdough: 'Sourdough' };
 const PARAM_ID = { focaccia: 'f-yeast-pct', brioche: 'b-yeast-pct', sourdough: 's-starter-pct' };
@@ -22,20 +24,15 @@ const PARAM_DEFAULT = { focaccia: 0.65, brioche: 4, sourdough: 18 };
 
 function qtyOf(id) { const e = document.getElementById(id); return e ? (+e.value || 0) : 0; }
 
-// Persisted "saved" flag per dough so a saved recipe stays locked after a reload —
-// it never re-saves on restart (a new log is only created by a fresh Confirm).
-function setConfirmed(tab) { localStorage.setItem('confirmed-' + tab, '1'); }
-export function clearConfirmed(tab) { localStorage.removeItem('confirmed-' + tab); }
-
-export function restoreConfirmed(tab) {
-  if (localStorage.getItem('confirmed-' + tab) !== '1') return;
+// Brief "Saved ✓" feedback on the Confirm button after a log is created, then the
+// button re-arms to "✓ Confirm". Nothing is locked: the quantities stay editable and
+// confirming again creates a NEW, separate log.
+function flashSaved(tab) {
   const btn = document.getElementById(tab[0] + '-confirm-btn');
-  if (!btn || !btn.classList.contains('visible')) return; // quantities empty → no recipe
+  if (!btn) return;
   btn.textContent = 'Saved ✓';
-  btn.dataset.mode = 'saved';
   btn.disabled = true;
-  showResult(tab + '-result');
-  lockInputs(tab);
+  setTimeout(() => { btn.textContent = '✓ Confirm'; btn.disabled = false; }, 1500);
 }
 
 function isoDate() {
@@ -74,8 +71,8 @@ let pendingTab = null;
 let pendingDay = null;
 
 export function confirmAndSave(tab) {
-  const btn = document.getElementById(tab[0] + '-confirm-btn');
-  if (btn.dataset.mode === 'saved') return; // already saved — Reset to start a new log
+  // Each Confirm creates a NEW, separate log — the recipe is never locked, so the
+  // same dough can be confirmed again (with changed quantities) into a fresh log.
   pendingTab = tab;
   openLogDayModal();
 }
@@ -110,13 +107,12 @@ function commitLog() {
   createAndSave({ dough: DOUGH[tab], forDay: pendingDay, version, createdAtMs: Date.now() });
   saveDailyEntry(buildDailyEntry(tab, sheet, at)); // keep the production archive too
 
+  // Reveal the recipe and keep it editable — the recipe sheet and the log stay
+  // independent. The brief "Saved ✓" confirms the log was created, then the button
+  // re-arms so editing the quantities and confirming again creates a NEW log.
+  markRevealed(tab);
   showResult(tab + '-result');
-  lockInputs(tab);
-  setConfirmed(tab);
-  const btn = document.getElementById(tab[0] + '-confirm-btn');
-  btn.textContent = 'Saved ✓';
-  btn.dataset.mode = 'saved';
-  btn.disabled = true;
+  flashSaved(tab);
   closeLogDayModal();
 }
 
@@ -124,13 +120,32 @@ function commitLog() {
 export function renderLog() {
   const container = document.getElementById('log-content');
   if (!container) return;
-  const logs = getLogs();
+  const cfg = getConfig();
+  const logs = filterVisibleLogs(getLogs(), {
+    visibility: {
+      focaccia: isLogVisible(cfg, 'focaccia'),
+      brioche: isLogVisible(cfg, 'brioche'),
+      sourdough: isLogVisible(cfg, 'sourdough'),
+    },
+    retentionHours: getLogRetentionHours(cfg),
+    nowMs: Date.now(),
+  });
   container.textContent = '';
   if (!logs.length) {
-    container.appendChild(el('p', { class: 'log-empty' }, 'No logs yet. Calculate and confirm a dough to save it here.'));
-    return;
+    // Distinguish "nothing saved yet" from "everything is hidden/expired by the
+    // current Log settings", so the empty state is never misleading.
+    const anySaved = getLogs().length > 0;
+    container.appendChild(el('p', { class: 'log-empty' }, anySaved
+      ? 'No logs to show right now — check the Log settings (visibility and duration).'
+      : 'No logs yet. Calculate and confirm a dough to save it here.'));
+  } else {
+    for (const log of logs) container.appendChild(logCard(log));
   }
-  for (const log of logs) container.appendChild(logCard(log));
+
+  // Manual add-log entry point, always available below the list.
+  const addBtn = el('button', { class: 'cp-add-client', type: 'button', id: 'log-add-btn' }, '+ Add log');
+  addBtn.addEventListener('click', openLogAdd);
+  container.appendChild(addBtn);
 }
 
 function logCard(log) {

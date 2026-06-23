@@ -59,7 +59,7 @@
     '<meta http-equiv="Content-Security-Policy" content="' +
     "default-src 'self'; " +
     "script-src 'self' https://www.gstatic.com; " +
-    "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com" + emu + "; " +
+    "connect-src 'self' https://www.gstatic.com https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com" + emu + "; " +
     "img-src 'self' data:; " +
     "style-src 'self' https://fonts.googleapis.com; " +
     "font-src 'self' https://fonts.gstatic.com" +
@@ -137,6 +137,10 @@
         <span class="settings-menu-title">Divisor</span>
         <span class="settings-menu-sub">Choose which products the divisor box splits, per tab</span>
       </button>
+      <button id="open-logsettings-btn" class="settings-menu-btn">
+        <span class="settings-menu-title">Log</span>
+        <span class="settings-menu-sub">Choose which doughs' logs to show, and how long they stay</span>
+      </button>
     </div>
   </div>
 </div>
@@ -169,6 +173,31 @@
   </div>
   <div class="recipe-scroll">
     <div id="divisor-content"></div>
+  </div>
+</div>
+
+<div id="logsettings-overlay">
+  <div class="recipe-overlay-header">
+    <button class="logsettings-back-btn">&#8592;</button>
+    <span class="recipe-overlay-title">Log</span>
+    <button class="overlay-home-btn" id="logsettings-home-btn" type="button" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </button>
+  </div>
+  <div class="recipe-scroll">
+    <div id="logsettings-content">
+      <p class="extra-help">Choose which doughs' logs appear in the Log list. Logs are always saved to the database — this only hides them in the app. Changes apply right away.</p>
+      <label class="extra-toggle-row"><span>Focaccia</span><input type="checkbox" id="logvis-toggle-focaccia"></label>
+      <label class="extra-toggle-row"><span>Brioche</span><input type="checkbox" id="logvis-toggle-brioche"></label>
+      <label class="extra-toggle-row"><span>Sourdough</span><input type="checkbox" id="logvis-toggle-sourdough"></label>
+      <p class="extra-help">How long each log stays in the list after it's created. Once expired it is hidden from the app but kept in the database.</p>
+      <label class="extra-toggle-row"><span>Keep logs visible for</span>
+        <select id="log-retention-select" class="extra-unit-select" aria-label="Log duration">
+          <option value="24">24 hours</option>
+          <option value="48">48 hours</option>
+        </select>
+      </label>
+    </div>
   </div>
 </div>
 
@@ -427,7 +456,7 @@
   <div class="recipe-scroll"><div id="logview-content"></div></div>
 </div>
 
-<!-- Dedicated log-edit screen (B): editable quantities + occasional clients. -->
+<!-- Dedicated log-edit screen (B): editable quantities for the saved log. -->
 <div id="logedit-overlay" class="log-overlay">
   <div class="recipe-overlay-header">
     <button class="logedit-back-btn">&#8592;</button>
@@ -437,11 +466,21 @@
   <div class="recipe-scroll"><div id="logedit-content"></div></div>
 </div>
 
+<!-- Manual add-log screen: pick a dough, enter quantities, save a new log. -->
+<div id="logadd-overlay" class="log-overlay">
+  <div class="recipe-overlay-header">
+    <button class="logadd-back-btn">&#8592;</button>
+    <span class="recipe-overlay-title">Add log</span>
+    <button id="logadd-save-btn" disabled>Save</button>
+  </div>
+  <div class="recipe-scroll"><div id="logadd-content"></div></div>
+</div>
+
 <!-- Version history (C): past versions + restore. -->
 <div id="loghistory-overlay" class="log-overlay">
   <div class="recipe-overlay-header">
     <button class="loghistory-back-btn">&#8592;</button>
-    <span class="recipe-overlay-title">Version history</span>
+    <span class="recipe-overlay-title">Edit history</span>
     <span class="overlay-home-spacer"></span>
   </div>
   <div class="recipe-scroll"><div id="loghistory-content"></div></div>

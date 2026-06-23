@@ -1,8 +1,9 @@
 import './firebase.js';
-import { calcFocaccia, calcBrioche, calcSourdough, copyRecipe, shareRecipeWA, unlockInputs, buildDivisorBox } from './calc.js';
-import { confirmAndSave, renderLog, restoreConfirmed, clearConfirmed } from './log.js';
+import { calcFocaccia, calcBrioche, calcSourdough, copyRecipe, shareRecipeWA, buildDivisorBox, restoreRevealed, clearRevealed } from './calc.js';
+import { confirmAndSave, renderLog } from './log.js';
 import { saveRecipes, closeRecipes, goHomeFromRecipes } from './recipes.js';
 import { openSettings } from './calculator-settings.js';
+import './log-settings.js';
 import { shareMarketOrder, closeLoafModal, sendWithLoaves, closeListPicker } from './whatsapp.js';
 import { getConfig, initConfig } from './calculator-config-store.js';
 import { initLogs } from './log-store.js';
@@ -51,6 +52,10 @@ function switchTab(name) {
   document.querySelectorAll('.tab').forEach((el, i) => el.classList.toggle('active', DOUGH[i] === name));
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelector('.scroll-area').scrollTop = 0;
+  // Hide the footer "Log" button while the Log section is open (it would be a no-op
+  // there); the dough tab-bar above still lets the user leave the Log view.
+  const logFooterBtn = document.getElementById('log-footer-btn');
+  if (logFooterBtn) logFooterBtn.style.display = name === 'log' ? 'none' : '';
   if (name === 'log') renderLog();
 }
 
@@ -112,15 +117,15 @@ function renderAll() {
     restoreQty(tab);
     restoreExtra(tab);
     buildDivisorBox(tab);
+    restoreRevealed(tab); // re-show a previously revealed recipe (without locking it)
     const extraRow = document.querySelector('#tab-' + tab + ' .extra-dough-row');
     if (extraRow) extraRow.style.display = isExtraDoughEnabled(getConfig(), tab) ? '' : 'none';
   });
   calcFocaccia();
   calcBrioche();
   calcSourdough();
-  restoreConfirmed('focaccia');
-  restoreConfirmed('brioche');
-  restoreConfirmed('sourdough');
+  // Keep the Log list in sync with config changes (e.g. visibility/retention edits).
+  renderLog();
 }
 
 // ── Reset ─────────────────────────────────────────────────────────────────────
@@ -130,11 +135,9 @@ const PARAM_DEFAULTS = {
 
 function resetTab(tab) {
   if (!confirm('Reset all fields?')) return;
-  unlockInputs(tab);
-  clearConfirmed(tab);
-  // Clear the saved/locked state so the next Confirm creates a brand-new log.
-  const cbtn = document.getElementById(tab[0] + '-confirm-btn');
-  if (cbtn) { cbtn.dataset.mode = ''; cbtn.disabled = false; }
+  // Hide the revealed recipe and clear the fields. Existing logs are NOT touched —
+  // Reset only clears the calculator; the next Confirm creates a brand-new log.
+  clearRevealed(tab);
   document.querySelectorAll('#tab-'+tab+' input[type="number"]').forEach(input => {
     input.value = PARAM_DEFAULTS[input.id] || '0';
   });

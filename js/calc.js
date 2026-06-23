@@ -29,23 +29,22 @@ export function extraDoughGramsFor(tab) {
   return doughExtraGrams(valEl.value, unitEl ? unitEl.value : 'g');
 }
 
-// The fixed parameter field locked together with the quantities, per tab.
-const PARAM_ID = { focaccia: 'f-yeast-pct', brioche: 'b-yeast-pct', sourdough: 's-starter-pct' };
-
-// Inputs locked after Confirm: all the tab's product quantities + its parameter.
-// Built from config so newly added products are locked too. Divisor fields are
-// excluded — they only split dough into portions and never affect the log.
-function lockIds(tab) {
-  const ids = getTabProducts(getConfig(), tab).map(p => p.id);
-  if (PARAM_ID[tab]) ids.push(PARAM_ID[tab]);
-  ids.push(tab[0] + '-extra', tab[0] + '-extra-unit'); // the extra-dough box is locked too
-  return ids;
+// Whether each tab's result card is revealed. The recipe is hidden until the first
+// Confirm, then stays visible AND fully editable — the recipe sheet and the log are
+// two independent things: each Confirm just saves a separate log, nothing is ever
+// locked. Persisted per tab so a reload keeps a revealed recipe shown.
+const revealed = { focaccia: false, brioche: false, sourdough: false };
+export function markRevealed(tab) {
+  revealed[tab] = true;
+  try { localStorage.setItem('revealed-' + tab, '1'); } catch (e) {}
 }
-function setDisabled(tab, disabled) {
-  lockIds(tab).forEach(id => { const el = document.getElementById(id); if (el) el.disabled = disabled; });
+export function clearRevealed(tab) {
+  revealed[tab] = false;
+  try { localStorage.removeItem('revealed-' + tab); } catch (e) {}
 }
-export function lockInputs(tab) { setDisabled(tab, true); }
-export function unlockInputs(tab) { setDisabled(tab, false); }
+export function restoreRevealed(tab) {
+  if (localStorage.getItem('revealed-' + tab) === '1') revealed[tab] = true;
+}
 
 // The computed ingredients for each dough's last calculation: the SINGLE source
 // of truth shared by the on-screen render and the Copy/WhatsApp export. Each entry
@@ -180,14 +179,11 @@ export function calcFocaccia() {
   updateDivisorBox('focaccia');
   renderCrateBoxes('focaccia');
   const fbtn = document.getElementById('f-confirm-btn');
-  if (fbtn.dataset.mode !== 'saved') {
-    fbtn.textContent = '✓ Confirm';
-    fbtn.dataset.saved = '';
-    fbtn.dataset.mode = '';
-    fbtn.disabled = false;
-    fbtn.classList.add('visible');
-    hideResult('focaccia-result');
-  }
+  fbtn.textContent = '✓ Confirm';
+  fbtn.dataset.mode = '';
+  fbtn.disabled = false;
+  fbtn.classList.add('visible');
+  if (revealed.focaccia) showResult('focaccia-result'); else hideResult('focaccia-result');
 }
 
 export function calcBrioche() {
@@ -217,14 +213,11 @@ export function calcBrioche() {
   updateDivisorBox('brioche');
   renderCrateBoxes('brioche');
   const bbtn = document.getElementById('b-confirm-btn');
-  if (bbtn.dataset.mode !== 'saved') {
-    bbtn.textContent = '✓ Confirm';
-    bbtn.dataset.saved = '';
-    bbtn.dataset.mode = '';
-    bbtn.disabled = false;
-    bbtn.classList.add('visible');
-    hideResult('brioche-result');
-  }
+  bbtn.textContent = '✓ Confirm';
+  bbtn.dataset.mode = '';
+  bbtn.disabled = false;
+  bbtn.classList.add('visible');
+  if (revealed.brioche) showResult('brioche-result'); else hideResult('brioche-result');
 }
 
 export function calcSourdough() {
@@ -257,14 +250,11 @@ export function calcSourdough() {
   updateDivisorBox('sourdough');
   renderCrateBoxes('sourdough');
   const sbtn = document.getElementById('s-confirm-btn');
-  if (sbtn.dataset.mode !== 'saved') {
-    sbtn.textContent = '✓ Confirm';
-    sbtn.dataset.saved = '';
-    sbtn.dataset.mode = '';
-    sbtn.disabled = false;
-    sbtn.classList.add('visible');
-    hideResult('sourdough-result');
-  }
+  sbtn.textContent = '✓ Confirm';
+  sbtn.dataset.mode = '';
+  sbtn.disabled = false;
+  sbtn.classList.add('visible');
+  if (revealed.sourdough) showResult('sourdough-result'); else hideResult('sourdough-result');
 }
 
 // Recipe text for the Copy/WhatsApp export, built from the in-memory ingredient

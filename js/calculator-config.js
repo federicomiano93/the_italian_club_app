@@ -95,6 +95,12 @@ export const DEFAULT_CONFIG = {
   // a product only joins once the user ticks it in Settings. Edited from a separate
   // Settings screen.
   divisorIncluded: { focaccia: [], brioche: [], sourdough: [] },
+  // Which dough types' logs are SHOWN in the app's Log list. Logs are always saved
+  // to Firestore regardless — this only filters the on-screen list. Default: shown.
+  logVisibility: { focaccia: true, brioche: true, sourdough: true },
+  // How long (in hours) a log stays in the app's Log list after it was created.
+  // Once expired it is only HIDDEN from the list; it remains in Firestore. 24 or 48.
+  logRetentionHours: 24,
 };
 
 const KINDS = ['number', 'dropdown', 'kg'];
@@ -228,6 +234,27 @@ export function resolveDirectClient(config, dc) {
 // shown (true) unless explicitly turned off in the config.
 export function isExtraDoughEnabled(config, tab) {
   return !(config && config.extraDough && config.extraDough[tab] === false);
+}
+
+// ── Log display settings (visibility + retention) ─────────────────────────────
+// Both are DISPLAY-only filters for the app's Log list. Logs are always written to
+// Firestore; these only decide what the list shows. Hidden/expired logs are never
+// deleted from the database.
+
+// The only allowed log-retention durations, in hours, and the default.
+export const LOG_RETENTION_OPTIONS = [24, 48];
+export const LOG_RETENTION_DEFAULT = 24;
+
+// Whether a dough type's logs are shown in the Log list. Defaults to shown (true)
+// unless explicitly turned off in the config.
+export function isLogVisible(config, tab) {
+  return !(config && config.logVisibility && config.logVisibility[tab] === false);
+}
+
+// The configured log-retention window in hours (24 or 48), defaulting to 24 for
+// anything missing or invalid.
+export function getLogRetentionHours(config) {
+  return normalizeLogRetention(config && config.logRetentionHours);
 }
 
 // A dough tab's products: every product, across all clients, whose `dough`
@@ -451,6 +478,21 @@ function normalizeExtraDough(raw) {
   return out;
 }
 
+// Per-tab "show this dough's logs" flags. Each tab defaults to shown (true) unless
+// the stored value is explicitly false.
+function normalizeLogVisibility(raw) {
+  const out = {};
+  for (const tab of TABS) out[tab] = !(raw && raw[tab] === false);
+  return out;
+}
+
+// The stored log-retention hours, coerced to one of the allowed options (24/48),
+// defaulting to 24 for anything missing or invalid.
+function normalizeLogRetention(raw) {
+  const n = Number(raw);
+  return LOG_RETENTION_OPTIONS.includes(n) ? n : LOG_RETENTION_DEFAULT;
+}
+
 // The set of product ids that exist in a given tab (across all clients).
 function tabProductIds(clients, tab) {
   const ids = new Set();
@@ -537,6 +579,8 @@ function migrateLegacy(raw) {
     whatsappClients: normalizeWhatsappClients(raw.whatsappClients, clients),
     extraDough: normalizeExtraDough(raw.extraDough),
     divisorIncluded: normalizeDivisorIncluded(raw.divisorIncluded, clients),
+    logVisibility: normalizeLogVisibility(raw.logVisibility),
+    logRetentionHours: normalizeLogRetention(raw.logRetentionHours),
   };
 }
 
@@ -561,6 +605,8 @@ export function normalizeConfig(raw) {
       whatsappClients: normalizeWhatsappClients(raw.whatsappClients, clients),
       extraDough: normalizeExtraDough(raw.extraDough),
       divisorIncluded: normalizeDivisorIncluded(raw.divisorIncluded, clients),
+      logVisibility: normalizeLogVisibility(raw.logVisibility),
+      logRetentionHours: normalizeLogRetention(raw.logRetentionHours),
     };
   }
 

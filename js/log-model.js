@@ -219,6 +219,22 @@ export function migrateOldLogs(records, makeId, baseMs = 0) {
   return out;
 }
 
+// Filter logs for the app's Log LIST only: keep a log when its dough type is visible
+// AND it is still within the retention window (created no more than retentionHours
+// ago). DISPLAY-only — the database keeps every log; this never deletes anything.
+// Pure (nowMs is passed in) so it can be unit-tested. `visibility` is keyed by the
+// lowercase dough name (focaccia/brioche/sourdough); a missing key counts as visible.
+export function filterVisibleLogs(logs, { visibility = {}, retentionHours = 24, nowMs = 0 } = {}) {
+  const list = Array.isArray(logs) ? logs : [];
+  const windowMs = Math.max(0, num(retentionHours)) * 3600 * 1000;
+  return list.filter((log) => {
+    const key = String((log && log.dough) || '').toLowerCase();
+    if (visibility[key] === false) return false;
+    if (windowMs > 0 && num(nowMs) - num(log && log.createdAtMs) > windowMs) return false;
+    return true;
+  });
+}
+
 // Sort logs for display: newest first by creation time, with a stable id tiebreak.
 export function sortLogs(logs) {
   return (Array.isArray(logs) ? logs.slice() : []).sort((a, b) => {
