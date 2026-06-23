@@ -160,6 +160,6 @@ export function sendWithLoaves() {
 
   if (!sections.length) { alert('No orders to share'); return; }
 
-  const text = `📋 *${selectedTitle || 'Order'}*\n\n` + sections.join('\n\n');
+  const text = `*${selectedTitle || 'Order'}*\n\n` + sections.join('\n\n');
   window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
 }
