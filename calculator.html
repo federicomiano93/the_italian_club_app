@@ -104,7 +104,6 @@
     <button class="overlay-home-btn" id="recipe-home-btn" type="button" aria-label="Home">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
     </button>
-    <button id="recipe-save-btn" disabled>Save</button>
   </div>
   <div class="recipe-scroll">
     <div class="recipe-content" id="recipe-content"></div>
@@ -159,10 +158,11 @@
   </div>
   <div class="recipe-scroll">
     <div id="extra-content">
-      <p class="extra-help">Show the "Extra dough" box in each tab. Changes apply right away.</p>
+      <p class="extra-help">Show the "Extra dough" box in each tab. Tap Save to apply your changes.</p>
       <label class="extra-toggle-row"><span>Focaccia</span><input type="checkbox" id="extra-toggle-focaccia"></label>
       <label class="extra-toggle-row"><span>Brioche</span><input type="checkbox" id="extra-toggle-brioche"></label>
       <label class="extra-toggle-row"><span>Sourdough</span><input type="checkbox" id="extra-toggle-sourdough"></label>
+      <button class="cp-save-bottom" id="extra-save-btn" type="button" disabled>Save</button>
     </div>
   </div>
 </div>
@@ -259,14 +259,8 @@
       </div>
     </div>
 
-    <div class="day-confirm-wrap" id="f-day-confirm" style="display:none">
-      <div class="day-confirm-label">Save this dough for:</div>
-      <div class="day-row">
-        <button class="day-btn" type="button" data-tab="focaccia" data-day="today">Today</button>
-        <button class="day-btn" type="button" data-tab="focaccia" data-day="tomorrow">Tomorrow</button>
-      </div>
-    </div>
-    <button class="confirm-btn-primary is-edit" id="f-edit-btn" type="button" style="display:none">✎ Edit</button>
+    <button class="confirm-btn-primary" id="f-day-confirm" type="button" data-confirm-tab="focaccia">Confirm</button>
+    <button class="confirm-btn-primary is-edit" id="f-edit-btn" type="button">✎ Edit</button>
 
     <div class="result-block" id="focaccia-result">
       <div class="result-card">
@@ -315,14 +309,8 @@
       </div>
     </div>
 
-    <div class="day-confirm-wrap" id="b-day-confirm" style="display:none">
-      <div class="day-confirm-label">Save this dough for:</div>
-      <div class="day-row">
-        <button class="day-btn" type="button" data-tab="brioche" data-day="today">Today</button>
-        <button class="day-btn" type="button" data-tab="brioche" data-day="tomorrow">Tomorrow</button>
-      </div>
-    </div>
-    <button class="confirm-btn-primary is-edit" id="b-edit-btn" type="button" style="display:none">✎ Edit</button>
+    <button class="confirm-btn-primary" id="b-day-confirm" type="button" data-confirm-tab="brioche">Confirm</button>
+    <button class="confirm-btn-primary is-edit" id="b-edit-btn" type="button">✎ Edit</button>
 
     <div class="result-block" id="brioche-result">
       <div class="result-card">
@@ -371,14 +359,8 @@
       </div>
     </div>
 
-    <div class="day-confirm-wrap" id="s-day-confirm" style="display:none">
-      <div class="day-confirm-label">Save this dough for:</div>
-      <div class="day-row">
-        <button class="day-btn" type="button" data-tab="sourdough" data-day="today">Today</button>
-        <button class="day-btn" type="button" data-tab="sourdough" data-day="tomorrow">Tomorrow</button>
-      </div>
-    </div>
-    <button class="confirm-btn-primary is-edit" id="s-edit-btn" type="button" style="display:none">✎ Edit</button>
+    <button class="confirm-btn-primary" id="s-day-confirm" type="button" data-confirm-tab="sourdough">Confirm</button>
+    <button class="confirm-btn-primary is-edit" id="s-edit-btn" type="button">✎ Edit</button>
 
     <div class="result-block" id="sourdough-result">
       <div class="result-card">
@@ -435,6 +417,20 @@
     <div id="list-select-body"></div>
     <div class="loaf-modal-actions">
       <button class="list-select-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Day picker: opened by a dough tab's Confirm button to choose which day to save the log for. -->
+<div id="day-modal" role="dialog" aria-modal="true" aria-labelledby="day-modal-title">
+  <div id="day-modal-box">
+    <div class="loaf-modal-title" id="day-modal-title">Save this dough for:</div>
+    <div class="day-row">
+      <button class="day-btn" type="button" data-day="today">Today</button>
+      <button class="day-btn" type="button" data-day="tomorrow">Tomorrow</button>
+    </div>
+    <div class="loaf-modal-actions">
+      <button class="loaf-modal-cancel" id="day-modal-cancel">Cancel</button>
     </div>
   </div>
 </div>

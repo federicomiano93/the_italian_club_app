@@ -529,6 +529,22 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .drill-item:active { background: var(--surface2); }
 .drill-chevron { color: var(--accent); opacity: 0.6; font-size: 20px; flex-shrink: 0; }
 
+/* Recipe form footer: prominent Save (.cp-save-bottom) + a low-key Reset below it. */
+.recipe-reset-btn {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text2);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.recipe-reset-btn:active { background: var(--border); }
+
 /* Client boxes reordered with SortableJS (long-press to grab, drag to reorder).
    No text-selection / iOS callout on long press. */
 .drill-reorder { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
@@ -703,6 +719,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   cursor: pointer;
 }
 .cp-save-bottom:active { filter: brightness(0.95); }
+.cp-save-bottom:disabled { opacity: 0.5; cursor: default; }
 
 /* Group editor: one checkbox row per address-book client. */
 .cp-check-row {
@@ -1004,9 +1021,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 /* "Edit" mode (tab locked): a distinct slate look so it never reads as a fresh Confirm */
 .confirm-btn-primary.is-edit { background: #5a6b7a; box-shadow: 0 2px 8px rgba(40,55,70,0.25); }
 .confirm-btn-primary.is-edit:active { background: #44525e; }
-/* Inline Today/Tomorrow confirm (one tap saves), shown per dough tab when ready. */
-.day-confirm-wrap { margin-top: 14px; }
-.day-confirm-label { font-size: 13px; color: var(--text2); margin-bottom: 8px; text-align: center; }
+/* Today/Tomorrow buttons inside the day picker modal (opened by a tab's Confirm). */
 .day-row { display: flex; gap: 10px; }
 .day-btn {
   flex: 1; padding: 16px; border: none; border-radius: var(--radius-sm);
@@ -1017,8 +1032,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .day-btn:active { background: #1e3810; box-shadow: none; }
 .day-btn:disabled { opacity: 0.6; cursor: default; }
 
-/* Order modal + list picker (same bottom-sheet style) */
-#loaf-modal, #list-select-modal {
+/* Order modal + list picker + day picker (same bottom-sheet style) */
+#loaf-modal, #list-select-modal, #day-modal {
   display: none;
   position: fixed;
   inset: 0;
@@ -1028,8 +1043,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   justify-content: center;
   padding: 0;
 }
-#loaf-modal.visible, #list-select-modal.visible { display: flex; }
-#loaf-modal-box, #list-select-box {
+#loaf-modal.visible, #list-select-modal.visible, #day-modal.visible { display: flex; }
+#loaf-modal-box, #list-select-box, #day-modal-box {
   background: var(--surface);
   border-radius: var(--radius) var(--radius) 0 0;
   padding: 24px 20px 32px;

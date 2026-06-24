@@ -374,47 +374,90 @@ function productCard(client, p, pi) {
 
 // ── Extra-dough visibility (separate Settings screen) ─────────────────────────
 // Three switches (one per dough tab) that show/hide the per-tab Extra-dough box.
-// Stored in the shared config, applied immediately (local-first via saveConfig,
-// which re-renders the calculator and best-effort syncs to Firestore).
+// Edited on a working copy: toggling a switch changes nothing live until the user
+// taps Save (with a confirm), and leaving with unsaved changes is guarded — so an
+// accidental toggle is never silently persisted.
+let extraWorking = null;
+let extraDirty = false;
+
+function updateExtraSaveBtn() {
+  const btn = document.getElementById('extra-save-btn');
+  if (!btn) return;
+  btn.disabled = !extraDirty;
+  btn.classList.toggle('dirty', extraDirty);
+}
+
 function openExtra() {
-  const cfg = getConfig();
+  extraWorking = cloneConfig(getConfig());
+  extraDirty = false;
   TABS.forEach(tab => {
     const cb = document.getElementById('extra-toggle-' + tab);
-    if (cb) cb.checked = isExtraDoughEnabled(cfg, tab);
+    if (cb) cb.checked = isExtraDoughEnabled(extraWorking, tab);
   });
+  updateExtraSaveBtn();
   show('extra-overlay');
 }
-function closeExtra() { hide('extra-overlay'); }
+function closeExtra() {
+  if (!confirmDiscard(extraDirty)) return;
+  hide('extra-overlay');
+}
+
+async function saveExtra() {
+  if (!confirm('Save these changes?')) return;
+  try {
+    await saveConfig(extraWorking);
+    extraDirty = false;
+    updateExtraSaveBtn();
+  } catch (e) {
+    alert('Could not save. Check your connection and try again.');
+  }
+}
 
 TABS.forEach(tab => {
   const cb = document.getElementById('extra-toggle-' + tab);
   if (!cb) return;
   cb.addEventListener('change', () => {
-    const cfg = cloneConfig(getConfig());
-    if (!cfg.extraDough || typeof cfg.extraDough !== 'object') cfg.extraDough = {};
-    cfg.extraDough[tab] = cb.checked;
-    saveConfig(cfg);
+    if (!extraWorking.extraDough || typeof extraWorking.extraDough !== 'object') extraWorking.extraDough = {};
+    extraWorking.extraDough[tab] = cb.checked;
+    extraDirty = true;
+    updateExtraSaveBtn();
   });
 });
 document.getElementById('open-extra-btn').addEventListener('click', openExtra);
 document.querySelector('.extra-back-btn').addEventListener('click', closeExtra);
-document.getElementById('extra-home-btn').addEventListener('click', () => { window.location.href = 'index.html'; });
+document.getElementById('extra-save-btn').addEventListener('click', saveExtra);
+document.getElementById('extra-home-btn').addEventListener('click', () => {
+  if (!confirmDiscard(extraDirty)) return;
+  window.location.href = 'index.html';
+});
 
 // ── Divisor selection (separate Settings screen) ──────────────────────────────
 // A drill-in: first a chooser of the three dough tabs, then a tapped tab's product
 // checklist. Ticked = included in that tab's divisor box (opt-in: nothing is split
-// until ticked, so a new product never joins on its own). Each change applies
-// immediately (local-first via saveConfig, which re-renders the calculator and
-// best-effort syncs to Firestore).
-let divisorTab = null; // null = the tab chooser; a tab name = that tab's checklist
+// until ticked, so a new product never joins on its own). Edited on a working copy:
+// ticking/unticking (and "Untick all") change nothing live until the user taps Save
+// (with a confirm), and leaving a changed checklist is guarded — so an accidental
+// tick is never silently persisted.
+let divisorTab = null;     // null = the tab chooser; a tab name = that tab's checklist
+let divisorWorking = null; // deep copy edited while a tab's checklist is open
+let divisorDirty = false;
 
-function openDivisor() { divisorTab = null; renderDivisorSettings(); show('divisor-overlay'); }
+function openDivisor() {
+  divisorTab = null; divisorWorking = null; divisorDirty = false;
+  renderDivisorSettings();
+  show('divisor-overlay');
+}
 function closeDivisor() { hide('divisor-overlay'); }
 
-// Contextual back: from a tab's checklist step up to the chooser; from the chooser
-// close the overlay (revealing the Settings hub underneath).
+// Contextual back: from a tab's checklist step up to the chooser (guarding unsaved
+// edits); from the chooser close the overlay (revealing the Settings hub underneath).
 function backDivisor() {
-  if (divisorTab !== null) { divisorTab = null; renderDivisorSettings(); return; }
+  if (divisorTab !== null) {
+    if (!confirmDiscard(divisorDirty)) return;
+    divisorTab = null; divisorWorking = null; divisorDirty = false;
+    renderDivisorSettings();
+    return;
+  }
   closeDivisor();
 }
 
@@ -426,6 +469,13 @@ function setDivisorTitle(text) {
 function setDivisorHomeVisible(visible) {
   const btn = document.getElementById('divisor-home-btn');
   if (btn) btn.style.display = visible ? '' : 'none';
+}
+
+function updateDivisorSaveBtn() {
+  const btn = document.getElementById('divisor-save-btn');
+  if (!btn) return;
+  btn.disabled = !divisorDirty;
+  btn.classList.toggle('dirty', divisorDirty);
 }
 
 function renderDivisorSettings() {
@@ -440,7 +490,7 @@ function renderDivisorTabChooser() {
   const content = document.getElementById('divisor-content');
   content.textContent = '';
   content.appendChild(el('p', { class: 'extra-help' },
-    'Pick which products each tab’s divisor box splits into crates. Nothing is split until you tick it.'));
+    'Pick which products each tab’s divisor box splits into crates. Nothing is split until you tick it. Tap Save to apply.'));
   for (const tab of TABS) {
     const box = el('button', { class: 'drill-item', type: 'button' }, [
       el('span', {}, DOUGH_LABELS[tab]),
@@ -451,10 +501,12 @@ function renderDivisorTabChooser() {
   }
 }
 
-// Level 1: a tab's product checklist + an "Untick all" button.
+// Level 1: a tab's product checklist + "Untick all" + a Save button. Edits live in
+// divisorWorking (a deep copy made on first entry to the tab) until the user Saves.
 function renderDivisorTabDetail(tab) {
   setDivisorTitle(DOUGH_LABELS[tab] + ' divisor');
   setDivisorHomeVisible(false);
+  if (divisorWorking === null) { divisorWorking = cloneConfig(getConfig()); divisorDirty = false; }
   const content = document.getElementById('divisor-content');
   content.textContent = '';
   const products = getTabProducts(getConfig(), tab);
@@ -466,41 +518,59 @@ function renderDivisorTabDetail(tab) {
   const clearBtn = el('button', { class: 'divisor-clear-btn', type: 'button' }, 'Untick all');
   clearBtn.addEventListener('click', () => clearDivisorTab(tab));
   content.appendChild(clearBtn);
+  const saveBtn = el('button', { class: 'cp-save-bottom', id: 'divisor-save-btn', type: 'button' }, 'Save');
+  saveBtn.addEventListener('click', saveDivisor);
+  content.appendChild(saveBtn);
+  updateDivisorSaveBtn();
 }
 
-// A checkbox row toggling one product's membership in its tab's divisor. The
-// client name disambiguates same-named products from different clients.
+// A checkbox row toggling one product's membership in its tab's divisor (in the
+// working copy). The client name disambiguates same-named products of different clients.
 function divisorProductRow(tab, product) {
   const box = el('input', { type: 'checkbox' });
-  box.checked = isInDivisor(getConfig(), tab, product.id);
+  box.checked = isInDivisor(divisorWorking, tab, product.id);
   box.addEventListener('change', () => toggleDivisorProduct(tab, product.id, box.checked));
   const label = product.name + (product.clientName ? '  ·  ' + product.clientName : '');
   return el('label', { class: 'cp-check-row' }, [box, el('span', {}, label)]);
 }
 
 function toggleDivisorProduct(tab, productId, included) {
-  const cfg = cloneConfig(getConfig());
-  if (!cfg.divisorIncluded || typeof cfg.divisorIncluded !== 'object') cfg.divisorIncluded = {};
-  const list = Array.isArray(cfg.divisorIncluded[tab]) ? cfg.divisorIncluded[tab] : [];
+  if (!divisorWorking.divisorIncluded || typeof divisorWorking.divisorIncluded !== 'object') divisorWorking.divisorIncluded = {};
+  const list = Array.isArray(divisorWorking.divisorIncluded[tab]) ? divisorWorking.divisorIncluded[tab] : [];
   const i = list.indexOf(productId);
   if (included && i === -1) list.push(productId);       // tick → include
   else if (!included && i !== -1) list.splice(i, 1);    // untick → exclude
-  cfg.divisorIncluded[tab] = list;
-  saveConfig(cfg);
+  divisorWorking.divisorIncluded[tab] = list;
+  divisorDirty = true;
+  updateDivisorSaveBtn();
 }
 
-// Untick every product of a tab at once, then re-render so the boxes reflect it.
+// Untick every product of a tab at once (working copy), then re-render the boxes.
 function clearDivisorTab(tab) {
-  const cfg = cloneConfig(getConfig());
-  if (!cfg.divisorIncluded || typeof cfg.divisorIncluded !== 'object') cfg.divisorIncluded = {};
-  cfg.divisorIncluded[tab] = [];
-  saveConfig(cfg);
+  if (!divisorWorking.divisorIncluded || typeof divisorWorking.divisorIncluded !== 'object') divisorWorking.divisorIncluded = {};
+  divisorWorking.divisorIncluded[tab] = [];
+  divisorDirty = true;
   renderDivisorSettings();
+}
+
+async function saveDivisor() {
+  if (!confirm('Save these changes?')) return;
+  try {
+    await saveConfig(divisorWorking);
+    divisorWorking = cloneConfig(getConfig());
+    divisorDirty = false;
+    updateDivisorSaveBtn();
+  } catch (e) {
+    alert('Could not save. Check your connection and try again.');
+  }
 }
 
 document.getElementById('open-divisor-btn').addEventListener('click', openDivisor);
 document.querySelector('.divisor-back-btn').addEventListener('click', backDivisor);
-document.getElementById('divisor-home-btn').addEventListener('click', () => { window.location.href = 'index.html'; });
+document.getElementById('divisor-home-btn').addEventListener('click', () => {
+  if (!confirmDiscard(divisorDirty)) return;
+  window.location.href = 'index.html';
+});
 
 // ── Static wiring (elements exist in calculator.html) ─────────────────────────
 document.querySelector('.settings-back-btn').addEventListener('click', closeSettings);

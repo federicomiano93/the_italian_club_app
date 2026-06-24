@@ -55,16 +55,16 @@ function buildDailyEntry(tab, sheet, at) {
   return base;
 }
 
-// ── Confirm (inline Today/Tomorrow) + Edit ────────────────────────────────────
-// Each dough tab confirms with its OWN inline Today/Tomorrow buttons — no shared popup.
-// Tapping one saves the log (create the first time, or UPDATE the linked one) and LOCKS
-// the tab; the pair is then replaced by an "Edit" button. Edit unlocks the inputs
-// (keeping the link) and hides the recipe, which reappears recomputed only on the next
-// save. A new, separate log is made only after Reset clears the link.
+// ── Confirm (Today/Tomorrow day picker) + Edit ────────────────────────────────
+// Each dough tab's Confirm button opens a shared Today/Tomorrow day picker. Choosing
+// a day saves the log (create the first time, or UPDATE the linked one) and LOCKS
+// the tab; the Confirm button is then replaced by an "Edit" button. Edit unlocks the
+// inputs (keeping the link) and hides the recipe, which reappears recomputed only on
+// the next save. A new, separate log is made only after Reset clears the link.
 let pendingTab = null;
 let pendingDay = null;
 
-// Tap Today/Tomorrow on a dough tab → save that dough's log for the chosen day.
+// Tap Today/Tomorrow in the day picker → save that dough's log for the chosen day.
 export function saveDay(tab, day) {
   if (getLock(tab).locked) return; // locked: the buttons are hidden; ignore stray taps
   pendingTab = tab;

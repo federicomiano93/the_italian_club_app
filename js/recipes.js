@@ -56,11 +56,14 @@ let activeRecipe = null;
 let isDirty = false;
 
 function titleEl()  { return document.querySelector('#recipe-overlay .recipe-overlay-title'); }
-function saveBtnEl() { return document.getElementById('recipe-save-btn'); }
+// The Save button lives at the foot of an open recipe form (built per render), so it
+// only exists while a recipe is open — callers must tolerate it being absent.
+function saveBtnEl() { return document.getElementById('recipe-save-bottom'); }
 function contentEl() { return document.getElementById('recipe-content'); }
 
 function updateSaveBtn() {
   const btn = saveBtnEl();
+  if (!btn) return;
   btn.disabled = !isDirty;
   btn.classList.toggle('dirty', isDirty);
 }
@@ -74,13 +77,12 @@ function onRecipeInput(tab) {
   updateSaveBtn();
 }
 
-// Level 1 — the three recipe boxes. No Save here: you cannot edit a recipe
-// without first opening it (and confirming).
+// Level 1 — the three recipe boxes. No Save/Reset here: you act on a recipe only
+// after opening it (Save and Reset both live at the foot of the open recipe).
 function renderRecipeList() {
   activeRecipe = null;
   isDirty = false;
   titleEl().textContent = 'Recipes';
-  saveBtnEl().style.display = 'none';
   const content = contentEl();
   content.innerHTML = Object.keys(OVERLAY_FIELDS).map(tab =>
     `<button class="drill-item" type="button" data-recipe="${tab}">
@@ -91,13 +93,26 @@ function renderRecipeList() {
     btn.addEventListener('click', () => openRecipe(btn.dataset.recipe)));
 }
 
+// Reset the open recipe to its factory defaults (RECIPE_DEFAULTS). The recipe is the
+// core of the calculator, so this is guarded by a confirm: it discards the user's
+// edits to that recipe and immediately re-runs the dough math. Recipes are
+// device-local (localStorage), so this never touches Firestore.
+function resetRecipe(tab) {
+  if (!confirm('Reset the ' + CARD_TITLES[tab] + ' recipe to the default values? Your changes to it will be lost.')) return;
+  RECIPES[tab] = JSON.parse(JSON.stringify(RECIPE_DEFAULTS[tab]));
+  localStorage.setItem('bakery-recipes', JSON.stringify(RECIPES));
+  document.dispatchEvent(new CustomEvent('recipes-saved'));
+  isDirty = false;
+  renderRecipeForm(tab); // refresh the inputs to the restored default values
+  updateSaveBtn();
+}
+
 // Open a recipe for editing. No confirmation on entry (the recipe is still
 // protected by the save confirmation and the unsaved-changes guard on exit).
 function openRecipe(tab) {
   activeRecipe = tab;
   isDirty = false;
   titleEl().textContent = CARD_TITLES[tab];
-  saveBtnEl().style.display = '';
   renderRecipeForm(tab);
   updateSaveBtn();
 }
@@ -121,10 +136,14 @@ function renderRecipeForm(tab) {
         <span class="recipe-total-label">Total</span>
         <span class="recipe-total-val" id="ri-total-${tab}">${Math.round(total * 10) / 10} g</span>
       </div>
-    </div>`;
+    </div>
+    <button class="cp-save-bottom" id="recipe-save-bottom" type="button" disabled>Save</button>
+    <button class="recipe-reset-btn" id="recipe-reset-bottom" type="button">Reset to defaults</button>`;
   fields.forEach(f =>
     document.getElementById('ri-' + tab + '-' + f.key)
       .addEventListener('input', () => onRecipeInput(tab)));
+  document.getElementById('recipe-save-bottom').addEventListener('click', saveRecipes);
+  document.getElementById('recipe-reset-bottom').addEventListener('click', () => resetRecipe(tab));
 }
 
 export function openRecipes() {
@@ -132,7 +151,7 @@ export function openRecipes() {
   document.getElementById('recipe-overlay').classList.add('visible');
 }
 
-export function saveRecipes() {
+function saveRecipes() {
   if (!activeRecipe) return;                 // nothing to save from the picker
   if (!confirm('Save changes to the ' + CARD_TITLES[activeRecipe] + ' recipe?')) return;
   const tab = activeRecipe;

@@ -47,9 +47,9 @@ export function restoreRevealed(tab) {
 }
 
 // ── Confirm / Edit lock ───────────────────────────────────────────────────────
-// Each dough tab confirms with its OWN inline Today/Tomorrow buttons (no shared
-// popup). Tapping one saves the log; the tab then LOCKS: its inputs are disabled
-// (greyed) and the Today/Tomorrow pair is replaced by an "Edit" button. The
+// Each dough tab has a Confirm button that opens a shared Today/Tomorrow day picker;
+// choosing a day saves the log. The tab then LOCKS: its inputs are disabled
+// (greyed) and the Confirm button is replaced by an "Edit" button. The
 // quantities — and the linked log — stop changing until the user taps Edit to unlock.
 // `logId` ties the tab to the log it confirmed, so the next Confirm UPDATES that same
 // log instead of creating a new one. Reset clears the link, so the following Confirm
@@ -68,7 +68,7 @@ function tabReady(tab) {
 }
 
 // Reflect a tab's lock state in the UI: grey/disable the inputs when locked, and show
-// the right control under the orders — the Today/Tomorrow buttons (unlocked & ready),
+// the right control under the orders — the Confirm button (unlocked & ready),
 // the Edit button (locked), or nothing (no quantities entered yet).
 export function applyTabState(tab) {
   const locked = getLock(tab).locked;

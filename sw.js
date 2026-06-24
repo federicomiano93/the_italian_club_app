@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v143';
+const CACHE_NAME = 'theitalianclub-v146';
 const ASSETS = [
   './',
   './index.html',

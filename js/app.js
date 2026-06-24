@@ -1,7 +1,7 @@
 import './firebase.js';
 import { calcFocaccia, calcBrioche, calcSourdough, copyRecipe, shareRecipeWA, buildDivisorBox, restoreRevealed, clearRevealed, restoreLock, clearLock } from './calc.js';
 import { saveDay, editTab, renderLog } from './log.js';
-import { saveRecipes, closeRecipes, goHomeFromRecipes } from './recipes.js';
+import { closeRecipes, goHomeFromRecipes } from './recipes.js';
 import { openSettings } from './calculator-settings.js';
 import './log-settings.js';
 import { shareMarketOrder, closeLoafModal, sendWithLoaves, closeListPicker } from './whatsapp.js';
@@ -265,9 +265,23 @@ document.querySelectorAll('.tab').forEach((btn, i) => {
 // The Log now lives in the footer (next to Settings), not in the dough tab-bar.
 document.getElementById('log-footer-btn').addEventListener('click', () => switchTab('log'));
 
-// Inline Today/Tomorrow buttons (one tap saves) + the Edit button, per dough tab.
-document.querySelectorAll('.day-btn').forEach(btn => {
-  btn.addEventListener('click', () => saveDay(btn.dataset.tab, btn.dataset.day));
+// A dough tab's Confirm button opens a shared day picker; choosing Today/Tomorrow
+// in the popup saves that tab's log (one tap), then closes the popup. The Edit
+// button (per tab) unlocks a confirmed tab.
+const dayModal = document.getElementById('day-modal');
+let dayModalTab = null;
+function openDayModal(tab) { dayModalTab = tab; dayModal.classList.add('visible'); }
+function closeDayModal() { dayModal.classList.remove('visible'); dayModalTab = null; }
+document.querySelectorAll('[data-confirm-tab]').forEach(btn => {
+  btn.addEventListener('click', () => openDayModal(btn.dataset.confirmTab));
+});
+dayModal.querySelectorAll('.day-btn').forEach(btn => {
+  btn.addEventListener('click', () => { const t = dayModalTab; closeDayModal(); if (t) saveDay(t, btn.dataset.day); });
+});
+document.getElementById('day-modal-cancel').addEventListener('click', closeDayModal);
+dayModal.addEventListener('click', (e) => { if (e.target === dayModal) closeDayModal(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && dayModal.classList.contains('visible')) closeDayModal();
 });
 document.getElementById('f-edit-btn').addEventListener('click', () => editTab('focaccia'));
 document.getElementById('b-edit-btn').addEventListener('click', () => editTab('brioche'));
@@ -286,7 +300,6 @@ document.querySelectorAll('.reset-btn').forEach((btn, i) => {
 });
 
 document.getElementById('settings-footer-btn').addEventListener('click', openSettings);
-document.getElementById('recipe-save-btn').addEventListener('click', saveRecipes);
 document.querySelector('.recipe-back-btn').addEventListener('click', closeRecipes);
 document.getElementById('recipe-home-btn').addEventListener('click', goHomeFromRecipes);
 
