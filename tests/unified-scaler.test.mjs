@@ -1,13 +1,18 @@
-// Equivalence tests for the generic scaleRecipe (P15 — the owner cannot read code).
-// These prove that unifying the dough math is SAFE before it is wired into the app:
-//   • Brioche and Sourdough come out BYTE-IDENTICAL to their original functions.
-//   • Focaccia, moved onto the same clean method, stays within a tiny tolerance of
-//     the old focaccia math (and is exactly equal at the shipped default 0.65%).
-// If a future change drifts any of this, these fail.
+// Tests for the unified dough math (P15 — the owner cannot read code).
 //
-// The recipes below are the shipped defaults (RECIPE_DEFAULTS in recipes.js),
-// copied here so the test stays self-contained and pure (recipes.js reads
-// localStorage on import and cannot be loaded under Node).
+// Stage 0 added a generic scaleRecipe; Stage 1 made scaleFocaccia/Brioche/Sourdough
+// thin wrappers over it. To stay a REAL anti-regression guard (not a tautology that
+// compares a function to itself), these tests keep an INDEPENDENT copy of the dough
+// math exactly as it was BEFORE unification — the legacy* functions below — and
+// assert the live functions against it:
+//   • Brioche and Sourdough must equal the legacy math EXACTLY, even on edited
+//     recipes and across the full knob range.
+//   • Focaccia, intentionally moved onto the clean method, must stay within a tiny
+//     tolerance of the legacy focaccia math (and is exactly equal at the 0.65%
+//     default) — the small drift is a correction at high yeast %, see the project plan.
+//
+// The recipes are the shipped defaults (RECIPE_DEFAULTS in recipes.js), copied here
+// so the test stays pure (recipes.js reads localStorage on import).
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -22,100 +27,121 @@ const FOCACCIA = { flourBlu: 278, flourT65: 278, malt: 3, sugar: 8, salt: 11, ye
 const BRIOCHE = { flour: 3185, yeast: 127.4, water: 1575 };
 const SOURDOUGH = { flourBlu: 2560, flourT65: 2560, flourWhole: 570, water1: 3800, starter: 1024, malt: 30, salt: 124, water2: 300 };
 
-// The unified spec for each seed recipe: which ingredient is the leavening and the
-// baseline percentage at which the recipe sits "at rest" (see scaleRecipe comment).
-const FOCACCIA_SPEC  = { amounts: FOCACCIA,  leaveningKey: 'yeast',   baselinePct: 3.6 / 556 * 100 };
-const BRIOCHE_SPEC   = { amounts: BRIOCHE,   leaveningKey: 'yeast',   baselinePct: 4 };
-const SOURDOUGH_SPEC = { amounts: SOURDOUGH, leaveningKey: 'starter', baselinePct: 18 };
-
 const sum = (arr) => arr.reduce((a, b) => a + b, 0);
 
-// Divergence allowed, per ingredient, between the unified focaccia and the OLD
-// focaccia math. Two regimes (both measured, not guessed):
-//   • Normal use (yeast 0.5–1.5%): ≤ 2 g, and exactly 0 at the 0.65% default.
-//   • Full knob range (yeast 0.1–3%, doughs up to 25 kg): ≤ 6 g. The extra grams
-//     are a CORRECTION — the unified method keeps yeast at exactly the chosen % of
-//     flour, while the old method drifted slightly high at large percentages.
+// ── Legacy reference math (verbatim copy of the pre-unification functions) ───────
+const legacyTotal = (r) => Object.values(r).reduce((s, v) => s + v, 0);
+function legacyFixRounding(amounts, total) {
+  const rounded = amounts.map(Math.round);
+  const diff = Math.round(total) - rounded.reduce((a, b) => a + b, 0);
+  if (diff !== 0) { const m = rounded.indexOf(Math.max(...rounded)); rounded[m] += diff; }
+  return rounded;
+}
+function legacyFocaccia(R, target, yeastPct) {
+  const baseTotal = legacyTotal(R), scale = target / baseTotal, totalFlour = R.flourBlu + R.flourT65;
+  const yeast = totalFlour * scale * (yeastPct / 100), remaining = target - yeast, nonYeastBase = baseTotal - R.yeast;
+  return legacyFixRounding([
+    R.flourBlu * remaining / nonYeastBase, R.flourT65 * remaining / nonYeastBase,
+    R.malt * remaining / nonYeastBase, R.sugar * remaining / nonYeastBase, R.salt * remaining / nonYeastBase,
+    yeast, R.oil * remaining / nonYeastBase, R.water1 * remaining / nonYeastBase, R.water2 * remaining / nonYeastBase,
+  ], target);
+}
+function legacyBrioche(R, target, yeastPct) {
+  const yeastBase = R.yeast * (yeastPct / 4), prov = R.flour + yeastBase + R.water, f = target / prov;
+  return legacyFixRounding([R.flour * f, yeastBase * f, R.water * f], target);
+}
+function legacySourdough(R, target, starterPct) {
+  const sb = R.starter * (starterPct / 18);
+  const prov = R.flourBlu + R.flourT65 + R.flourWhole + R.water1 + sb + R.malt + R.salt + R.water2, f = target / prov;
+  return legacyFixRounding([R.flourBlu * f, R.flourT65 * f, R.flourWhole * f, R.water1 * f, sb * f, R.malt * f, R.salt * f, R.water2 * f], target);
+}
+
+// Edited-recipe variants — what a user might save after changing a recipe. Brioche
+// and Sourdough must still match the legacy math on ALL of these.
+const mul = (o, fn) => Object.fromEntries(Object.entries(o).map(([k, v], i) => [k, Math.max(0.1, fn(v, i, k))]));
+const variants = (base) => [
+  base,
+  mul(base, (v) => v * 1.37),
+  mul(base, (v) => v * 0.6),
+  mul(base, (v, i) => v * (1 + 0.2 * ((i % 3) - 1))),
+  mul(base, (v, i, k) => (k.startsWith('flour') ? v * 1.5 : v * 0.8)),
+];
+
+// Focaccia divergence budget (measured, not guessed): ≤2 g at normal settings,
+// ≤6 g across the full knob range on the default recipe; exact at the 0.65% default.
 const FOCACCIA_TOLERANCE_NORMAL_G = 2;
 const FOCACCIA_TOLERANCE_FULL_G = 6;
 
-// ── Brioche: byte-identical to scaleBrioche ─────────────────────────────────────
+// ── Brioche: byte-identical to the legacy math, even on edited recipes ───────────
 
-test('scaleRecipe reproduces scaleBrioche exactly across the full knob range', () => {
+test('scaleBrioche equals the legacy math across the full knob range and edited recipes', () => {
   // Brioche yeast knob: min 0.1, max 6 (calculator.html #b-yeast-pct).
-  for (const target of [2000, 4887.4, 9000, 9774.8, 18000]) {
-    for (const pct of [0.1, 2, 4, 6]) {
-      assert.deepEqual(
-        scaleRecipe(BRIOCHE_SPEC, target, pct),
-        scaleBrioche(BRIOCHE, target, pct),
-        `brioche mismatch at target=${target}, pct=${pct}`
-      );
+  for (const R of variants(BRIOCHE)) {
+    for (const target of [2000, 4887.4, 9000, 9774.8, 18000]) {
+      for (const pct of [0.1, 2, 4, 6]) {
+        assert.deepEqual(
+          scaleBrioche(R, target, pct),
+          legacyBrioche(R, target, pct),
+          `brioche mismatch at target=${target}, pct=${pct}`
+        );
+      }
     }
   }
 });
 
-// ── Sourdough: byte-identical to scaleSourdough ─────────────────────────────────
+// ── Sourdough: byte-identical to the legacy math, even on edited recipes ─────────
 
-test('scaleRecipe reproduces scaleSourdough exactly across the full knob range', () => {
+test('scaleSourdough equals the legacy math across the full knob range and edited recipes', () => {
   // Sourdough starter knob: min 5, max 40 (calculator.html #s-starter-pct).
-  for (const target of [5000, 9000, 18100]) {
-    for (const pct of [5, 12, 18, 25, 40]) {
-      assert.deepEqual(
-        scaleRecipe(SOURDOUGH_SPEC, target, pct),
-        scaleSourdough(SOURDOUGH, target, pct),
-        `sourdough mismatch at target=${target}, pct=${pct}`
-      );
+  for (const R of variants(SOURDOUGH)) {
+    for (const target of [5000, 9000, 18100]) {
+      for (const pct of [5, 12, 18, 25, 40]) {
+        assert.deepEqual(
+          scaleSourdough(R, target, pct),
+          legacySourdough(R, target, pct),
+          `sourdough mismatch at target=${target}, pct=${pct}`
+        );
+      }
     }
   }
 });
 
-// ── Focaccia: within tolerance of scaleFocaccia, exact at the default ────────────
+// ── Focaccia: exact at the default, within tolerance elsewhere ───────────────────
 
-test('scaleRecipe matches scaleFocaccia exactly at the shipped default (5000 g, 0.65%)', () => {
-  assert.deepEqual(
-    scaleRecipe(FOCACCIA_SPEC, 5000, 0.65),
-    scaleFocaccia(FOCACCIA, 5000, 0.65)
-  );
+test('scaleFocaccia equals the legacy math exactly at the shipped default (5000 g, 0.65%)', () => {
+  assert.deepEqual(scaleFocaccia(FOCACCIA, 5000, 0.65), legacyFocaccia(FOCACCIA, 5000, 0.65));
 });
 
-// Helper: worst per-ingredient divergence between the unified and old focaccia math
-// over a grid of targets × percentages.
 function focacciaMaxDiff(targets, pcts) {
   let maxDiff = 0, worst = null;
   for (const target of targets) {
     for (const pct of pcts) {
-      const a = scaleRecipe(FOCACCIA_SPEC, target, pct);
-      const b = scaleFocaccia(FOCACCIA, target, pct);
+      const a = scaleFocaccia(FOCACCIA, target, pct);
+      const b = legacyFocaccia(FOCACCIA, target, pct);
       for (let i = 0; i < a.length; i++) {
         const d = Math.abs(a[i] - b[i]);
-        if (d > maxDiff) { maxDiff = d; worst = { target, pct, i, unified: a[i], old: b[i] }; }
+        if (d > maxDiff) { maxDiff = d; worst = { target, pct, i, unified: a[i], legacy: b[i] }; }
       }
     }
   }
   return { maxDiff, worst };
 }
 
-test('scaleRecipe stays within 2 g of old focaccia at normal settings (yeast 0.5–1.5%)', () => {
+test('scaleFocaccia stays within 2 g of the legacy math at normal settings (yeast 0.5–1.5%)', () => {
   const { maxDiff, worst } = focacciaMaxDiff([1000, 3217, 5000, 9000, 15000], [0.5, 0.65, 1, 1.5]);
-  assert.ok(
-    maxDiff <= FOCACCIA_TOLERANCE_NORMAL_G,
-    `focaccia diverged by ${maxDiff} g (limit ${FOCACCIA_TOLERANCE_NORMAL_G}) at ${JSON.stringify(worst)}`
-  );
+  assert.ok(maxDiff <= FOCACCIA_TOLERANCE_NORMAL_G, `focaccia diverged by ${maxDiff} g at ${JSON.stringify(worst)}`);
 });
 
-test('scaleRecipe stays within 6 g of old focaccia across the full knob range (yeast 0.1–3%, ≤25 kg)', () => {
+test('scaleFocaccia stays within 6 g of the legacy math across the full knob range (yeast 0.1–3%, ≤25 kg)', () => {
   // Focaccia yeast knob: min 0.1, max 3, step 0.05 (calculator.html #f-yeast-pct).
   const targets = [], pcts = [];
   for (let t = 300; t <= 25000; t += 100) targets.push(t);
   for (let p = 0.1; p <= 3.0001; p += 0.05) pcts.push(Math.round(p * 100) / 100);
   const { maxDiff, worst } = focacciaMaxDiff(targets, pcts);
-  assert.ok(
-    maxDiff <= FOCACCIA_TOLERANCE_FULL_G,
-    `focaccia diverged by ${maxDiff} g (limit ${FOCACCIA_TOLERANCE_FULL_G}) at ${JSON.stringify(worst)}`
-  );
+  assert.ok(maxDiff <= FOCACCIA_TOLERANCE_FULL_G, `focaccia diverged by ${maxDiff} g at ${JSON.stringify(worst)}`);
 });
 
-// ── Pure proportional path (recipe with no leavening) ───────────────────────────
+// ── scaleRecipe's own properties (the engine behind the wrappers) ────────────────
 
 test('scaleRecipe with no leavening scales pro-rata and sums to the target', () => {
   const base = { a: 100, b: 200, c: 300 };
@@ -124,8 +150,6 @@ test('scaleRecipe with no leavening scales pro-rata and sums to the target', () 
   for (const target of [600, 1234, 9999]) {
     const out = scaleRecipe(spec, target, 0);
     assert.equal(sum(out), Math.round(target), `no-leavening sum at ${target}`);
-    // Each ingredient stays within rounding+residual distance of its exact share
-    // (≤ 0.5 g rounding, plus the ≤ ~1.5 g residual that lands on one ingredient).
     ideal(target).forEach((v, i) => {
       assert.ok(Math.abs(out[i] - v) <= 2, `no-leavening proportion at ${target}, i=${i}: ${out[i]} vs ${v}`);
     });
@@ -137,15 +161,12 @@ test('scaleRecipe never produces NaN on a zero-mass recipe', () => {
   assert.deepEqual(scaleRecipe(spec, 1000, 0), [0, 0]);
 });
 
-// ── Core invariant: displayed integers always sum to the target ─────────────────
-
 test('scaleRecipe output always sums exactly to Math.round(target)', () => {
   const cases = [
-    [FOCACCIA_SPEC, 5000, 0.65],
-    [BRIOCHE_SPEC, 9774.8, 4],
-    [SOURDOUGH_SPEC, 9000, 18],
-    [FOCACCIA_SPEC, 1234.6, 1.2],
-    [SOURDOUGH_SPEC, 18100, 25],
+    [{ amounts: FOCACCIA, leaveningKey: 'yeast', baselinePct: 3.6 / 556 * 100 }, 5000, 0.65],
+    [{ amounts: BRIOCHE, leaveningKey: 'yeast', baselinePct: 4 }, 9774.8, 4],
+    [{ amounts: SOURDOUGH, leaveningKey: 'starter', baselinePct: 18 }, 9000, 18],
+    [{ amounts: SOURDOUGH, leaveningKey: 'starter', baselinePct: 18 }, 18100, 25],
   ];
   for (const [spec, target, pct] of cases) {
     assert.equal(sum(scaleRecipe(spec, target, pct)), Math.round(target));
