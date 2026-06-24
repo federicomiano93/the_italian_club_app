@@ -14,6 +14,10 @@
 //     bakery: 'main',             // discriminator, like the rest of the app
 //     dough: 'Focaccia'|'Brioche'|'Sourdough',
 //     forDay: 'today'|'tomorrow', // chosen at creation (A)
+//     origin: 'calculator'|'manual', // where it was made: a calculator Confirm, or
+//                                 // a manual "+ Add log". Only manual logs can be
+//                                 // edited from the Log screen; calculator logs are
+//                                 // edited only from the calculator (Edit → Confirm).
 //     createdAtMs,                // for stable ordering (passed in by the caller)
 //     versions: [ version, ... ], // append-only; versions[last] is the latest
 //   }
@@ -150,12 +154,13 @@ export function buildLogText(items, occasional, extra) {
 
 // A brand-new log with its first version. Each Confirm makes a NEW log — it never
 // overwrites an existing one (the whole point of the new model).
-export function createLog({ id, dough, forDay, version, createdAtMs }) {
+export function createLog({ id, dough, forDay, version, createdAtMs, origin }) {
   return {
     id: String(id),
     bakery: 'main',
     dough: safeDough(dough),
     forDay: safeForDay(forDay),
+    origin: origin === 'manual' ? 'manual' : 'calculator',
     createdAtMs: num(createdAtMs),
     versions: [clone(version)],
   };
@@ -174,6 +179,22 @@ export function addVersion(log, version) {
   if (!Array.isArray(next.versions)) next.versions = [];
   next.versions.push(clone(version));
   return next;
+}
+
+// Change a log's target day (today/tomorrow) without touching its version history.
+// Used when an edit re-confirms and the user picks a different Today/Tomorrow.
+// Returns a NEW log object (pure); an invalid day keeps the existing one.
+export function setForDay(log, forDay) {
+  const next = clone(log);
+  next.forDay = FOR_DAYS.includes(forDay) ? forDay : next.forDay;
+  return next;
+}
+
+// Decide whether a calculator Confirm should CREATE a new log or UPDATE an existing
+// one. A tab confirms into the SAME log until Reset clears the link; if the linked
+// log no longer exists (e.g. it was deleted), fall back to creating a fresh one.
+export function confirmTarget({ linkedId, linkedExists }) {
+  return (linkedId && linkedExists) ? 'update' : 'create';
 }
 
 // Restore a past version: append a COPY of versions[index] on top as a new entry,
@@ -226,10 +247,15 @@ export function migrateOldLogs(records, makeId, baseMs = 0) {
 // lowercase dough name (focaccia/brioche/sourdough); a missing key counts as visible.
 export function filterVisibleLogs(logs, { visibility = {}, retentionHours = 24, nowMs = 0 } = {}) {
   const list = Array.isArray(logs) ? logs : [];
-  const windowMs = Math.max(0, num(retentionHours)) * 3600 * 1000;
+  // retentionHours may be a single number (applies to every dough) OR a per-dough
+  // map keyed by lowercase dough name (focaccia/brioche/sourdough).
+  const hoursFor = (key) => num(
+    retentionHours && typeof retentionHours === 'object' ? retentionHours[key] : retentionHours
+  );
   return list.filter((log) => {
     const key = String((log && log.dough) || '').toLowerCase();
     if (visibility[key] === false) return false;
+    const windowMs = Math.max(0, hoursFor(key)) * 3600 * 1000;
     if (windowMs > 0 && num(nowMs) - num(log && log.createdAtMs) > windowMs) return false;
     return true;
   });

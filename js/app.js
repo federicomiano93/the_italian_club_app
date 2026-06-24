@@ -1,6 +1,6 @@
 import './firebase.js';
-import { calcFocaccia, calcBrioche, calcSourdough, copyRecipe, shareRecipeWA, buildDivisorBox, restoreRevealed, clearRevealed } from './calc.js';
-import { confirmAndSave, renderLog } from './log.js';
+import { calcFocaccia, calcBrioche, calcSourdough, copyRecipe, shareRecipeWA, buildDivisorBox, restoreRevealed, clearRevealed, restoreLock, clearLock } from './calc.js';
+import { saveDay, editTab, renderLog } from './log.js';
 import { saveRecipes, closeRecipes, goHomeFromRecipes } from './recipes.js';
 import { openSettings } from './calculator-settings.js';
 import './log-settings.js';
@@ -46,6 +46,9 @@ function applyUpdate() {
 // The dough tab-bar holds only the three recipes now; the Log lives in the footer
 // (next to Settings), so showing it deactivates all dough tabs. The footer stays
 // visible everywhere so Log and Settings are always reachable.
+let lastDoughTab = 'focaccia'; // remembered so the Log screen's Back returns here
+let currentTab = 'focaccia';   // the active screen, for the header Back destination
+
 function switchTab(name) {
   document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
   const DOUGH = ['focaccia', 'brioche', 'sourdough'];
@@ -56,6 +59,19 @@ function switchTab(name) {
   // there); the dough tab-bar above still lets the user leave the Log view.
   const logFooterBtn = document.getElementById('log-footer-btn');
   if (logFooterBtn) logFooterBtn.style.display = name === 'log' ? 'none' : '';
+  // The "Check yeast %" banner only makes sense on a dough tab — hide it in the Log
+  // section. Clearing the inline style on a dough tab lets the "dismissed" class still
+  // hide it if the user had dismissed it.
+  const yeastBanner = document.getElementById('yeast-banner');
+  if (yeastBanner) yeastBanner.style.display = name === 'log' ? 'none' : '';
+  // Header: Back is always on the left. The right is WhatsApp on a dough tab, or Home
+  // on the Log screen (where WhatsApp is hidden).
+  const isLog = name === 'log';
+  if (DOUGH.includes(name)) lastDoughTab = name;
+  currentTab = name;
+  const setHdr = (id, show) => { const e = document.getElementById(id); if (e) e.style.display = show ? '' : 'none'; };
+  setHdr('header-wa-btn', !isLog);
+  setHdr('header-home-right', isLog);
   if (name === 'log') renderLog();
 }
 
@@ -117,7 +133,8 @@ function renderAll() {
     restoreQty(tab);
     restoreExtra(tab);
     buildDivisorBox(tab);
-    restoreRevealed(tab); // re-show a previously revealed recipe (without locking it)
+    restoreRevealed(tab); // re-show a previously revealed recipe
+    restoreLock(tab);     // re-apply a previously confirmed (locked) state + its log link
     const extraRow = document.querySelector('#tab-' + tab + ' .extra-dough-row');
     if (extraRow) extraRow.style.display = isExtraDoughEnabled(getConfig(), tab) ? '' : 'none';
   });
@@ -135,9 +152,12 @@ const PARAM_DEFAULTS = {
 
 function resetTab(tab) {
   if (!confirm('Reset all fields?')) return;
-  // Hide the revealed recipe and clear the fields. Existing logs are NOT touched —
-  // Reset only clears the calculator; the next Confirm creates a brand-new log.
+  // Hide the revealed recipe, unlock the inputs and DROP the link to the current log.
+  // Existing logs are NOT touched — Reset only clears the calculator; because the link
+  // is dropped, the next Confirm creates a brand-new log (the one way to start a fresh
+  // one). Without Reset, confirming again updates the same log.
   clearRevealed(tab);
+  clearLock(tab);
   document.querySelectorAll('#tab-'+tab+' input[type="number"]').forEach(input => {
     input.value = PARAM_DEFAULTS[input.id] || '0';
   });
@@ -230,6 +250,12 @@ document.getElementById('yeast-banner').addEventListener('click', () => {
   document.getElementById('yeast-banner').classList.add('hidden');
 });
 document.getElementById('header-wa-btn').addEventListener('click', shareMarketOrder);
+document.getElementById('header-back-btn').addEventListener('click', () => {
+  // From the Log screen, Back returns to the calculator; from a dough tab it leaves
+  // to the app home (the landing screen).
+  if (currentTab === 'log') switchTab(lastDoughTab);
+  else window.location.href = 'index.html';
+});
 
 document.querySelectorAll('.tab').forEach((btn, i) => {
   const tabs = ['focaccia','brioche','sourdough'];
@@ -239,9 +265,13 @@ document.querySelectorAll('.tab').forEach((btn, i) => {
 // The Log now lives in the footer (next to Settings), not in the dough tab-bar.
 document.getElementById('log-footer-btn').addEventListener('click', () => switchTab('log'));
 
-document.getElementById('f-confirm-btn').addEventListener('click', () => confirmAndSave('focaccia'));
-document.getElementById('b-confirm-btn').addEventListener('click', () => confirmAndSave('brioche'));
-document.getElementById('s-confirm-btn').addEventListener('click', () => confirmAndSave('sourdough'));
+// Inline Today/Tomorrow buttons (one tap saves) + the Edit button, per dough tab.
+document.querySelectorAll('.day-btn').forEach(btn => {
+  btn.addEventListener('click', () => saveDay(btn.dataset.tab, btn.dataset.day));
+});
+document.getElementById('f-edit-btn').addEventListener('click', () => editTab('focaccia'));
+document.getElementById('b-edit-btn').addEventListener('click', () => editTab('brioche'));
+document.getElementById('s-edit-btn').addEventListener('click', () => editTab('sourdough'));
 
 document.getElementById('f-copy-btn').addEventListener('click', () => copyRecipe('focaccia'));
 document.getElementById('b-copy-btn').addEventListener('click', () => copyRecipe('brioche'));

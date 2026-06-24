@@ -22,7 +22,7 @@ const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 let state = null; // { dough, tab, forDay, calculatedBy, items[] } or null when closed
 
 export function openLogAdd() {
-  state = { dough: null, tab: null, forDay: null, calculatedBy: '', items: [] };
+  state = { dough: null, tab: null, forDay: null, items: [] };
   render();
   updateSaveBtn();
   document.getElementById('logadd-overlay').classList.add('visible');
@@ -31,7 +31,7 @@ export function openLogAdd() {
 // "Has the user entered anything?" — guards the discard prompt on exit.
 function isDirty() {
   if (!state) return false;
-  return !!(state.dough || state.forDay || state.calculatedBy.trim() || state.items.some(it => num(it.qty) > 0));
+  return !!(state.dough || state.forDay || state.items.some(it => num(it.qty) > 0));
 }
 
 function close(saved) {
@@ -80,11 +80,6 @@ function render() {
     return;
   }
 
-  // Optional "calculated by" name.
-  const by = el('input', { class: 'cp-client-name', type: 'text', value: state.calculatedBy, placeholder: 'Name (optional)' });
-  by.addEventListener('input', () => { state.calculatedBy = by.value; });
-  c.appendChild(el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, 'Calculated by'), by]));
-
   // Today / Tomorrow (required).
   c.appendChild(el('div', { class: 'cp-label' }, 'When is this dough for?'));
   const dayChoices = el('div', { class: 'logday-choices' });
@@ -129,8 +124,8 @@ function commit() {
   const divisor = { includedIds: getDivisorIncluded(getConfig(), tab), n: 0 };
   const sheet = buildSheet({ dough: state.dough, recipe: RECIPES[tab], items, extraGrams: 0, param, divisor });
   const text = buildLogText(items, [], { grams: 0, value: 0, unit: 'g' });
-  const version = { calculatedBy: (state.calculatedBy || '').trim(), at: logTimestamp(), kind: 'create', items, occasional: [], sheet, text };
-  createAndSave({ dough: state.dough, forDay: state.forDay, version, createdAtMs: Date.now() });
+  const version = { calculatedBy: '', at: logTimestamp(), kind: 'create', items, occasional: [], sheet, text };
+  createAndSave({ dough: state.dough, forDay: state.forDay, version, createdAtMs: Date.now(), origin: 'manual' });
   close(true);
 }
 

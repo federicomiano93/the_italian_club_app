@@ -46,6 +46,63 @@ export function restoreRevealed(tab) {
   if (localStorage.getItem('revealed-' + tab) === '1') revealed[tab] = true;
 }
 
+// ── Confirm / Edit lock ───────────────────────────────────────────────────────
+// Each dough tab confirms with its OWN inline Today/Tomorrow buttons (no shared
+// popup). Tapping one saves the log; the tab then LOCKS: its inputs are disabled
+// (greyed) and the Today/Tomorrow pair is replaced by an "Edit" button. The
+// quantities — and the linked log — stop changing until the user taps Edit to unlock.
+// `logId` ties the tab to the log it confirmed, so the next Confirm UPDATES that same
+// log instead of creating a new one. Reset clears the link, so the following Confirm
+// starts a fresh log. Persisted per tab (lock-<tab>) so a reload keeps both the locked
+// state and the link.
+const lockState = {
+  focaccia:  { locked: false, logId: null },
+  brioche:   { locked: false, logId: null },
+  sourdough: { locked: false, logId: null },
+};
+export function getLock(tab) { return lockState[tab] || { locked: false, logId: null }; }
+
+// Whether a dough tab has quantities to confirm (total raw grams > 0).
+function tabReady(tab) {
+  return (computeTarget(getConfig(), tab, qtyOf) + extraDoughGramsFor(tab)) > 0;
+}
+
+// Reflect a tab's lock state in the UI: grey/disable the inputs when locked, and show
+// the right control under the orders — the Today/Tomorrow buttons (unlocked & ready),
+// the Edit button (locked), or nothing (no quantities entered yet).
+export function applyTabState(tab) {
+  const locked = getLock(tab).locked;
+  const ready = tabReady(tab);
+  const root = document.getElementById('tab-' + tab);
+  if (root) {
+    root.querySelectorAll('input[type="number"], select.qty-select, select.extra-unit-select, select.divisor-select')
+      .forEach(elm => { elm.disabled = locked; });
+  }
+  const dayBox = document.getElementById(tab[0] + '-day-confirm');
+  const editBtn = document.getElementById(tab[0] + '-edit-btn');
+  if (dayBox)  dayBox.style.display  = (ready && !locked) ? 'block' : 'none';
+  if (editBtn) editBtn.style.display = (ready && locked)  ? 'block' : 'none';
+}
+
+export function setLock(tab, locked, logId) {
+  lockState[tab] = { locked: !!locked, logId: logId || null };
+  try { localStorage.setItem('lock-' + tab, JSON.stringify(lockState[tab])); } catch (e) {}
+  applyTabState(tab);
+}
+
+export function clearLock(tab) {
+  lockState[tab] = { locked: false, logId: null };
+  try { localStorage.removeItem('lock-' + tab); } catch (e) {}
+  applyTabState(tab);
+}
+
+export function restoreLock(tab) {
+  try {
+    const raw = localStorage.getItem('lock-' + tab);
+    if (raw) { const v = JSON.parse(raw); lockState[tab] = { locked: !!v.locked, logId: v.logId || null }; }
+  } catch (e) {}
+}
+
 // The computed ingredients for each dough's last calculation: the SINGLE source
 // of truth shared by the on-screen render and the Copy/WhatsApp export. Each entry
 // is { rows: [{ name, grams }], totalG }. Set only on a successful calculation
@@ -154,11 +211,7 @@ export function calcFocaccia() {
   const target = computeTarget(getConfig(), 'focaccia', qtyOf) + extraDoughGramsFor('focaccia');
   if (target === 0) {
     hideResult('focaccia-result');
-    const fbtn0 = document.getElementById('f-confirm-btn');
-    fbtn0.classList.remove('visible');
-    fbtn0.dataset.mode = '';
-    fbtn0.textContent = '✓ Confirm';
-    fbtn0.disabled = false;
+    applyTabState('focaccia');
     return;
   }
 
@@ -178,11 +231,7 @@ export function calcFocaccia() {
   document.getElementById('f-total').textContent  = Math.round(target);
   updateDivisorBox('focaccia');
   renderCrateBoxes('focaccia');
-  const fbtn = document.getElementById('f-confirm-btn');
-  fbtn.textContent = '✓ Confirm';
-  fbtn.dataset.mode = '';
-  fbtn.disabled = false;
-  fbtn.classList.add('visible');
+  applyTabState('focaccia');
   if (revealed.focaccia) showResult('focaccia-result'); else hideResult('focaccia-result');
 }
 
@@ -191,11 +240,7 @@ export function calcBrioche() {
   const target = computeTarget(getConfig(), 'brioche', qtyOf) + extraDoughGramsFor('brioche');
   if (target === 0) {
     hideResult('brioche-result');
-    const bbtn0 = document.getElementById('b-confirm-btn');
-    bbtn0.classList.remove('visible');
-    bbtn0.dataset.mode = '';
-    bbtn0.textContent = '✓ Confirm';
-    bbtn0.disabled = false;
+    applyTabState('brioche');
     return;
   }
 
@@ -212,11 +257,7 @@ export function calcBrioche() {
   document.getElementById('b-total').textContent  = Math.round(target);
   updateDivisorBox('brioche');
   renderCrateBoxes('brioche');
-  const bbtn = document.getElementById('b-confirm-btn');
-  bbtn.textContent = '✓ Confirm';
-  bbtn.dataset.mode = '';
-  bbtn.disabled = false;
-  bbtn.classList.add('visible');
+  applyTabState('brioche');
   if (revealed.brioche) showResult('brioche-result'); else hideResult('brioche-result');
 }
 
@@ -226,11 +267,7 @@ export function calcSourdough() {
 
   if (target === 0) {
     hideResult('sourdough-result');
-    const sbtn0 = document.getElementById('s-confirm-btn');
-    sbtn0.classList.remove('visible');
-    sbtn0.dataset.mode = '';
-    sbtn0.textContent = '✓ Confirm';
-    sbtn0.disabled = false;
+    applyTabState('sourdough');
     return;
   }
 
@@ -249,11 +286,7 @@ export function calcSourdough() {
   document.getElementById('s-total').textContent  = Math.round(target);
   updateDivisorBox('sourdough');
   renderCrateBoxes('sourdough');
-  const sbtn = document.getElementById('s-confirm-btn');
-  sbtn.textContent = '✓ Confirm';
-  sbtn.dataset.mode = '';
-  sbtn.disabled = false;
-  sbtn.classList.add('visible');
+  applyTabState('sourdough');
   if (revealed.sourdough) showResult('sourdough-result'); else hideResult('sourdough-result');
 }
 

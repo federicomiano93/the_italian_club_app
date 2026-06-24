@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { filterVisibleLogs } from '../js/log-model.js';
 import {
-  isLogVisible, getLogRetentionHours, normalizeConfig,
+  isLogVisible, getLogRetentionHours, getLogRetentionForDough, normalizeConfig,
   LOG_RETENTION_OPTIONS, LOG_RETENTION_DEFAULT,
 } from '../js/calculator-config.js';
 
@@ -88,4 +88,38 @@ test('normalizeConfig: preserves stored log settings', () => {
   assert.equal(cfg.logVisibility.focaccia, false);
   assert.equal(cfg.logVisibility.brioche, true); // unspecified → default shown
   assert.equal(cfg.logRetentionHours, 48);
+});
+
+// ── Per-dough retention (each dough chooses its own 24/48h) ───────────────────
+test('getLogRetentionForDough: reads the per-dough value', () => {
+  const cfg = { logRetentionByDough: { focaccia: 48, brioche: 24, sourdough: 48 } };
+  assert.equal(getLogRetentionForDough(cfg, 'focaccia'), 48);
+  assert.equal(getLogRetentionForDough(cfg, 'brioche'), 24);
+});
+
+test('getLogRetentionForDough: falls back to the legacy global, then the default', () => {
+  assert.equal(getLogRetentionForDough({ logRetentionHours: 48 }, 'focaccia'), 48); // legacy global
+  assert.equal(getLogRetentionForDough({}, 'focaccia'), LOG_RETENTION_DEFAULT);     // nothing set
+  assert.equal(getLogRetentionForDough({ logRetentionByDough: { focaccia: 99 } }, 'focaccia'), 24); // invalid → default
+});
+
+test('filterVisibleLogs: a per-dough retention map applies the right window to each dough', () => {
+  const logs = [log('Focaccia', 30), log('Brioche', 30)];
+  const out = filterVisibleLogs(logs, {
+    visibility: {},
+    retentionHours: { focaccia: 48, brioche: 24 }, // focaccia keeps 30h, brioche hides it
+    nowMs: NOW,
+  });
+  assert.deepEqual(out.map(l => l.dough), ['Focaccia']);
+});
+
+test('normalizeConfig: adds per-dough retention, migrating from the legacy global', () => {
+  const cfg = normalizeConfig({ clients: [], logRetentionHours: 48 });
+  assert.deepEqual(cfg.logRetentionByDough, { focaccia: 48, brioche: 48, sourdough: 48 });
+});
+
+test('normalizeConfig: keeps explicit per-dough retention over the legacy global', () => {
+  const cfg = normalizeConfig({ clients: [], logRetentionHours: 24, logRetentionByDough: { focaccia: 48 } });
+  assert.equal(cfg.logRetentionByDough.focaccia, 48);
+  assert.equal(cfg.logRetentionByDough.brioche, 24); // unspecified → legacy global fallback
 });

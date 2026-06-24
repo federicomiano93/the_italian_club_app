@@ -2,18 +2,18 @@
 // Today/Tomorrow choice), and the tap / edit / delete / history actions. The data
 // model and persistence live in log-model.js (pure) and log-store.js (Firestore).
 
-import { showResult, markRevealed } from './calc.js';
+import { showResult, hideResult, markRevealed, clearRevealed, getLock, setLock } from './calc.js';
 import { saveDailyEntry } from './firebase.js';
 import { getConfig } from './calculator-config-store.js';
 import {
   getTabProducts, getDivisorIncluded, isExtraDoughEnabled, doughExtraGrams,
-  isLogVisible, getLogRetentionHours,
+  isLogVisible, getLogRetentionForDough,
 } from './calculator-config.js';
 import { RECIPES } from './recipes.js';
 import { logTimestamp } from './log-time.js';
 import { el } from './calculator-render.js';
-import { buildSheet, buildLogText, latestVersion, filterVisibleLogs } from './log-model.js';
-import { getLogs, getLogById, createAndSave, deleteLog } from './log-store.js';
+import { buildSheet, buildLogText, latestVersion, filterVisibleLogs, confirmTarget } from './log-model.js';
+import { getLogs, getLogById, createAndSave, appendAndSave, genLogId, deleteLog } from './log-store.js';
 import { renderOrder, renderVersion } from './log-view.js';
 import { openLogEdit, openLogHistory } from './log-edit.js';
 import { openLogAdd } from './log-add.js';
@@ -23,17 +23,6 @@ const PARAM_ID = { focaccia: 'f-yeast-pct', brioche: 'b-yeast-pct', sourdough: '
 const PARAM_DEFAULT = { focaccia: 0.65, brioche: 4, sourdough: 18 };
 
 function qtyOf(id) { const e = document.getElementById(id); return e ? (+e.value || 0) : 0; }
-
-// Brief "Saved ✓" feedback on the Confirm button after a log is created, then the
-// button re-arms to "✓ Confirm". Nothing is locked: the quantities stay editable and
-// confirming again creates a NEW, separate log.
-function flashSaved(tab) {
-  const btn = document.getElementById(tab[0] + '-confirm-btn');
-  if (!btn) return;
-  btn.textContent = 'Saved ✓';
-  btn.disabled = true;
-  setTimeout(() => { btn.textContent = '✓ Confirm'; btn.disabled = false; }, 1500);
-}
 
 function isoDate() {
   const n = new Date();
@@ -66,33 +55,37 @@ function buildDailyEntry(tab, sheet, at) {
   return base;
 }
 
-// ── Confirm → Save modal (Today / Tomorrow + optional "calculated by") ────────
+// ── Confirm (inline Today/Tomorrow) + Edit ────────────────────────────────────
+// Each dough tab confirms with its OWN inline Today/Tomorrow buttons — no shared popup.
+// Tapping one saves the log (create the first time, or UPDATE the linked one) and LOCKS
+// the tab; the pair is then replaced by an "Edit" button. Edit unlocks the inputs
+// (keeping the link) and hides the recipe, which reappears recomputed only on the next
+// save. A new, separate log is made only after Reset clears the link.
 let pendingTab = null;
 let pendingDay = null;
 
-export function confirmAndSave(tab) {
-  // Each Confirm creates a NEW, separate log — the recipe is never locked, so the
-  // same dough can be confirmed again (with changed quantities) into a fresh log.
+// Tap Today/Tomorrow on a dough tab → save that dough's log for the chosen day.
+export function saveDay(tab, day) {
+  if (getLock(tab).locked) return; // locked: the buttons are hidden; ignore stray taps
   pendingTab = tab;
-  openLogDayModal();
+  pendingDay = day;
+  commitLog();
 }
 
-function openLogDayModal() {
-  pendingDay = null;
-  document.querySelectorAll('.logday-choice').forEach(b => b.classList.remove('selected'));
-  document.getElementById('logday-by').value = '';
-  document.querySelector('.logday-save').disabled = true;
-  document.getElementById('logday-modal').classList.add('visible');
-}
-function closeLogDayModal() {
-  document.getElementById('logday-modal').classList.remove('visible');
-  pendingTab = null;
+// Tap Edit on a locked dough tab → confirm, then unlock the inputs (keeping the link)
+// and hide the recipe so it can't change live; it returns, recomputed, on the next save.
+export function editTab(tab) {
+  if (!getLock(tab).locked) return;
+  if (!confirm('Edit these quantities? The recipe updates only after you save it again.')) return;
+  clearRevealed(tab);
+  hideResult(tab + '-result');
+  setLock(tab, false, getLock(tab).logId);
 }
 
+// Build and save the log for the chosen day (one tap on Today/Tomorrow does this).
 function commitLog() {
   const tab = pendingTab;
   if (!tab || !pendingDay) return;
-  const by = document.getElementById('logday-by').value.trim();
   const items = gatherItems(tab);
   const extra = gatherExtra(tab);
   const paramEl = document.getElementById(PARAM_ID[tab]);
@@ -102,18 +95,30 @@ function commitLog() {
   const at = logTimestamp();
   const sheet = buildSheet({ dough: DOUGH[tab], recipe: RECIPES[tab], items, extraGrams: extra.grams, param, divisor });
   const text = buildLogText(items, [], extra);
-  const version = { calculatedBy: by, at, kind: 'create', items, occasional: [], sheet, text };
 
-  createAndSave({ dough: DOUGH[tab], forDay: pendingDay, version, createdAtMs: Date.now() });
+  // Update the linked log, or create a fresh one. The link is dropped only by Reset;
+  // a deleted linked log falls back to create (confirmTarget handles that edge case).
+  const lock = getLock(tab);
+  const action = confirmTarget({ linkedId: lock.logId, linkedExists: !!getLogById(lock.logId) });
+  let logId = lock.logId;
+  if (action === 'update') {
+    const version = { calculatedBy: '', at, kind: 'edit', items, occasional: [], sheet, text };
+    appendAndSave(lock.logId, version, pendingDay);
+  } else {
+    logId = genLogId();
+    const version = { calculatedBy: '', at, kind: 'create', items, occasional: [], sheet, text };
+    createAndSave({ id: logId, dough: DOUGH[tab], forDay: pendingDay, version, createdAtMs: Date.now(), origin: 'calculator' });
+  }
   saveDailyEntry(buildDailyEntry(tab, sheet, at)); // keep the production archive too
 
-  // Reveal the recipe and keep it editable — the recipe sheet and the log stay
-  // independent. The brief "Saved ✓" confirms the log was created, then the button
-  // re-arms so editing the quantities and confirming again creates a NEW log.
+  // Reveal the recipe and LOCK the tab: the Today/Tomorrow pair becomes an "Edit" button
+  // and the inputs grey out until the user taps Edit. The link is remembered so the next
+  // save updates this same log.
   markRevealed(tab);
   showResult(tab + '-result');
-  flashSaved(tab);
-  closeLogDayModal();
+  setLock(tab, true, logId);
+  pendingTab = null;
+  pendingDay = null;
 }
 
 // ── Log list ──────────────────────────────────────────────────────────────────
@@ -127,7 +132,11 @@ export function renderLog() {
       brioche: isLogVisible(cfg, 'brioche'),
       sourdough: isLogVisible(cfg, 'sourdough'),
     },
-    retentionHours: getLogRetentionHours(cfg),
+    retentionHours: {
+      focaccia: getLogRetentionForDough(cfg, 'focaccia'),
+      brioche: getLogRetentionForDough(cfg, 'brioche'),
+      sourdough: getLogRetentionForDough(cfg, 'sourdough'),
+    },
     nowMs: Date.now(),
   });
   container.textContent = '';
@@ -165,13 +174,16 @@ function logCard(log) {
   body.appendChild(renderOrder(v));
   card.appendChild(body);
 
-  // Actions: history (icon), edit, delete (low-key).
+  // Actions: history (icon), edit (manual logs only), delete (low-key). A calculator
+  // log is edited from the calculator (Edit → Confirm), never here, so its Edit button
+  // is omitted; only a hand-entered log ("+ Add log") shows it.
   const actions = el('div', { class: 'log-actions' });
   const hist = el('button', { class: 'log-hist-btn', type: 'button', 'data-id': log.id, 'aria-label': 'Version history' }, '🕘 History');
-  const edit = el('button', { class: 'log-edit-btn', type: 'button', 'data-id': log.id }, 'Edit');
   const del = el('button', { class: 'log-delete-btn', type: 'button', 'data-id': log.id, 'aria-label': 'Delete log' }, '🗑');
   actions.appendChild(hist);
-  actions.appendChild(edit);
+  if (log.origin === 'manual') {
+    actions.appendChild(el('button', { class: 'log-edit-btn', type: 'button', 'data-id': log.id }, 'Edit'));
+  }
   actions.appendChild(del);
   card.appendChild(actions);
   return card;
@@ -196,15 +208,6 @@ function startEdit(id) {
 }
 
 // ── Wiring (elements exist in calculator.html) ────────────────────────────────
-document.querySelectorAll('.logday-choice').forEach(b => {
-  b.addEventListener('click', () => {
-    pendingDay = b.dataset.day;
-    document.querySelectorAll('.logday-choice').forEach(x => x.classList.toggle('selected', x === b));
-    document.querySelector('.logday-save').disabled = false;
-  });
-});
-document.querySelector('.logday-cancel').addEventListener('click', closeLogDayModal);
-document.querySelector('.logday-save').addEventListener('click', commitLog);
 document.querySelector('.logview-back-btn').addEventListener('click', closeLogView);
 document.querySelector('.logview-home-btn').addEventListener('click', () => { window.location.href = 'index.html'; });
 

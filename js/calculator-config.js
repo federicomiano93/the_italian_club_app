@@ -100,7 +100,10 @@ export const DEFAULT_CONFIG = {
   logVisibility: { focaccia: true, brioche: true, sourdough: true },
   // How long (in hours) a log stays in the app's Log list after it was created.
   // Once expired it is only HIDDEN from the list; it remains in Firestore. 24 or 48.
+  // logRetentionHours is the legacy single value, kept so older configs still read;
+  // logRetentionByDough is the current per-dough value edited in Log settings.
   logRetentionHours: 24,
+  logRetentionByDough: { focaccia: 24, brioche: 24, sourdough: 24 },
 };
 
 const KINDS = ['number', 'dropdown', 'kg'];
@@ -252,9 +255,17 @@ export function isLogVisible(config, tab) {
 }
 
 // The configured log-retention window in hours (24 or 48), defaulting to 24 for
-// anything missing or invalid.
+// anything missing or invalid. Legacy single value — see getLogRetentionForDough.
 export function getLogRetentionHours(config) {
   return normalizeLogRetention(config && config.logRetentionHours);
+}
+
+// A dough type's own retention window in hours (24/48). Falls back to the legacy
+// global value (then the default) for configs that predate per-dough durations.
+export function getLogRetentionForDough(config, tab) {
+  const m = config && config.logRetentionByDough;
+  const n = m && Number(m[tab]);
+  return LOG_RETENTION_OPTIONS.includes(n) ? n : getLogRetentionHours(config);
 }
 
 // A dough tab's products: every product, across all clients, whose `dough`
@@ -493,6 +504,19 @@ function normalizeLogRetention(raw) {
   return LOG_RETENTION_OPTIONS.includes(n) ? n : LOG_RETENTION_DEFAULT;
 }
 
+// Per-dough retention map { focaccia, brioche, sourdough }, each coerced to an
+// allowed option (24/48). Missing/invalid entries fall back to the legacy global
+// value (so existing single-value configs migrate cleanly), then to the default.
+function normalizeLogRetentionByDough(raw, legacyGlobal) {
+  const fallback = normalizeLogRetention(legacyGlobal);
+  const out = {};
+  for (const tab of TABS) {
+    const n = raw && Number(raw[tab]);
+    out[tab] = LOG_RETENTION_OPTIONS.includes(n) ? n : fallback;
+  }
+  return out;
+}
+
 // The set of product ids that exist in a given tab (across all clients).
 function tabProductIds(clients, tab) {
   const ids = new Set();
@@ -581,6 +605,7 @@ function migrateLegacy(raw) {
     divisorIncluded: normalizeDivisorIncluded(raw.divisorIncluded, clients),
     logVisibility: normalizeLogVisibility(raw.logVisibility),
     logRetentionHours: normalizeLogRetention(raw.logRetentionHours),
+    logRetentionByDough: normalizeLogRetentionByDough(raw.logRetentionByDough, raw.logRetentionHours),
   };
 }
 
@@ -607,6 +632,7 @@ export function normalizeConfig(raw) {
       divisorIncluded: normalizeDivisorIncluded(raw.divisorIncluded, clients),
       logVisibility: normalizeLogVisibility(raw.logVisibility),
       logRetentionHours: normalizeLogRetention(raw.logRetentionHours),
+      logRetentionByDough: normalizeLogRetentionByDough(raw.logRetentionByDough, raw.logRetentionHours),
     };
   }
 
