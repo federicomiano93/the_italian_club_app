@@ -11,7 +11,24 @@
 // CSP-safe: elements are created via the DOM API (no innerHTML, no inline style
 // attributes), matching the page's strict Content-Security-Policy.
 
-import { getTabProducts } from './calculator-config.js';
+import { getTabProducts, showsLeaveningKnob } from './calculator-config.js';
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+// The WhatsApp glyph as a namespaced SVG (createElement can't make SVG, and the page
+// forbids innerHTML for markup) — used on each recipe's "share recipe" button.
+const WA_PATH = 'M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z';
+function waIcon() {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', '20');
+  svg.setAttribute('height', '20');
+  svg.setAttribute('fill', 'white');
+  const path = document.createElementNS(SVG_NS, 'path');
+  path.setAttribute('d', WA_PATH);
+  svg.appendChild(path);
+  return svg;
+}
 
 // Small element helper. attrs: { class, id, ... } set as attributes; children
 // can be strings or nodes. 'style' is never accepted (CSP forbids style attrs).
@@ -68,6 +85,102 @@ function productRow(product) {
     label,
     el('div', { class: 'qty-group' }, [quantityControl(product), el('span', { class: 'unit' }, unit)]),
   ]);
+}
+
+// Sensible leavening-knob range from a recipe's default %, reproducing the three
+// shipped recipes' ranges (focaccia 0.65 → .05/.1–3, brioche 4 → .1/.1–6,
+// sourdough 18 → 1/5–40) and giving any new recipe a matching, proportionate scale.
+function knobRange(defaultPct) {
+  const d = Number(defaultPct) || 0;
+  if (d >= 5) return { min: 5, max: 40, step: 1, inputmode: 'numeric' };
+  if (d >= 1) return { min: 0.1, max: 6, step: 0.1, inputmode: 'decimal' };
+  return { min: 0.1, max: 3, step: 0.05, inputmode: 'decimal' };
+}
+
+// Build one recipe's calculator tab panel (a .content div, id `tab-<recipeId>`),
+// laid out by the recipe's logic:
+//   orders → leavening knob (if shown) + Orders + extra + Confirm/Edit + result
+//   total  → "Total dough (g)" + Confirm/Edit + result (no orders/leavening/extra)
+//   both   → leavening knob (if shown) + Orders + total + extra + Confirm/Edit + result
+// CSP-safe (DOM API, no innerHTML/inline styles). No event listeners here — app.js
+// wires them after inserting the panel, exactly like the old static markup.
+export function buildRecipePanel(recipe) {
+  const id = recipe.id;
+  const hasOrders = recipe.logic === 'orders' || recipe.logic === 'both';
+  const hasTotalInput = recipe.logic === 'total' || recipe.logic === 'both';
+  const content = el('div', { class: 'content', id: 'tab-' + id });
+
+  if (showsLeaveningKnob(recipe)) {
+    const lev = (recipe.ingredients || []).find(i => i.key === recipe.leaveningKey);
+    const label = (lev ? lev.label : 'Leavening');
+    const def = recipe.leaveningDefaultPct;
+    const r = knobRange(def);
+    const input = el('input', {
+      type: 'number', id: id + '-param', value: String(def),
+      min: String(r.min), max: String(r.max), step: String(r.step), inputmode: r.inputmode,
+    });
+    content.appendChild(el('div', { class: 'param-row' }, [
+      el('span', { class: 'param-label' }, [
+        label + ' % (', el('span', { id: id + '-param-display' }, String(def)), '%)',
+      ]),
+      el('div', { class: 'qty-group' }, [input, el('span', { class: 'unit' }, '%')]),
+    ]));
+  }
+
+  if (hasTotalInput) {
+    content.appendChild(el('div', { class: 'param-row' }, [
+      el('span', { class: 'param-label' }, 'Total dough (g)'),
+      el('div', { class: 'qty-group' }, [
+        el('input', { type: 'number', id: id + '-total-input', value: '0', min: '0', step: '1', inputmode: 'numeric' }),
+        el('span', { class: 'unit' }, 'g'),
+      ]),
+    ]));
+  }
+
+  if (hasOrders) {
+    content.appendChild(el('div', { class: 'section-label' }, 'Orders'));
+    content.appendChild(el('div', { class: 'orders-cards', id: id + '-orders' }));
+    content.appendChild(el('div', { class: 'extra-dough-row' }, [
+      el('span', { class: 'extra-dough-label' }, 'Extra dough'),
+      el('div', { class: 'qty-group' }, [
+        el('input', { type: 'number', id: id + '-extra', value: '0', min: '0', step: '0.1', inputmode: 'decimal' }),
+        el('select', { id: id + '-extra-unit', class: 'extra-unit-select', 'aria-label': 'Extra dough unit' }, [
+          el('option', { value: 'g' }, 'g'),
+          el('option', { value: 'kg', selected: 'selected' }, 'kg'),
+        ]),
+      ]),
+    ]));
+  }
+
+  content.appendChild(el('button', { class: 'confirm-btn-primary', id: id + '-day-confirm', type: 'button', 'data-confirm-tab': id }, 'Confirm'));
+  content.appendChild(el('button', { class: 'confirm-btn-primary is-edit', id: id + '-edit-btn', type: 'button' }, '✎ Edit'));
+
+  content.appendChild(el('div', { class: 'result-block', id: id + '-result' }, [
+    el('div', { class: 'result-card' }, [
+      el('div', { class: 'result-header' }, [
+        el('h3', {}, recipe.name + ' dough'),
+        el('span', { class: 'result-badge', id: id + '-badge' }, ''),
+      ]),
+      el('div', { id: id + '-ingredients' }),
+      el('div', { class: 'ing-separator' }),
+      el('div', { class: 'total-dough-row' }, [
+        el('span', { class: 'total-dough-label' }, 'Total dough'),
+        el('span', {}, [
+          el('span', { class: 'total-dough-val', id: id + '-total' }, '0'), ' ',
+          el('span', { class: 'total-dough-unit' }, 'g'),
+        ]),
+      ]),
+      el('div', { class: 'copy-row' }, [
+        el('button', { class: 'copy-btn', id: id + '-copy-btn' }, 'Copy recipe'),
+        el('button', { class: 'copy-wa-btn', id: id + '-wa-recipe-btn', title: 'Share via WhatsApp' }, [waIcon()]),
+      ]),
+      el('div', { class: 'divisor-box', id: id + '-divisor-box' }),
+      el('div', { class: 'crate-boxes', id: id + '-crate-boxes' }),
+    ]),
+  ]));
+
+  content.appendChild(el('button', { class: 'reset-btn', type: 'button', 'data-reset-tab': id }, 'Reset all fields'));
+  return content;
 }
 
 // Render all client cards for a tab into `container`, replacing its contents.

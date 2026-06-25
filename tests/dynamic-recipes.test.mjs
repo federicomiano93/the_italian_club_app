@@ -7,9 +7,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DEFAULT_CONFIG, normalizeConfig,
+  DEFAULT_CONFIG, normalizeConfig, pairId,
   getRecipes, getRecipeById, getVisibleRecipes, getIngredients,
-  recipeSpec, showsLeaveningKnob, LOGICS, MAX_VISIBLE_RECIPES,
+  recipeSpec, showsLeaveningKnob, computeRecipeTarget, LOGICS, MAX_VISIBLE_RECIPES,
 } from '../js/calculator-config.js';
 import { scaleRecipe, scaleFocaccia, scaleBrioche, scaleSourdough } from '../js/calculator-dough-math.js';
 
@@ -187,4 +187,32 @@ test('getVisibleRecipes caps at MAX_VISIBLE_RECIPES and honours order + visible'
 
 test('LOGICS lists the three calc logics', () => {
   assert.deepEqual(LOGICS, ['orders', 'total', 'both']);
+});
+
+// ── computeRecipeTarget (per-logic target, the dangerous math) ──────────────────
+
+test('computeRecipeTarget: orders = Σ(qty×weight) + extra; ignores any typed total', () => {
+  const recipe = getRecipeById(DEFAULT_CONFIG, 'focaccia'); // logic 'orders'
+  const getQty = (id) => ({ [pairId('c-bakery', 'f-pizze')]: 10 }[id] || 0); // 10×201
+  const t = computeRecipeTarget(DEFAULT_CONFIG, recipe, { getQty, extraGrams: 500, totalInput: 9999 });
+  assert.equal(t, 10 * 201 + 500); // typed total ignored for 'orders'
+});
+
+test('computeRecipeTarget: total = the typed total only (no orders, no extra)', () => {
+  const recipe = { id: 'r1', logic: 'total', ingredients: [] };
+  const getQty = () => 5; // would-be orders ignored
+  assert.equal(computeRecipeTarget(DEFAULT_CONFIG, recipe, { getQty, extraGrams: 500, totalInput: 8000 }), 8000);
+});
+
+test('computeRecipeTarget: both = orders + typed total + extra', () => {
+  const recipe = { ...getRecipeById(DEFAULT_CONFIG, 'focaccia'), logic: 'both' };
+  const getQty = (id) => ({ [pairId('c-bakery', 'f-pizze')]: 10 }[id] || 0);
+  const t = computeRecipeTarget(DEFAULT_CONFIG, recipe, { getQty, extraGrams: 500, totalInput: 2000 });
+  assert.equal(t, 10 * 201 + 2000 + 500);
+});
+
+test('computeRecipeTarget never produces NaN/negative from junk inputs', () => {
+  const recipe = { id: 'r1', logic: 'both', ingredients: [] };
+  const t = computeRecipeTarget(DEFAULT_CONFIG, recipe, { getQty: () => 0, extraGrams: 'oops', totalInput: -50 });
+  assert.ok(Number.isFinite(t) && t >= 0);
 });

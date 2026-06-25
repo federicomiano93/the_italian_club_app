@@ -453,6 +453,22 @@ export function computeTarget(config, tab, getQty) {
   return total;
 }
 
+// The target raw weight for a recipe, by its calc logic (pure — the DOM-reading
+// calc.js feeds in the entered quantities, extra and typed total):
+//   'orders' → Σ(qty×weight) over the recipe's products + extra
+//   'total'  → the typed total only
+//   'both'   → Σ(qty×weight) + the typed total + extra
+// All inputs are coerced so the result is always a finite number ≥ 0.
+export function computeRecipeTarget(config, recipe, { getQty, extraGrams = 0, totalInput = 0 } = {}) {
+  if (!recipe) return 0;
+  const extra = Math.max(0, Number(extraGrams) || 0);
+  const typed = Math.max(0, Number(totalInput) || 0);
+  if (recipe.logic === 'total') return typed;
+  const orders = (typeof getQty === 'function') ? computeTarget(config, recipe.id, getQty) : 0;
+  if (recipe.logic === 'both') return orders + typed + extra;
+  return orders + extra; // 'orders'
+}
+
 // ── Divisor (display-only crate split) ────────────────────────────────────────
 // The divisor box sums the dough of the SELECTED products of a tab and divides it
 // into N crates. It NEVER touches the recipe or the log. Selection is by product id,

@@ -1,5 +1,8 @@
 import './firebase.js';
-import { calcFocaccia, calcBrioche, calcSourdough, copyRecipe, shareRecipeWA, buildDivisorBox, restoreRevealed, clearRevealed, restoreLock, clearLock } from './calc.js';
+import {
+  calc, copyRecipe, shareRecipeWA, buildDivisorBox,
+  restoreRevealed, clearRevealed, restoreLock, clearLock,
+} from './calc.js';
 import { saveDay, editTab, renderLog } from './log.js';
 import { closeRecipes, goHomeFromRecipes } from './recipes.js';
 import { openSettings } from './calculator-settings.js';
@@ -7,18 +10,16 @@ import './log-settings.js';
 import { shareMarketOrder, closeLoafModal, sendWithLoaves, closeListPicker } from './whatsapp.js';
 import { getConfig, initConfig } from './calculator-config-store.js';
 import { initLogs } from './log-store.js';
-import { renderTab } from './calculator-render.js';
-import { getTabProducts, isExtraDoughEnabled } from './calculator-config.js';
+import { renderTab, buildRecipePanel, el } from './calculator-render.js';
+import { getVisibleRecipes, getRecipeById, getTabProducts, isExtraDoughEnabled } from './calculator-config.js';
 
 // ── Service Worker ────────────────────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').then(reg => {
-    if (!reg) return; // registration unavailable (e.g. private mode) — fail safe
+    if (!reg) return;
     setInterval(() => reg.update(), 30000);
-
     const showBanner = () => document.getElementById('update-banner').classList.add('visible');
     if (reg.waiting) showBanner();
-
     reg.addEventListener('updatefound', () => {
       const newWorker = reg.installing;
       newWorker.addEventListener('statechange', () => {
@@ -26,297 +27,247 @@ if ('serviceWorker' in navigator) {
       });
     });
   });
-
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    window.location.reload();
-  });
+  navigator.serviceWorker.addEventListener('controllerchange', () => { window.location.reload(); });
 }
 
 function applyUpdate() {
   navigator.serviceWorker.getRegistration().then(reg => {
-    if (reg && reg.waiting) {
-      reg.waiting.postMessage({ action: 'skipWaiting' });
-    } else {
-      window.location.reload();
-    }
+    if (reg && reg.waiting) reg.waiting.postMessage({ action: 'skipWaiting' });
+    else window.location.reload();
   });
 }
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
-// The dough tab-bar holds only the three recipes now; the Log lives in the footer
-// (next to Settings), so showing it deactivates all dough tabs. The footer stays
-// visible everywhere so Log and Settings are always reachable.
-let lastDoughTab = 'focaccia'; // remembered so the Log screen's Back returns here
-let currentTab = 'focaccia';   // the active screen, for the header Back destination
+// The tab-bar holds the visible recipes (built from config); the Log lives in the
+// footer (next to Settings). currentTab is a recipe id or 'log'.
+let lastRecipeTab = null; // remembered so the Log screen's Back returns here
+let currentTab = null;    // the active screen, for the header Back destination
+
+function visibleIds() { return getVisibleRecipes(getConfig()).map(r => r.id); }
 
 function switchTab(name) {
-  document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
-  const DOUGH = ['focaccia', 'brioche', 'sourdough'];
-  document.querySelectorAll('.tab').forEach((el, i) => el.classList.toggle('active', DOUGH[i] === name));
-  document.getElementById('tab-'+name).classList.add('active');
-  document.querySelector('.scroll-area').scrollTop = 0;
-  // Hide the footer "Log" button while the Log section is open (it would be a no-op
-  // there); the dough tab-bar above still lets the user leave the Log view.
+  document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+  const panel = document.getElementById('tab-' + name);
+  if (panel) panel.classList.add('active');
+  document.querySelectorAll('#tab-bar .tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.recipe === name);
+  });
+  const scroll = document.querySelector('.scroll-area');
+  if (scroll) scroll.scrollTop = 0;
+  // Footer "Log" is a no-op while the Log is open; hide it there (the tab-bar still leaves).
   const logFooterBtn = document.getElementById('log-footer-btn');
   if (logFooterBtn) logFooterBtn.style.display = name === 'log' ? 'none' : '';
-  // The "Check yeast %" banner only makes sense on a dough tab — hide it in the Log
-  // section. Clearing the inline style on a dough tab lets the "dismissed" class still
-  // hide it if the user had dismissed it.
   const yeastBanner = document.getElementById('yeast-banner');
   if (yeastBanner) yeastBanner.style.display = name === 'log' ? 'none' : '';
-  // Header: Back is always on the left. The right is WhatsApp on a dough tab, or Home
-  // on the Log screen (where WhatsApp is hidden).
-  const isLog = name === 'log';
-  if (DOUGH.includes(name)) lastDoughTab = name;
+  if (name !== 'log') lastRecipeTab = name;
   currentTab = name;
-  const setHdr = (id, show) => { const e = document.getElementById(id); if (e) e.style.display = show ? '' : 'none'; };
-  setHdr('header-wa-btn', !isLog);
-  setHdr('header-home-right', isLog);
   if (name === 'log') renderLog();
 }
 
-// ── Config-driven calculator wiring ───────────────────────────────────────────
-const DOUGH_TABS = ['focaccia', 'brioche', 'sourdough'];
-const CALC = { focaccia: calcFocaccia, brioche: calcBrioche, sourdough: calcSourdough };
-
-// The per (client, product) quantity keys of a tab — the ids of the rendered inputs
-// and the localStorage keys their values persist under. The same product ordered by
-// two clients has two keys, so each client's quantity is saved/restored independently.
-function productIds(tab) {
-  return getTabProducts(getConfig(), tab).map(p => p.qtyId);
+// ── Per-recipe quantity persistence (one localStorage key per client+product pair) ─
+function productIds(recipeId) {
+  return getTabProducts(getConfig(), recipeId).map(p => p.qtyId);
 }
-
-// localStorage persistence: one key per product ('qty-<id>'), so the working
-// quantities survive a reload and a config re-render.
-function saveQty(tab) {
-  productIds(tab).forEach(id => {
-    const el = document.getElementById(id);
-    if (el) localStorage.setItem('qty-' + id, el.value);
+function saveQty(recipeId) {
+  productIds(recipeId).forEach(id => {
+    const e = document.getElementById(id);
+    if (e) localStorage.setItem('qty-' + id, e.value);
   });
 }
-function clearQty(tab) {
-  productIds(tab).forEach(id => localStorage.removeItem('qty-' + id));
+function clearQty(recipeId) {
+  productIds(recipeId).forEach(id => localStorage.removeItem('qty-' + id));
 }
-function restoreQty(tab) {
-  productIds(tab).forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
+function restoreQty(recipeId) {
+  productIds(recipeId).forEach(id => {
+    const e = document.getElementById(id);
+    if (!e) return;
     const val = localStorage.getItem('qty-' + id);
-    if (val !== null) el.value = val;
+    if (val !== null) e.value = val;
   });
 }
 
-// Attach listeners to the dynamically-created product inputs of a tab.
-function wireProductInputs(tab) {
-  const calc = CALC[tab];
-  productIds(tab).forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const evt = el.tagName === 'SELECT' ? 'change' : 'input';
-    el.addEventListener(evt, () => { calc(); saveQty(tab); });
-    if (el.tagName !== 'SELECT') {
-      el.addEventListener('focus', function() {
-        if (this.value === '0' || this.value === '') this.value = '';
-        else this.select();
-      });
-      el.addEventListener('blur', function() {
-        if (this.value === '' || isNaN(parseFloat(this.value))) { this.value = '0'; calc(); }
-      });
-    }
+// Number-field UX: clear a leading 0 on focus, restore 0 (and recalc) on blur.
+function wireNumberUX(e, recipeId) {
+  e.addEventListener('focus', function () {
+    if (this.value === '0' || this.value === '') this.value = '';
+    else this.select();
+  });
+  e.addEventListener('blur', function () {
+    if (this.value === '' || isNaN(parseFloat(this.value))) { this.value = '0'; calc(recipeId); }
   });
 }
 
-// (Re)build every dough tab from the current config, restore quantities, run the
-// calculations and re-apply any confirmed/locked state. Called on first paint
-// and whenever the remote config changes.
+// Attach listeners to one recipe panel's product/param/total/extra inputs + buttons.
+function wireRecipe(recipe) {
+  const id = recipe.id;
+
+  // Product quantity inputs.
+  productIds(id).forEach(qid => {
+    const e = document.getElementById(qid);
+    if (!e) return;
+    const evt = e.tagName === 'SELECT' ? 'change' : 'input';
+    e.addEventListener(evt, () => { calc(id); saveQty(id); });
+    if (e.tagName !== 'SELECT') wireNumberUX(e, id);
+  });
+
+  // Leavening knob.
+  const param = document.getElementById(id + '-param');
+  if (param) {
+    param.addEventListener('input', () => calc(id));
+    param.addEventListener('focus', function () {
+      if (this.value === '0' || this.value === '') this.value = '';
+      else this.select();
+    });
+    param.addEventListener('blur', function () {
+      if (this.value === '' || isNaN(parseFloat(this.value))) { this.value = String(recipe.leaveningDefaultPct); calc(id); }
+    });
+  }
+
+  // Typed total (total/both logic) — persisted like quantities.
+  const totalInput = document.getElementById(id + '-total-input');
+  if (totalInput) {
+    const saved = localStorage.getItem('total-' + id);
+    if (saved !== null) totalInput.value = saved;
+    totalInput.addEventListener('input', () => { calc(id); localStorage.setItem('total-' + id, totalInput.value); });
+    wireNumberUX(totalInput, id);
+  }
+
+  // Extra dough (orders/both).
+  const extra = document.getElementById(id + '-extra');
+  const extraUnit = document.getElementById(id + '-extra-unit');
+  if (extra) {
+    const sv = localStorage.getItem('extra-' + id);
+    if (sv !== null) extra.value = sv;
+    extra.addEventListener('input', () => { calc(id); localStorage.setItem('extra-' + id, extra.value); });
+    wireNumberUX(extra, id);
+  }
+  if (extraUnit) {
+    const su = localStorage.getItem('extra-unit-' + id);
+    if (su !== null) extraUnit.value = su;
+    extraUnit.addEventListener('change', () => { calc(id); localStorage.setItem('extra-unit-' + id, extraUnit.value); });
+  }
+
+  // Confirm (opens the shared day picker), Edit, Copy, WhatsApp, Reset.
+  const confirmBtn = document.getElementById(id + '-day-confirm');
+  if (confirmBtn) confirmBtn.addEventListener('click', () => openDayModal(id));
+  const editBtn = document.getElementById(id + '-edit-btn');
+  if (editBtn) editBtn.addEventListener('click', () => editTab(id));
+  const copyBtn = document.getElementById(id + '-copy-btn');
+  if (copyBtn) copyBtn.addEventListener('click', () => copyRecipe(id));
+  const waBtn = document.getElementById(id + '-wa-recipe-btn');
+  if (waBtn) waBtn.addEventListener('click', () => shareRecipeWA(id));
+  const resetBtn = document.querySelector('#tab-' + id + ' .reset-btn');
+  if (resetBtn) resetBtn.addEventListener('click', () => resetTab(id));
+}
+
+// (Re)build the whole calculator from config: the tab-bar, every visible recipe's
+// panel, then restore quantities/state and recalc. Called on first paint and on any
+// config change.
 function renderAll() {
-  DOUGH_TABS.forEach(tab => {
-    renderTab(getConfig(), tab, document.getElementById(tab[0] + '-orders'));
-    wireProductInputs(tab);
-    restoreQty(tab);
-    restoreExtra(tab);
-    buildDivisorBox(tab);
-    restoreRevealed(tab); // re-show a previously revealed recipe
-    restoreLock(tab);     // re-apply a previously confirmed (locked) state + its log link
-    const extraRow = document.querySelector('#tab-' + tab + ' .extra-dough-row');
-    if (extraRow) extraRow.style.display = isExtraDoughEnabled(getConfig(), tab) ? '' : 'none';
+  const recipes = getVisibleRecipes(getConfig());
+
+  // Tab bar.
+  const bar = document.getElementById('tab-bar');
+  if (bar) {
+    bar.textContent = '';
+    recipes.forEach(r => {
+      const btn = el('button', { class: 'tab', type: 'button', 'data-recipe': r.id }, r.name);
+      btn.addEventListener('click', () => switchTab(r.id));
+      bar.appendChild(btn);
+    });
+  }
+
+  // Panels.
+  const host = document.getElementById('recipe-tabs');
+  if (host) {
+    host.textContent = '';
+    recipes.forEach(r => host.appendChild(buildRecipePanel(r)));
+  }
+
+  // Per-recipe content + wiring + restore + calc.
+  recipes.forEach(r => {
+    const ordersEl = document.getElementById(r.id + '-orders');
+    if (ordersEl) renderTab(getConfig(), r.id, ordersEl);
+    wireRecipe(r);
+    restoreQty(r.id);
+    buildDivisorBox(r.id);
+    restoreRevealed(r.id);
+    restoreLock(r.id);
   });
-  calcFocaccia();
-  calcBrioche();
-  calcSourdough();
-  // Keep the Log list in sync with config changes (e.g. visibility/retention edits).
+
+  // Keep the active tab if still valid, else fall back to the first recipe.
+  const ids = recipes.map(r => r.id);
+  let active = currentTab;
+  if (active !== 'log' && !ids.includes(active)) active = ids[0] || 'log';
+  switchTab(active);
+
+  recipes.forEach(r => calc(r.id));
   renderLog();
 }
 
 // ── Reset ─────────────────────────────────────────────────────────────────────
-const PARAM_DEFAULTS = {
-  'f-yeast-pct': '0.65', 'b-yeast-pct': '4', 's-starter-pct': '18',
-};
-
-function resetTab(tab) {
+function resetTab(recipeId) {
   if (!confirm('Reset all fields?')) return;
-  // Hide the revealed recipe, unlock the inputs and DROP the link to the current log.
-  // Existing logs are NOT touched — Reset only clears the calculator; because the link
-  // is dropped, the next Confirm creates a brand-new log (the one way to start a fresh
-  // one). Without Reset, confirming again updates the same log.
-  clearRevealed(tab);
-  clearLock(tab);
-  document.querySelectorAll('#tab-'+tab+' input[type="number"]').forEach(input => {
-    input.value = PARAM_DEFAULTS[input.id] || '0';
+  const recipe = getRecipeById(getConfig(), recipeId);
+  clearRevealed(recipeId);
+  clearLock(recipeId);
+  document.querySelectorAll('#tab-' + recipeId + ' input[type="number"]').forEach(input => {
+    if (input.id === recipeId + '-param') input.value = String(recipe ? recipe.leaveningDefaultPct : 0);
+    else input.value = '0';
   });
-  document.querySelectorAll('#tab-'+tab+' select.qty-select').forEach(sel => { sel.value = '0'; });
-  const divSel = document.getElementById(tab[0] + '-divisor-div');
+  document.querySelectorAll('#tab-' + recipeId + ' select.qty-select').forEach(sel => { sel.value = '0'; });
+  const divSel = document.getElementById(recipeId + '-divisor-div');
   if (divSel) divSel.value = '0';
-  clearQty(tab);
-  const extraUnit = document.getElementById(tab[0] + '-extra-unit');
-  if (extraUnit) extraUnit.value = 'kg'; // the number field is already reset to 0 above
-  clearExtra(tab);
-  CALC[tab]();
+  clearQty(recipeId);
+  localStorage.removeItem('total-' + recipeId);
+  const extraUnit = document.getElementById(recipeId + '-extra-unit');
+  if (extraUnit) extraUnit.value = 'kg';
+  localStorage.removeItem('extra-' + recipeId);
+  localStorage.removeItem('extra-unit-' + recipeId);
+  calc(recipeId);
 }
 
-// ── Extra-dough box (one free amount per tab, in g or kg) ─────────────────────
-// Static inputs (they live in the HTML, not rebuilt by renderTab). Persisted in
-// localStorage, like the product quantities, so they survive a reload.
-function saveExtra(tab) {
-  const v = document.getElementById(tab[0] + '-extra');
-  const u = document.getElementById(tab[0] + '-extra-unit');
-  if (v) localStorage.setItem('extra-' + tab, v.value);
-  if (u) localStorage.setItem('extra-unit-' + tab, u.value);
-}
-function restoreExtra(tab) {
-  const v = document.getElementById(tab[0] + '-extra');
-  const u = document.getElementById(tab[0] + '-extra-unit');
-  const sv = localStorage.getItem('extra-' + tab);
-  const su = localStorage.getItem('extra-unit-' + tab);
-  if (v && sv !== null) v.value = sv;
-  if (u && su !== null) u.value = su;
-}
-function clearExtra(tab) {
-  localStorage.removeItem('extra-' + tab);
-  localStorage.removeItem('extra-unit-' + tab);
-}
-
-DOUGH_TABS.forEach(tab => {
-  const v = document.getElementById(tab[0] + '-extra');
-  const u = document.getElementById(tab[0] + '-extra-unit');
-  if (v) {
-    v.addEventListener('input', () => { CALC[tab](); saveExtra(tab); });
-    v.addEventListener('focus', function() {
-      if (this.value === '0' || this.value === '') this.value = '';
-      else this.select();
-    });
-    v.addEventListener('blur', function() {
-      if (this.value === '' || isNaN(parseFloat(this.value))) this.value = '0';
-      CALC[tab](); saveExtra(tab);
-    });
-  }
-  if (u) u.addEventListener('change', () => { CALC[tab](); saveExtra(tab); });
-});
-
-// ── Static parameter inputs (not products) ────────────────────────────────────
-const STATIC_NUMBER_IDS = ['f-yeast-pct', 'b-yeast-pct', 's-starter-pct'];
-
-function tabOfId(id) {
-  if (id.startsWith('f-')) return 'focaccia';
-  if (id.startsWith('b-')) return 'brioche';
-  if (id.startsWith('s-')) return 'sourdough';
-  return null;
-}
-
-STATIC_NUMBER_IDS.forEach(id => {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.addEventListener('focus', function() {
-    if (this.value === '0' || this.value === '') this.value = '';
-    else this.select();
+// ── Shared Today/Tomorrow day picker (opened by any recipe's Confirm) ──────────
+const dayModal = document.getElementById('day-modal');
+let dayModalTab = null;
+function openDayModal(recipeId) { dayModalTab = recipeId; dayModal.classList.add('visible'); }
+function closeDayModal() { dayModal.classList.remove('visible'); dayModalTab = null; }
+if (dayModal) {
+  dayModal.querySelectorAll('.day-btn').forEach(btn => {
+    btn.addEventListener('click', () => { const t = dayModalTab; closeDayModal(); if (t) saveDay(t, btn.dataset.day); });
   });
-  el.addEventListener('blur', function() {
-    if (this.value === '' || isNaN(parseFloat(this.value))) {
-      this.value = PARAM_DEFAULTS[this.id] || '0';
-      const t = tabOfId(this.id);
-      if (t) CALC[t]();
-    }
+  const cancel = document.getElementById('day-modal-cancel');
+  if (cancel) cancel.addEventListener('click', closeDayModal);
+  dayModal.addEventListener('click', (e) => { if (e.target === dayModal) closeDayModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && dayModal.classList.contains('visible')) closeDayModal();
   });
-});
+}
 
-// Parameter fields recalculate their tab on every input.
-document.getElementById('f-yeast-pct').addEventListener('input', calcFocaccia);
-document.getElementById('b-yeast-pct').addEventListener('input', calcBrioche);
-document.getElementById('s-starter-pct').addEventListener('input', calcSourdough);
-
-// The divisor box (its 0–4 dropdown) is built per render in calc.js, which also
-// wires its change handler — no static wiring here.
-
-// ── Static button event listeners ─────────────────────────────────────────────
+// ── Static header / footer / modal wiring (elements exist in calculator.html) ──
 document.getElementById('update-banner').addEventListener('click', applyUpdate);
 document.getElementById('yeast-banner').addEventListener('click', () => {
   document.getElementById('yeast-banner').classList.add('hidden');
 });
 document.getElementById('header-wa-btn').addEventListener('click', shareMarketOrder);
 document.getElementById('header-back-btn').addEventListener('click', () => {
-  // From the Log screen, Back returns to the calculator; from a dough tab it leaves
-  // to the app home (the landing screen).
-  if (currentTab === 'log') switchTab(lastDoughTab);
+  // From the Log, Back returns to the last recipe; from a recipe it leaves to the app home.
+  if (currentTab === 'log') switchTab(lastRecipeTab || (visibleIds()[0] || 'log'));
   else window.location.href = 'index.html';
 });
-
-document.querySelectorAll('.tab').forEach((btn, i) => {
-  const tabs = ['focaccia','brioche','sourdough'];
-  btn.addEventListener('click', () => switchTab(tabs[i]));
-});
-
-// The Log now lives in the footer (next to Settings), not in the dough tab-bar.
 document.getElementById('log-footer-btn').addEventListener('click', () => switchTab('log'));
-
-// A dough tab's Confirm button opens a shared day picker; choosing Today/Tomorrow
-// in the popup saves that tab's log (one tap), then closes the popup. The Edit
-// button (per tab) unlocks a confirmed tab.
-const dayModal = document.getElementById('day-modal');
-let dayModalTab = null;
-function openDayModal(tab) { dayModalTab = tab; dayModal.classList.add('visible'); }
-function closeDayModal() { dayModal.classList.remove('visible'); dayModalTab = null; }
-document.querySelectorAll('[data-confirm-tab]').forEach(btn => {
-  btn.addEventListener('click', () => openDayModal(btn.dataset.confirmTab));
-});
-dayModal.querySelectorAll('.day-btn').forEach(btn => {
-  btn.addEventListener('click', () => { const t = dayModalTab; closeDayModal(); if (t) saveDay(t, btn.dataset.day); });
-});
-document.getElementById('day-modal-cancel').addEventListener('click', closeDayModal);
-dayModal.addEventListener('click', (e) => { if (e.target === dayModal) closeDayModal(); });
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && dayModal.classList.contains('visible')) closeDayModal();
-});
-document.getElementById('f-edit-btn').addEventListener('click', () => editTab('focaccia'));
-document.getElementById('b-edit-btn').addEventListener('click', () => editTab('brioche'));
-document.getElementById('s-edit-btn').addEventListener('click', () => editTab('sourdough'));
-
-document.getElementById('f-copy-btn').addEventListener('click', () => copyRecipe('focaccia'));
-document.getElementById('b-copy-btn').addEventListener('click', () => copyRecipe('brioche'));
-document.getElementById('s-copy-btn').addEventListener('click', () => copyRecipe('sourdough'));
-document.getElementById('f-wa-recipe-btn').addEventListener('click', () => shareRecipeWA('focaccia'));
-document.getElementById('b-wa-recipe-btn').addEventListener('click', () => shareRecipeWA('brioche'));
-document.getElementById('s-wa-recipe-btn').addEventListener('click', () => shareRecipeWA('sourdough'));
-
-document.querySelectorAll('.reset-btn').forEach((btn, i) => {
-  const tabs = ['focaccia','brioche','sourdough'];
-  btn.addEventListener('click', () => resetTab(tabs[i]));
-});
-
 document.getElementById('settings-footer-btn').addEventListener('click', openSettings);
 document.querySelector('.recipe-back-btn').addEventListener('click', closeRecipes);
 document.getElementById('recipe-home-btn').addEventListener('click', goHomeFromRecipes);
-
 document.querySelector('.loaf-modal-cancel').addEventListener('click', closeLoafModal);
 document.querySelector('.loaf-modal-send').addEventListener('click', sendWithLoaves);
 document.querySelector('.list-select-cancel').addEventListener('click', closeListPicker);
 
 // ── Cross-module events ───────────────────────────────────────────────────────
-document.addEventListener('recipes-saved', () => { calcFocaccia(); calcBrioche(); calcSourdough(); });
+// A recipe/config save re-renders everything (recipes now live in config; saveConfig
+// already notifies, but the recipe editor also emits this for an immediate refresh).
+document.addEventListener('recipes-saved', renderAll);
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-// Paint immediately from cache/default, then re-render whenever Firestore streams
-// a new configuration.
-initConfig(renderAll);
-renderAll();
-// Start the logs sync; re-render the log list whenever the logs change remotely.
 initLogs(renderLog);
+initConfig(renderAll);
