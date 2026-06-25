@@ -38,20 +38,10 @@
 //     source: 'client' (a configured category product) | 'occasional'
 //   occ  = { name, products: [ { name, qty, weightG, unit } ] }
 
-import { scaleFocaccia, scaleBrioche, scaleSourdough } from './calculator-dough-math.js';
+import { scaleRecipe } from './calculator-dough-math.js';
+import { recipeSpec } from './calculator-config.js';
 
-export const DOUGHS = ['Focaccia', 'Brioche', 'Sourdough'];
 export const FOR_DAYS = ['today', 'tomorrow'];
-
-// Ingredient row names per dough, in the exact order the scale functions return
-// them — kept identical to calc.js so the read-only sheet looks like the live one.
-export const ING_NAMES = {
-  Focaccia: ['Flour uniqua blue', 'Flour T65', 'Malt', 'Sugar', 'Salt', 'Yeast', 'Oil', '1° Water', '2° Water'],
-  Brioche: ['Mella brioche pof', 'Yeast', 'Water'],
-  Sourdough: ['Flour uniqua blue', 'Flour T65', 'Flour wholemeal', '1° Water', 'Starter', 'Malt', 'Salt', '2° Water'],
-};
-export const PARAM_LABEL = { Focaccia: 'Yeast %', Brioche: 'Yeast %', Sourdough: 'Starter %' };
-export const PARAM_DEFAULT = { Focaccia: 0.65, Brioche: 4, Sourdough: 18 };
 
 // Deep clone of plain data (no functions/dates), used to keep callers from mutating
 // shared version objects when appending or restoring.
@@ -59,7 +49,9 @@ function clone(v) { return JSON.parse(JSON.stringify(v)); }
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
-function safeDough(d) { return DOUGHS.includes(d) ? d : 'Focaccia'; }
+// A recipe's display name for a log. Any non-empty string is kept (recipes are now
+// arbitrary, no fixed enum); blank falls back to a generic label.
+function safeDough(d) { const s = String(d == null ? '' : d).trim(); return s || 'Recipe'; }
 function safeForDay(d) { return FOR_DAYS.includes(d) ? d : 'today'; }
 
 // ── Sheet math (pure) ─────────────────────────────────────────────────────────
@@ -69,24 +61,37 @@ function safeForDay(d) { return FOR_DAYS.includes(d) ? d : 'today'; }
 // stored sheet is faithful and independent of any later recipe/config change.
 //   items: [{ id, name, qty, weightG, kind, crate }]
 //   divisor: { includedIds: [...], n: 0..4 }  (optional, display-only crate split)
-export function buildSheet({ dough, recipe, items, extraGrams = 0, param, divisor }) {
-  const D = safeDough(dough);
+// `recipe` is the CONFIG recipe (id, name, logic, ingredients[{key,label,grams}],
+// leaveningKey, leaveningDefaultPct, baselinePct). The target is computed by the
+// recipe's logic (orders → items + extra; total → typed total; both → items + total
+// + extra), then the recipe is scaled to it with the unified scaleRecipe — so the
+// stored sheet is faithful and independent of any later config change.
+//   items:   [{ id, name, clientName, qty, weightG, kind, crate }]
+//   divisor: { includedIds: [...], n: 0..4 }  (optional, display-only crate split)
+export function buildSheet({ recipe, items, extraGrams = 0, totalInput = 0, leaveningPct, divisor }) {
   const lines = Array.isArray(items) ? items : [];
   const productsTotal = lines.reduce((s, it) => s + num(it.qty) * num(it.weightG), 0);
   const extra = Math.max(0, num(extraGrams));
-  const total = productsTotal + extra;
+  const typed = Math.max(0, num(totalInput));
+  const logic = (recipe && recipe.logic) || 'orders';
+  const total = logic === 'total' ? typed
+    : logic === 'both' ? (productsTotal + typed + extra)
+    : (productsTotal + extra);
 
-  const p = Number(param);
-  const paramVal = Number.isFinite(p) ? p : PARAM_DEFAULT[D];
-
+  const recipeIngs = (recipe && Array.isArray(recipe.ingredients)) ? recipe.ingredients : [];
+  const pct = Number.isFinite(Number(leaveningPct)) ? Number(leaveningPct) : (recipe ? num(recipe.leaveningDefaultPct) : 0);
+  const spec = recipeSpec(recipe || {});
+  if (logic === 'total') spec.leaveningKey = null; // pure pro-rata
   let amounts = [];
-  if (total > 0 && recipe) {
-    if (D === 'Focaccia') amounts = scaleFocaccia(recipe, total, paramVal);
-    else if (D === 'Brioche') amounts = scaleBrioche(recipe, total, paramVal);
-    else if (D === 'Sourdough') amounts = scaleSourdough(recipe, total, paramVal);
+  if (total > 0 && recipeIngs.length) amounts = scaleRecipe(spec, total, pct);
+  const ingredients = recipeIngs.map((ing, i) => ({ name: ing.label, grams: Math.round(num(amounts[i])) }));
+
+  // The parameter line shown on the sheet: the leavening % when the recipe uses one.
+  let paramOut = null;
+  if (recipe && recipe.leaveningKey && (logic === 'orders' || logic === 'both')) {
+    const lev = recipeIngs.find(g => g.key === recipe.leaveningKey);
+    paramOut = { label: (lev ? lev.label : 'Leavening') + ' %', value: pct };
   }
-  const names = ING_NAMES[D];
-  const ingredients = names.map((name, i) => ({ name, grams: Math.round(num(amounts[i])) }));
 
   // Divisor (display-only): sum the included lines that have a quantity, then split.
   let divisorOut = null;
@@ -112,8 +117,9 @@ export function buildSheet({ dough, recipe, items, extraGrams = 0, param, diviso
   }
 
   return {
-    dough: D,
-    param: { label: PARAM_LABEL[D], value: paramVal },
+    dough: recipe ? safeDough(recipe.name) : 'Recipe',
+    recipeId: recipe ? recipe.id : '',
+    param: paramOut,
     total_g: Math.round(total),
     extra_g: Math.round(extra),
     ingredients,
@@ -154,11 +160,12 @@ export function buildLogText(items, occasional, extra) {
 
 // A brand-new log with its first version. Each Confirm makes a NEW log — it never
 // overwrites an existing one (the whole point of the new model).
-export function createLog({ id, dough, forDay, version, createdAtMs, origin }) {
+export function createLog({ id, dough, recipeId, forDay, version, createdAtMs, origin }) {
   return {
     id: String(id),
     bakery: 'main',
     dough: safeDough(dough),
+    recipeId: String(recipeId || ''),
     forDay: safeForDay(forDay),
     origin: origin === 'manual' ? 'manual' : 'calculator',
     createdAtMs: num(createdAtMs),
@@ -253,7 +260,8 @@ export function filterVisibleLogs(logs, { visibility = {}, retentionHours = 24, 
     retentionHours && typeof retentionHours === 'object' ? retentionHours[key] : retentionHours
   );
   return list.filter((log) => {
-    const key = String((log && log.dough) || '').toLowerCase();
+    // Key by recipe id (new logs) falling back to the dough name (migrated logs).
+    const key = String((log && (log.recipeId || log.dough)) || '').toLowerCase();
     if (visibility[key] === false) return false;
     const windowMs = Math.max(0, hoursFor(key)) * 3600 * 1000;
     if (windowMs > 0 && num(nowMs) - num(log && log.createdAtMs) > windowMs) return false;

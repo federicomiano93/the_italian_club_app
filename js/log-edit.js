@@ -13,8 +13,7 @@
 
 import { el } from './calculator-render.js';
 import { getConfig } from './calculator-config-store.js';
-import { getTabProducts, getDivisorIncluded } from './calculator-config.js';
-import { RECIPES } from './recipes.js';
+import { getTabProducts, getDivisorIncluded, getRecipes, getRecipeById } from './calculator-config.js';
 import { logTimestamp } from './log-time.js';
 import { confirmDiscard } from './calculator-confirm.js';
 import { buildSheet, buildLogText, latestVersion } from './log-model.js';
@@ -22,9 +21,17 @@ import { getLogById, appendAndSave, restoreAndSave } from './log-store.js';
 import { renderVersion } from './log-view.js';
 import { qtyRow } from './log-qty.js';
 
-const DOUGH_TAB = { Focaccia: 'focaccia', Brioche: 'brioche', Sourdough: 'sourdough' };
-const PARAM_DEFAULT = { Focaccia: 0.65, Brioche: 4, Sourdough: 18 };
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+
+// The recipe id a log belongs to: its stored recipeId, else a recipe matched by the
+// log's dough name (older migrated logs), else the first recipe.
+function resolveRecipeId(log) {
+  if (log.recipeId && getRecipeById(getConfig(), log.recipeId)) return log.recipeId;
+  const byName = getRecipes(getConfig()).find(r => r.name === log.dough);
+  if (byName) return byName.id;
+  const first = getRecipes(getConfig())[0];
+  return first ? first.id : '';
+}
 
 // ── Edit screen state ─────────────────────────────────────────────────────────
 let working = null; // { logId, dough, tab, items[], occasional[], calculatedBy }
@@ -34,15 +41,16 @@ export function openLogEdit(logId) {
   const log = getLogById(logId);
   if (!log) return;
   const v = latestVersion(log) || {};
-  const tab = DOUGH_TAB[log.dough] || 'focaccia';
+  const tab = resolveRecipeId(log);
 
-  // ALL current category products (so products added since the log appear too),
-  // prefilled with the saved quantities by product id.
-  const savedQty = new Map((v.items || []).map(it => [it.id, num(it.qty)]));
+  // ALL current products of this recipe (so products added since the log appear too),
+  // prefilled with the saved quantities by (client, product) pair.
+  const pairKey = (clientName, id) => (clientName || '') + '|' + id;
+  const savedQty = new Map((v.items || []).map(it => [pairKey(it.clientName, it.id), num(it.qty)]));
   const items = getTabProducts(getConfig(), tab).map(p => ({
     id: p.id, name: p.name, clientName: p.clientName, weightG: p.weight, kind: p.kind,
     crate: p.crate || { show: false, perBox: 20 },
-    qty: savedQty.has(p.id) ? savedQty.get(p.id) : 0,
+    qty: savedQty.has(pairKey(p.clientName, p.id)) ? savedQty.get(pairKey(p.clientName, p.id)) : 0,
   }));
   const occasional = (v.occasional || []).map(o => ({
     name: o.name || '',
@@ -52,7 +60,7 @@ export function openLogEdit(logId) {
     })),
   }));
 
-  working = { logId, dough: log.dough, tab, items, occasional, calculatedBy: v.calculatedBy || '' };
+  working = { logId, dough: log.dough, recipeId: tab, tab, items, occasional, calculatedBy: v.calculatedBy || '' };
   dirty = false;
   render();
   updateSaveBtn();
@@ -123,14 +131,16 @@ function save() {
     }));
   });
 
-  // Keep param / extra / divisor from the previous version (this screen edits
-  // quantities only); recompute the sheet faithfully for the new quantities.
+  // Keep leavening / extra / total / divisor from the previous version (this screen
+  // edits quantities only); recompute the sheet faithfully for the new quantities.
+  const recipe = getRecipeById(getConfig(), working.recipeId);
   const prevSheet = (latestVersion(getLogById(working.logId)) || {}).sheet;
-  const param = prevSheet && prevSheet.param ? prevSheet.param.value : PARAM_DEFAULT[working.dough];
+  const leaveningPct = prevSheet && prevSheet.param ? prevSheet.param.value : (recipe ? recipe.leaveningDefaultPct : 0);
   const extraG = prevSheet ? num(prevSheet.extra_g) : 0;
+  const totalInput = recipe && recipe.logic === 'total' ? num(prevSheet && prevSheet.total_g) : 0;
   const divisor = { includedIds: getDivisorIncluded(getConfig(), tab), n: prevSheet && prevSheet.divisor ? prevSheet.divisor.n : 0 };
 
-  const sheet = buildSheet({ dough: working.dough, recipe: RECIPES[tab], items: items.concat(occLines), extraGrams: extraG, param, divisor });
+  const sheet = buildSheet({ recipe, items: items.concat(occLines), extraGrams: extraG, totalInput, leaveningPct, divisor });
   const extra = { grams: extraG, value: extraG, unit: 'g' };
   const text = buildLogText(items, occClean, extra);
   const version = { calculatedBy: (working.calculatedBy || '').trim(), at: logTimestamp(), kind: 'edit', items, occasional: occClean, sheet, text };
