@@ -270,4 +270,8 @@ document.addEventListener('recipes-saved', renderAll);
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 initLogs(renderLog);
+// Start the Firestore sync (re-renders on every remote change), then paint NOW from
+// the synchronous cache/default so the tabs appear instantly and work offline — the
+// dynamic tabs must not wait on the network (P17, local-first).
 initConfig(renderAll);
+renderAll();
