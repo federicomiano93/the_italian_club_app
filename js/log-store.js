@@ -82,8 +82,8 @@ function syncFail(label) {
 
 // Create a brand-new log. The caller may pass an id (so it can link the calculator
 // tab to this log straight away); otherwise one is generated.
-export function createAndSave({ id, dough, forDay, version, createdAtMs, origin }) {
-  const log = createLog({ id: id || genLogId(), dough, forDay, version, createdAtMs, origin });
+export function createAndSave({ id, dough, recipeId, forDay, version, createdAtMs, origin }) {
+  const log = createLog({ id: id || genLogId(), dough, recipeId, forDay, version, createdAtMs, origin });
   applyLocal(log);
   return saveLogDoc(log).catch(syncFail('create')).then(() => log);
 }
