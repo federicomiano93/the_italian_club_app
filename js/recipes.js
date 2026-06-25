@@ -1,164 +1,329 @@
+// recipes.js — the Recipes editor (#recipe-overlay), now editing config.recipes[].
+//
+// Recipes are the base of the calculator. This editor manages the full list: add a
+// new (empty) recipe, edit one (name, calc logic, ingredients with autocomplete from
+// the ingredient registry, the designated leavening + its default % and show-knob
+// flag, and whether it appears as a calculator tab — max 4), or delete one (blocked
+// while products still point at it).
+//
+// It works on a deep copy of the live config and touches nothing until Save (with a
+// confirm), which persists through the config store (Firestore + cache) and re-renders
+// the calculator. Required fields are validated on Save. Recipes are SHARED (in
+// config), no longer device-local localStorage.
+
 import { confirmDiscard } from './calculator-confirm.js';
 import { recipeTotal } from './calculator-dough-math.js';
+import { getConfig, saveConfig } from './calculator-config-store.js';
+import {
+  cloneConfig, getRecipes, getIngredients, getProducts, LOGICS, MAX_VISIBLE_RECIPES,
+} from './calculator-config.js';
+import { el } from './calculator-render.js';
 
-// recipeTotal now lives with the dough math; re-exported so existing importers
-// (calc.js, this module) keep their import path unchanged.
+// recipeTotal is re-exported so any importer keeps its path unchanged.
 export { recipeTotal };
 
-export const RECIPE_DEFAULTS = {
-  focaccia: { flourBlu:278, flourT65:278, malt:3, sugar:8, salt:11, yeast:3.6, oil:56, water1:334, water2:24 },
-  brioche:  { flour:3185, yeast:127.4, water:1575 },
-  sourdough:{ flourBlu:2560, flourT65:2560, flourWhole:570, water1:3800, starter:1024, malt:30, salt:124, water2:300 },
-};
+const LOGIC_LABELS = { orders: 'From orders', total: 'From a total', both: 'Both (orders + total)' };
 
-export let RECIPES;
-(function() {
-  const saved = localStorage.getItem('bakery-recipes');
-  if (saved) { try { RECIPES = JSON.parse(saved); } catch(e) {} }
-  if (!RECIPES) RECIPES = JSON.parse(JSON.stringify(RECIPE_DEFAULTS));
-})();
+let working = null;       // deep copy being edited
+let activeRecipe = null;  // null = the recipe list, an index = a recipe's detail
+let freshlyAdded = false;
+let showErrors = false;
+let dirty = false;
 
-const OVERLAY_FIELDS = {
-  focaccia: [
-    { key:'flourBlu',   label:'Flour uniqua blu' },
-    { key:'flourT65',   label:'Flour T65' },
-    { key:'malt',       label:'Malt' },
-    { key:'sugar',      label:'Sugar' },
-    { key:'salt',       label:'Salt' },
-    { key:'yeast',      label:'Yeast' },
-    { key:'oil',        label:'Oil' },
-    { key:'water1',     label:'1° Water' },
-    { key:'water2',     label:'2° Water' },
-  ],
-  brioche: [
-    { key:'flour',  label:'Mella brioche pof' },
-    { key:'yeast',  label:'Yeast' },
-    { key:'water',  label:'1° Water' },
-  ],
-  sourdough: [
-    { key:'flourBlu',   label:'Flour uniqua blu' },
-    { key:'flourT65',   label:'Flour T65' },
-    { key:'flourWhole', label:'Flour wholemeal' },
-    { key:'water1',     label:'1° Water' },
-    { key:'starter',    label:'Starter' },
-    { key:'malt',       label:'Malt' },
-    { key:'salt',       label:'Salt' },
-    { key:'water2',     label:'2° Water' },
-  ],
-};
+function genId(prefix) { return prefix + '-' + Math.random().toString(36).slice(2, 8); }
+function isBlank(s) { return !s || !String(s).trim(); }
 
-const CARD_TITLES = { focaccia:'Focaccia', brioche:'Brioche', sourdough:'Sourdough' };
-
-// null = showing the recipe picker (Level 1); a tab name = editing that one
-// recipe (Level 2). Editing one recipe at a time means a Save only ever writes
-// the recipe on screen — the others are left exactly as they were.
-let activeRecipe = null;
-let isDirty = false;
-
-function titleEl()  { return document.querySelector('#recipe-overlay .recipe-overlay-title'); }
-function saveBtnEl() { return document.getElementById('recipe-save-btn'); }
+function titleEl() { return document.querySelector('#recipe-overlay .recipe-overlay-title'); }
 function contentEl() { return document.getElementById('recipe-content'); }
-
-function updateSaveBtn() {
-  const btn = saveBtnEl();
-  btn.disabled = !isDirty;
-  btn.classList.toggle('dirty', isDirty);
+function recipes() {
+  if (!Array.isArray(working.recipes)) working.recipes = [];
+  return working.recipes;
 }
 
-function onRecipeInput(tab) {
-  const total = OVERLAY_FIELDS[tab].reduce(
-    (s, f) => s + (+document.getElementById('ri-' + tab + '-' + f.key).value || 0), 0
-  );
-  document.getElementById('ri-total-' + tab).textContent = Math.round(total * 10) / 10 + ' g';
-  isDirty = true;
-  updateSaveBtn();
+function setHomeVisible(visible) {
+  const btn = document.getElementById('recipe-home-btn');
+  if (btn) btn.style.display = visible ? '' : 'none';
 }
 
-// Level 1 — the three recipe boxes. No Save here: you cannot edit a recipe
-// without first opening it (and confirming).
-function renderRecipeList() {
-  activeRecipe = null;
-  isDirty = false;
-  titleEl().textContent = 'Recipes';
-  saveBtnEl().style.display = 'none';
-  const content = contentEl();
-  content.innerHTML = Object.keys(OVERLAY_FIELDS).map(tab =>
-    `<button class="drill-item" type="button" data-recipe="${tab}">
-       <span>${CARD_TITLES[tab]}</span>
-       <span class="drill-chevron">&#8594;</span>
-     </button>`).join('');
-  content.querySelectorAll('.drill-item').forEach(btn =>
-    btn.addEventListener('click', () => openRecipe(btn.dataset.recipe)));
-}
+function markDirty() { dirty = true; }
 
-// Open a recipe for editing. No confirmation on entry (the recipe is still
-// protected by the save confirmation and the unsaved-changes guard on exit).
-function openRecipe(tab) {
-  activeRecipe = tab;
-  isDirty = false;
-  titleEl().textContent = CARD_TITLES[tab];
-  saveBtnEl().style.display = '';
-  renderRecipeForm(tab);
-  updateSaveBtn();
+// How many products point at a recipe (the delete guard).
+function productCountFor(recipeId) {
+  return getProducts(working).filter(p => p.recipeId === recipeId).length;
 }
-
-// Level 2 — the ingredient amounts for one recipe, plus its live total.
-function renderRecipeForm(tab) {
-  const fields = OVERLAY_FIELDS[tab];
-  const rows = fields.map(f => {
-    const id = 'ri-' + tab + '-' + f.key;
-    const val = parseFloat((RECIPES[tab][f.key] || 0).toFixed(1));
-    return `<div class="recipe-ing-row">
-        <span class="recipe-ing-name">${f.label}</span>
-        <input class="recipe-ing-input" type="number" id="${id}" value="${val}" step="0.1" inputmode="decimal" data-tab="${tab}">
-        <span class="recipe-unit">g</span>
-      </div>`;
-  }).join('');
-  const total = recipeTotal(RECIPES[tab]);
-  contentEl().innerHTML = `<div class="recipe-card">
-      ${rows}
-      <div class="recipe-total-row">
-        <span class="recipe-total-label">Total</span>
-        <span class="recipe-total-val" id="ri-total-${tab}">${Math.round(total * 10) / 10} g</span>
-      </div>
-    </div>`;
-  fields.forEach(f =>
-    document.getElementById('ri-' + tab + '-' + f.key)
-      .addEventListener('input', () => onRecipeInput(tab)));
-}
+// How many recipes are currently flagged visible (the ≤4 guard).
+function visibleCount() { return recipes().filter(r => r.visible !== false).length; }
 
 export function openRecipes() {
-  renderRecipeList();
+  working = cloneConfig(getConfig());
+  activeRecipe = null;
+  freshlyAdded = false;
+  showErrors = false;
+  dirty = false;
+  renderEditor();
   document.getElementById('recipe-overlay').classList.add('visible');
 }
 
-export function saveRecipes() {
-  if (!activeRecipe) return;                 // nothing to save from the picker
-  if (!confirm('Save changes to the ' + CARD_TITLES[activeRecipe] + ' recipe?')) return;
-  const tab = activeRecipe;
-  OVERLAY_FIELDS[tab].forEach(f => {
-    RECIPES[tab][f.key] = +document.getElementById('ri-' + tab + '-' + f.key).value || 0;
-  });
-  localStorage.setItem('bakery-recipes', JSON.stringify(RECIPES));
-  isDirty = false;
-  updateSaveBtn();
-  document.dispatchEvent(new CustomEvent('recipes-saved'));
+function isEmptyRecipe(r) {
+  return !r || (isBlank(r.name) && (!r.ingredients || r.ingredients.length === 0));
 }
 
-// Contextual "back": from an open recipe go back to the picker (guarding unsaved
-// edits); from the picker close the overlay, revealing the Settings hub beneath.
 export function closeRecipes() {
-  if (activeRecipe) {
-    if (!confirmDiscard(isDirty)) return;
-    renderRecipeList();
+  if (activeRecipe !== null) {
+    const r = recipes()[activeRecipe];
+    if (freshlyAdded && isEmptyRecipe(r)) {
+      if (!confirm('Discard this new recipe? You have not added anything to it.')) return;
+      recipes().splice(activeRecipe, 1);
+    }
+    freshlyAdded = false;
+    activeRecipe = null;
+    renderEditor();
     return;
   }
+  if (!confirmDiscard(dirty)) return;
   document.getElementById('recipe-overlay').classList.remove('visible');
 }
 
-// Jump straight to the home screen, guarding unsaved edits (isDirty is false on
-// the picker, so it only ever prompts while a recipe is open and changed).
 export function goHomeFromRecipes() {
-  if (!confirmDiscard(isDirty)) return;
+  if (!confirmDiscard(dirty)) return;
   window.location.href = 'index.html';
+}
+
+function renderEditor() {
+  if (activeRecipe === null) renderRecipeList();
+  else renderRecipeDetail(activeRecipe);
+}
+
+function deleteIcon(label, onDelete) {
+  const btn = el('button', { class: 'cp-del-icon', type: 'button', 'aria-label': label }, '🗑');
+  btn.addEventListener('click', onDelete);
+  return btn;
+}
+
+// First recipe with a blank name or no named ingredient, or null if all are complete.
+function findInvalid() {
+  const rs = recipes();
+  for (let i = 0; i < rs.length; i++) {
+    if (isBlank(rs[i].name)) return i;
+    const ings = rs[i].ingredients || [];
+    if (ings.length === 0 || ings.some(g => isBlank(g.label))) return i;
+  }
+  return null;
+}
+
+async function saveRecipes() {
+  const invalid = findInvalid();
+  if (invalid !== null) {
+    showErrors = true;
+    activeRecipe = invalid;
+    renderEditor();
+    alert('Please give every recipe a name and at least one named ingredient before saving.');
+    return;
+  }
+  if (!confirm('Save these changes?')) return;
+  try {
+    await saveConfig(working);
+    showErrors = false;
+    dirty = false;
+    freshlyAdded = false;
+    activeRecipe = null;
+    // Re-sync from the normalised, saved config (ids/keys may have been tidied).
+    working = cloneConfig(getConfig());
+    renderEditor();
+    document.dispatchEvent(new CustomEvent('recipes-saved'));
+  } catch (e) {
+    alert('Could not save. Check your connection and try again.');
+  }
+}
+
+// ── Level 0: the recipe list ───────────────────────────────────────────────────
+function renderRecipeList() {
+  titleEl().textContent = 'Recipes';
+  setHomeVisible(true);
+  const content = contentEl();
+  content.textContent = '';
+  content.appendChild(el('p', { class: 'extra-help' },
+    'Your recipes — the base of the calculator. Tap one to edit it, or add a new one. Up to ' + MAX_VISIBLE_RECIPES + ' can show as calculator tabs.'));
+
+  recipes().forEach((r, ri) => {
+    const ings = (r.ingredients || []).length;
+    const sub = LOGIC_LABELS[r.logic] + '  ·  ' + ings + (ings === 1 ? ' ingredient' : ' ingredients')
+      + (r.visible !== false ? '  ·  shown' : '  ·  hidden');
+    const open = el('button', { class: 'drill-item wa-entry-open', type: 'button' }, [
+      el('span', { class: 'wa-entry-text' }, [
+        el('span', { class: 'wa-entry-name' }, r.name || 'Unnamed recipe'),
+        el('span', { class: 'wa-entry-sub' }, sub),
+      ]),
+      el('span', { class: 'drill-chevron' }, '→'),
+    ]);
+    open.addEventListener('click', () => { freshlyAdded = false; activeRecipe = ri; renderEditor(); });
+    const del = deleteIcon('Delete recipe', () => deleteRecipe(ri));
+    content.appendChild(el('div', { class: 'wa-entry-card' }, [open, del]));
+  });
+
+  const add = el('button', { class: 'cp-add-client', type: 'button' }, '+ Add recipe');
+  add.addEventListener('click', () => {
+    recipes().push({
+      id: genId('r'), name: '', logic: 'orders', ingredients: [],
+      leaveningKey: null, leaveningDefaultPct: 0, showLeavening: true, baselinePct: null,
+      order: recipes().length, visible: visibleCount() < MAX_VISIBLE_RECIPES,
+    });
+    markDirty();
+    freshlyAdded = true;
+    activeRecipe = recipes().length - 1;
+    renderEditor();
+  });
+  content.appendChild(add);
+
+  // The list itself can be saved (e.g. after a delete or a visibility change).
+  const save = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Save');
+  save.addEventListener('click', saveRecipes);
+  content.appendChild(save);
+}
+
+function deleteRecipe(ri) {
+  const r = recipes()[ri];
+  const used = productCountFor(r.id);
+  if (used > 0) {
+    alert('This recipe is used by ' + used + (used === 1 ? ' product' : ' products') + '. Reassign or delete them in Settings → Products first.');
+    return;
+  }
+  if (!confirm('Delete the ' + (r.name || 'this') + ' recipe?')) return;
+  recipes().splice(ri, 1);
+  markDirty();
+  activeRecipe = null;
+  renderEditor();
+}
+
+// ── Level 1: a recipe's detail ─────────────────────────────────────────────────
+function renderRecipeDetail(ri) {
+  const r = recipes()[ri];
+  if (!Array.isArray(r.ingredients)) r.ingredients = [];
+  titleEl().textContent = 'Edit recipe';
+  setHomeVisible(false);
+  const content = contentEl();
+  content.textContent = '';
+
+  // Shared datalist for ingredient-name autocomplete (from the registry).
+  const listId = 'ingredient-names';
+  const datalist = el('datalist', { id: listId });
+  for (const ing of getIngredients(working)) datalist.appendChild(el('option', { value: ing.name }));
+  content.appendChild(datalist);
+
+  // Name + delete.
+  const nameInput = el('input', { class: 'cp-client-name', type: 'text', value: r.name || '', placeholder: 'Recipe name' });
+  if (showErrors && isBlank(r.name)) nameInput.classList.add('cp-invalid');
+  nameInput.addEventListener('input', () => { r.name = nameInput.value; nameInput.classList.remove('cp-invalid'); markDirty(); });
+  content.appendChild(el('div', { class: 'cp-field' }, [
+    el('label', { class: 'cp-label' }, 'Recipe name'),
+    el('div', { class: 'cp-name-row' }, [nameInput, deleteIcon('Delete recipe', () => deleteRecipe(ri))]),
+  ]));
+
+  // Calc logic.
+  const logic = el('select', { class: 'cp-prod-dough', 'aria-label': 'Calc logic' });
+  for (const l of LOGICS) logic.appendChild(el('option', { value: l }, LOGIC_LABELS[l]));
+  logic.value = LOGICS.includes(r.logic) ? r.logic : 'orders';
+  logic.addEventListener('change', () => { r.logic = logic.value; markDirty(); renderEditor(); });
+  content.appendChild(el('div', { class: 'cp-field' }, [
+    el('label', { class: 'cp-label' }, 'How it calculates'),
+    logic,
+  ]));
+
+  // Ingredients.
+  const ingField = el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, 'Ingredients')]);
+  const showLeaveningPicker = (r.logic === 'orders' || r.logic === 'both');
+  r.ingredients.forEach((ing, gi) => ingField.appendChild(ingredientRow(r, ing, gi, listId, showLeaveningPicker)));
+  const addIng = el('button', { class: 'cp-add-prod', type: 'button' }, '+ Add ingredient');
+  addIng.addEventListener('click', () => {
+    r.ingredients.push({ key: '', label: '', grams: 0 });
+    markDirty();
+    renderEditor();
+  });
+  ingField.appendChild(addIng);
+  content.appendChild(ingField);
+
+  // Leavening default % + show-knob (only when a leavening is designated and the
+  // logic uses orders/both).
+  if (showLeaveningPicker && r.leaveningKey) {
+    const pct = el('input', {
+      class: 'cp-prod-weight', type: 'number', min: '0', max: '100', step: '0.05',
+      value: String(r.leaveningDefaultPct || 0), inputmode: 'decimal',
+    });
+    pct.addEventListener('input', () => { r.leaveningDefaultPct = +pct.value || 0; markDirty(); });
+    const showCb = el('input', { type: 'checkbox' });
+    showCb.checked = r.showLeavening !== false;
+    showCb.addEventListener('change', () => { r.showLeavening = showCb.checked; markDirty(); });
+    content.appendChild(el('div', { class: 'cp-field' }, [
+      el('label', { class: 'cp-label' }, 'Leavening'),
+      el('div', { class: 'cp-prod-card-row' }, [el('span', { class: 'cp-unit' }, 'Default'), pct, el('span', { class: 'cp-unit' }, '%')]),
+      el('label', { class: 'cp-crate-label' }, [showCb, el('span', {}, 'Show the adjust knob in the tab')]),
+    ]));
+  }
+
+  // Show as a calculator tab (≤4).
+  const visCb = el('input', { type: 'checkbox' });
+  visCb.checked = r.visible !== false;
+  visCb.addEventListener('change', () => {
+    if (visCb.checked && r.visible === false && visibleCount() >= MAX_VISIBLE_RECIPES) {
+      visCb.checked = false;
+      alert('Only ' + MAX_VISIBLE_RECIPES + ' recipes can show as tabs at once. Hide another first.');
+      return;
+    }
+    r.visible = visCb.checked;
+    markDirty();
+  });
+  content.appendChild(el('div', { class: 'cp-field' }, [
+    el('label', { class: 'cp-crate-label' }, [visCb, el('span', {}, 'Show as a calculator tab (max ' + MAX_VISIBLE_RECIPES + ')')]),
+  ]));
+
+  const save = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Save');
+  save.addEventListener('click', saveRecipes);
+  content.appendChild(save);
+}
+
+// One ingredient row: name (autocomplete) + grams + optional "leavening" radio + remove.
+function ingredientRow(recipe, ing, gi, listId, showLeaveningPicker) {
+  const nameInput = el('input', { class: 'cp-prod-name', type: 'text', value: ing.label || '', placeholder: 'Ingredient', list: listId });
+  if (showErrors && isBlank(ing.label)) nameInput.classList.add('cp-invalid');
+  nameInput.addEventListener('input', () => { ing.label = nameInput.value; nameInput.classList.remove('cp-invalid'); markDirty(); });
+
+  const grams = el('input', {
+    class: 'cp-prod-weight', type: 'number', min: '0', step: '0.1',
+    value: String(ing.grams != null ? ing.grams : 0), inputmode: 'decimal',
+  });
+  grams.addEventListener('input', () => { ing.grams = +grams.value || 0; markDirty(); });
+
+  const del = deleteIcon('Remove ingredient', () => {
+    if (recipe.leaveningKey && recipe.leaveningKey === ing.key) recipe.leaveningKey = null;
+    recipe.ingredients.splice(gi, 1);
+    markDirty();
+    renderEditor();
+  });
+
+  const rows = [
+    el('div', { class: 'cp-prod-card-head' }, [nameInput, del]),
+    el('div', { class: 'cp-prod-card-row' }, [grams, el('span', { class: 'cp-unit' }, 'g')]),
+  ];
+
+  // Designate this ingredient as the leavening (yeast/starter) for orders/both logics.
+  if (showLeaveningPicker) {
+    const cb = el('input', { type: 'checkbox' });
+    cb.checked = !!(recipe.leaveningKey && recipe.leaveningKey === ing.key && ing.key);
+    cb.addEventListener('change', () => {
+      // Ensure this ingredient has a stable key to reference.
+      if (!ing.key) ing.key = (ing.label || 'ing').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + gi;
+      if (cb.checked) {
+        recipe.leaveningKey = ing.key;
+        if (!recipe.leaveningDefaultPct) recipe.leaveningDefaultPct = 1;
+        if (recipe.baselinePct == null) recipe.baselinePct = recipe.leaveningDefaultPct;
+      } else if (recipe.leaveningKey === ing.key) {
+        recipe.leaveningKey = null;
+      }
+      markDirty();
+      renderEditor();
+    });
+    rows.push(el('label', { class: 'cp-crate-label' }, [cb, el('span', {}, 'This is the leavening (yeast/starter)')]));
+  }
+
+  return el('div', { class: 'cp-prod-card' }, rows);
 }

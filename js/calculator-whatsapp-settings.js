@@ -336,7 +336,7 @@ function renderClientChooser() {
   const available = getClients(getConfig()).filter(c => !already.has(c.id));
 
   if (getClients(getConfig()).length === 0) {
-    content.appendChild(el('div', { class: 'cp-empty-hint' }, 'No clients yet. Add them in Settings → Clients & products first.'));
+    content.appendChild(el('div', { class: 'cp-empty-hint' }, 'No clients yet. Add them in Settings → Clients first.'));
     return;
   }
   if (available.length === 0) {

@@ -58,8 +58,9 @@
   document.write(
     '<meta http-equiv="Content-Security-Policy" content="' +
     "default-src 'self'; " +
-    "script-src 'self' https://www.gstatic.com; " +
-    "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com" + emu + "; " +
+    "script-src 'self' https://www.gstatic.com https://www.google.com; " +
+    "connect-src 'self' https://www.gstatic.com https://www.google.com https://*.googleapis.com https://*.firebaseio.com https://firestore.googleapis.com" + emu + "; " +
+    "frame-src 'self' https://www.google.com; " +
     "img-src 'self' data:; " +
     "style-src 'self' https://fonts.googleapis.com; " +
     "font-src 'self' https://fonts.gstatic.com" +
@@ -83,14 +84,17 @@
 <body>
 
 <header class="orders-header">
-  <a class="orders-icon-btn" href="index.html" aria-label="Home">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
-  </a>
+  <button class="orders-icon-btn" id="header-back-btn" type="button" aria-label="Back">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+  </button>
   <div class="orders-header-title">
     <h1>The Italian Club</h1>
     <p>Dough scaling from orders</p>
   </div>
   <button id="header-wa-btn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></button>
+  <a class="orders-icon-btn is-hidden" id="header-home-right" href="index.html" aria-label="Home">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+  </a>
 </header>
 
 <div id="recipe-overlay">
@@ -100,7 +104,6 @@
     <button class="overlay-home-btn" id="recipe-home-btn" type="button" aria-label="Home">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
     </button>
-    <button id="recipe-save-btn" disabled>Save</button>
   </div>
   <div class="recipe-scroll">
     <div class="recipe-content" id="recipe-content"></div>
@@ -118,24 +121,36 @@
   <div class="recipe-scroll">
     <div class="settings-menu">
       <button id="open-clients-btn" class="settings-menu-btn">
-        <span class="settings-menu-title">Clients &amp; products</span>
-        <span class="settings-menu-sub">Add or rename clients, set product weights per client</span>
+        <span class="settings-menu-title">Clients</span>
+        <span class="settings-menu-sub">Add or rename clients and edit their products</span>
+      </button>
+      <button id="open-products-btn" class="settings-menu-btn">
+        <span class="settings-menu-title">Products</span>
+        <span class="settings-menu-sub">Add, rename or delete products and set their recipe and weight</span>
+      </button>
+      <button id="open-recipes-btn" class="settings-menu-btn">
+        <span class="settings-menu-title">Recipes</span>
+        <span class="settings-menu-sub">Add, edit or delete recipes; pick which show as tabs</span>
+      </button>
+      <button id="open-ingredients-btn" class="settings-menu-btn">
+        <span class="settings-menu-title">Ingredients</span>
+        <span class="settings-menu-sub">The master list of ingredient names used in recipes</span>
       </button>
       <button id="open-whatsapp-btn" class="settings-menu-btn">
         <span class="settings-menu-title">WhatsApp</span>
         <span class="settings-menu-sub">Build order lists: pick clients and the products to send</span>
       </button>
-      <button id="open-recipes-btn" class="settings-menu-btn">
-        <span class="settings-menu-title">Recipes</span>
-        <span class="settings-menu-sub">Edit the dough ingredient amounts</span>
-      </button>
       <button id="open-extra-btn" class="settings-menu-btn">
         <span class="settings-menu-title">Extra dough</span>
-        <span class="settings-menu-sub">Show or hide the extra-dough box in each tab</span>
+        <span class="settings-menu-sub">Show or hide the extra-dough box in each recipe</span>
       </button>
       <button id="open-divisor-btn" class="settings-menu-btn">
         <span class="settings-menu-title">Divisor</span>
-        <span class="settings-menu-sub">Choose which products the divisor box splits, per tab</span>
+        <span class="settings-menu-sub">Choose which products the divisor box splits, per recipe</span>
+      </button>
+      <button id="open-logsettings-btn" class="settings-menu-btn">
+        <span class="settings-menu-title">Log</span>
+        <span class="settings-menu-sub">Choose which recipes' logs to show, and how long they stay</span>
       </button>
     </div>
   </div>
@@ -151,10 +166,9 @@
   </div>
   <div class="recipe-scroll">
     <div id="extra-content">
-      <p class="extra-help">Show the "Extra dough" box in each tab. Changes apply right away.</p>
-      <label class="extra-toggle-row"><span>Focaccia</span><input type="checkbox" id="extra-toggle-focaccia"></label>
-      <label class="extra-toggle-row"><span>Brioche</span><input type="checkbox" id="extra-toggle-brioche"></label>
-      <label class="extra-toggle-row"><span>Sourdough</span><input type="checkbox" id="extra-toggle-sourdough"></label>
+      <p class="extra-help">Show the "Extra dough" box in each recipe tab. Tap Save to apply your changes.</p>
+      <div id="extra-content-list"></div>
+      <button class="cp-save-bottom" id="extra-save-btn" type="button" disabled>Save</button>
     </div>
   </div>
 </div>
@@ -169,6 +183,19 @@
   </div>
   <div class="recipe-scroll">
     <div id="divisor-content"></div>
+  </div>
+</div>
+
+<div id="logsettings-overlay">
+  <div class="recipe-overlay-header">
+    <button class="logsettings-back-btn">&#8592;</button>
+    <span class="recipe-overlay-title">Log</span>
+    <button class="overlay-home-btn" id="logsettings-home-btn" type="button" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </button>
+  </div>
+  <div class="recipe-scroll">
+    <div id="logsettings-content"></div>
   </div>
 </div>
 
@@ -188,7 +215,7 @@
 <div id="cp-overlay">
   <div class="recipe-overlay-header">
     <button class="cp-back-btn">&#8592;</button>
-    <span class="recipe-overlay-title">Clients &amp; products</span>
+    <span class="recipe-overlay-title">Clients</span>
     <button class="overlay-home-btn" id="cp-home-btn" type="button" aria-label="Home">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
     </button>
@@ -199,15 +226,39 @@
   </div>
 </div>
 
+<div id="products-overlay">
+  <div class="recipe-overlay-header">
+    <button class="products-back-btn">&#8592;</button>
+    <span class="recipe-overlay-title">Products</span>
+    <button class="overlay-home-btn" id="products-home-btn" type="button" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </button>
+    <button id="products-save-btn" disabled>Save</button>
+  </div>
+  <div class="recipe-scroll">
+    <div id="products-content"></div>
+  </div>
+</div>
+
+<div id="ingredients-overlay">
+  <div class="recipe-overlay-header">
+    <button class="ingredients-back-btn">&#8592;</button>
+    <span class="recipe-overlay-title">Ingredients</span>
+    <button class="overlay-home-btn" id="ingredients-home-btn" type="button" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </button>
+    <button id="ingredients-save-btn" disabled>Save</button>
+  </div>
+  <div class="recipe-scroll">
+    <div id="ingredients-content"></div>
+  </div>
+</div>
+
 <div id="update-banner">
   New version available — tap to update
 </div>
 
-<div class="tab-bar">
-  <button class="tab active">Focaccia</button>
-  <button class="tab">Brioche</button>
-  <button class="tab">Sourdough</button>
-</div>
+<div class="tab-bar" id="tab-bar"></div>
 
 <div id="yeast-banner">
   Check yeast % before calculating — tap to dismiss
@@ -215,152 +266,7 @@
 
 <div class="scroll-area">
 
-  <!-- FOCACCIA -->
-  <div class="content active" id="tab-focaccia">
-
-    <div class="param-row">
-      <span class="param-label">Yeast % (<span id="f-yeast-display">0.65</span>%)</span>
-      <div class="qty-group"><input type="number" id="f-yeast-pct" value="0.65" min="0.1" max="3" step="0.05" inputmode="decimal"><span class="unit">%</span></div>
-    </div>
-
-    <div class="section-label">Orders</div>
-
-    <div class="orders-cards" id="f-orders"></div>
-
-    <div class="extra-dough-row">
-      <span class="extra-dough-label">Extra dough</span>
-      <div class="qty-group">
-        <input type="number" id="f-extra" value="0" min="0" step="0.1" inputmode="decimal">
-        <select id="f-extra-unit" class="extra-unit-select" aria-label="Extra dough unit">
-          <option value="g">g</option>
-          <option value="kg" selected>kg</option>
-        </select>
-      </div>
-    </div>
-
-    <button class="confirm-btn-primary" id="f-confirm-btn">✓ Confirm</button>
-
-    <div class="result-block" id="focaccia-result">
-      <div class="result-card">
-        <div class="result-header">
-          <h3>Focaccia dough</h3>
-          <span class="result-badge" id="f-badge"></span>
-        </div>
-        <div id="f-ingredients"></div>
-        <div class="ing-separator"></div>
-        <div class="total-dough-row">
-          <span class="total-dough-label">Total dough</span>
-          <span><span class="total-dough-val" id="f-total">0</span> <span class="total-dough-unit">g</span></span>
-        </div>
-        <div class="copy-row">
-          <button class="copy-btn" id="f-copy-btn">Copy recipe</button>
-          <button class="copy-wa-btn" id="f-wa-recipe-btn" title="Share via WhatsApp"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></button>
-        </div>
-        <div class="divisor-box" id="f-divisor-box"></div>
-        <div class="crate-boxes" id="f-crate-boxes"></div>
-      </div>
-    </div>
-
-    <button class="reset-btn">Reset all fields</button>
-  </div>
-
-  <!-- BRIOCHE -->
-  <div class="content" id="tab-brioche">
-
-    <div class="param-row">
-      <span class="param-label">Yeast % (<span id="b-yeast-display">4</span>%)</span>
-      <div class="qty-group"><input type="number" id="b-yeast-pct" value="4" min="0.1" max="6" step="0.1" inputmode="decimal"><span class="unit">%</span></div>
-    </div>
-
-    <div class="section-label">Orders</div>
-
-    <div class="orders-cards" id="b-orders"></div>
-
-    <div class="extra-dough-row">
-      <span class="extra-dough-label">Extra dough</span>
-      <div class="qty-group">
-        <input type="number" id="b-extra" value="0" min="0" step="0.1" inputmode="decimal">
-        <select id="b-extra-unit" class="extra-unit-select" aria-label="Extra dough unit">
-          <option value="g">g</option>
-          <option value="kg" selected>kg</option>
-        </select>
-      </div>
-    </div>
-
-    <button class="confirm-btn-primary" id="b-confirm-btn">✓ Confirm</button>
-
-    <div class="result-block" id="brioche-result">
-      <div class="result-card">
-        <div class="result-header">
-          <h3>Brioche dough</h3>
-          <span class="result-badge" id="b-badge"></span>
-        </div>
-        <div id="b-ingredients"></div>
-        <div class="ing-separator"></div>
-        <div class="total-dough-row">
-          <span class="total-dough-label">Total dough</span>
-          <span><span class="total-dough-val" id="b-total">0</span> <span class="total-dough-unit">g</span></span>
-        </div>
-        <div class="copy-row">
-          <button class="copy-btn" id="b-copy-btn">Copy recipe</button>
-          <button class="copy-wa-btn" id="b-wa-recipe-btn" title="Share via WhatsApp"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></button>
-        </div>
-        <div class="divisor-box" id="b-divisor-box"></div>
-        <div class="crate-boxes" id="b-crate-boxes"></div>
-      </div>
-    </div>
-
-    <button class="reset-btn">Reset all fields</button>
-  </div>
-
-  <!-- SOURDOUGH -->
-  <div class="content" id="tab-sourdough">
-
-    <div class="param-row">
-      <span class="param-label">Starter %</span>
-      <div class="qty-group"><input type="number" id="s-starter-pct" value="18" min="5" max="40" step="1" inputmode="numeric"><span class="unit">%</span></div>
-    </div>
-
-    <div class="section-label">Production</div>
-
-    <div class="orders-cards" id="s-orders"></div>
-
-    <div class="extra-dough-row">
-      <span class="extra-dough-label">Extra dough</span>
-      <div class="qty-group">
-        <input type="number" id="s-extra" value="0" min="0" step="0.1" inputmode="decimal">
-        <select id="s-extra-unit" class="extra-unit-select" aria-label="Extra dough unit">
-          <option value="g">g</option>
-          <option value="kg" selected>kg</option>
-        </select>
-      </div>
-    </div>
-
-    <button class="confirm-btn-primary" id="s-confirm-btn">✓ Confirm</button>
-
-    <div class="result-block" id="sourdough-result">
-      <div class="result-card">
-        <div class="result-header">
-          <h3>Sourdough bread</h3>
-          <span class="result-badge" id="s-badge"></span>
-        </div>
-        <div id="s-ingredients"></div>
-        <div class="ing-separator"></div>
-        <div class="total-dough-row">
-          <span class="total-dough-label">Total dough</span>
-          <span><span class="total-dough-val" id="s-total">0</span> <span class="total-dough-unit">g</span></span>
-        </div>
-        <div class="copy-row">
-          <button class="copy-btn" id="s-copy-btn">Copy recipe</button>
-          <button class="copy-wa-btn" id="s-wa-recipe-btn" title="Share via WhatsApp"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></button>
-        </div>
-        <div class="divisor-box" id="s-divisor-box"></div>
-        <div class="crate-boxes" id="s-crate-boxes"></div>
-      </div>
-    </div>
-
-    <button class="reset-btn">Reset all fields</button>
-  </div>
+  <div id="recipe-tabs"></div>
 
   <!-- LOG -->
   <div class="content" id="tab-log">
@@ -397,20 +303,16 @@
   </div>
 </div>
 
-<!-- Save-log modal: pick Today/Tomorrow (required) + optional "calculated by". -->
-<div id="logday-modal">
-  <div id="logday-box">
-    <div class="loaf-modal-title">Save this log</div>
-    <p class="logday-q">When is this dough for?</p>
-    <div class="logday-choices">
-      <button class="logday-choice" type="button" data-day="today">Today</button>
-      <button class="logday-choice" type="button" data-day="tomorrow">Tomorrow</button>
+<!-- Day picker: opened by a dough tab's Confirm button to choose which day to save the log for. -->
+<div id="day-modal" role="dialog" aria-modal="true" aria-labelledby="day-modal-title">
+  <div id="day-modal-box">
+    <div class="loaf-modal-title" id="day-modal-title">Save this dough for:</div>
+    <div class="day-row">
+      <button class="day-btn" type="button" data-day="today">Today</button>
+      <button class="day-btn" type="button" data-day="tomorrow">Tomorrow</button>
     </div>
-    <label class="logday-by-label" for="logday-by">Calculated by (optional)</label>
-    <input id="logday-by" class="logday-by-input" type="text" placeholder="Your name" autocomplete="off">
     <div class="loaf-modal-actions">
-      <button class="logday-cancel" type="button">Cancel</button>
-      <button class="logday-save" type="button" disabled>Save log</button>
+      <button class="loaf-modal-cancel" id="day-modal-cancel">Cancel</button>
     </div>
   </div>
 </div>
@@ -427,7 +329,7 @@
   <div class="recipe-scroll"><div id="logview-content"></div></div>
 </div>
 
-<!-- Dedicated log-edit screen (B): editable quantities + occasional clients. -->
+<!-- Dedicated log-edit screen (B): editable quantities for the saved log. -->
 <div id="logedit-overlay" class="log-overlay">
   <div class="recipe-overlay-header">
     <button class="logedit-back-btn">&#8592;</button>
@@ -437,11 +339,21 @@
   <div class="recipe-scroll"><div id="logedit-content"></div></div>
 </div>
 
+<!-- Manual add-log screen: pick a dough, enter quantities, save a new log. -->
+<div id="logadd-overlay" class="log-overlay">
+  <div class="recipe-overlay-header">
+    <button class="logadd-back-btn">&#8592;</button>
+    <span class="recipe-overlay-title">Add log</span>
+    <button id="logadd-save-btn" disabled>Save</button>
+  </div>
+  <div class="recipe-scroll"><div id="logadd-content"></div></div>
+</div>
+
 <!-- Version history (C): past versions + restore. -->
 <div id="loghistory-overlay" class="log-overlay">
   <div class="recipe-overlay-header">
     <button class="loghistory-back-btn">&#8592;</button>
-    <span class="recipe-overlay-title">Version history</span>
+    <span class="recipe-overlay-title">Edit history</span>
     <span class="overlay-home-spacer"></span>
   </div>
   <div class="recipe-scroll"><div id="loghistory-content"></div></div>

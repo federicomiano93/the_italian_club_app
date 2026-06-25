@@ -4,13 +4,6 @@
 // feeds the on-screen render — a [{ name, grams }] list plus the total grams —
 // so the export no longer re-reads the rendered DOM markup.
 
-// Dough title shown on the first line of the exported recipe, per tab.
-export const DOUGH_TITLES = {
-  focaccia: 'FOCACCIA DOUGH',
-  brioche: 'BRIOCHE DOUGH',
-  sourdough: 'SOURDOUGH BREAD',
-};
-
 // Plain ASCII divider: the box-drawing character used before (U+2500) renders as
 // a "missing glyph" box on some phone/WhatsApp fonts.
 const SEP = '-'.repeat(22);
@@ -30,11 +23,12 @@ function formatIngredient(name, val) {
   return [fmtLine(name, val)];
 }
 
-// Build the full recipe text for a dough tab from its ingredient rows and total.
-// rows: [{ name, grams }]. totalG: integer grams. Returns '' for an unknown tab.
-export function buildRecipeText(tab, rows, totalG) {
-  const title = DOUGH_TITLES[tab];
-  if (!title) return '';
+// Build the full recipe text from a recipe name, its ingredient rows and total.
+// name: the recipe's name (shown uppercased on the first line). rows: [{ name,
+// grams }]. totalG: integer grams. Returns '' when there are no rows.
+export function buildRecipeText(name, rows, totalG) {
+  if (!Array.isArray(rows) || rows.length === 0) return '';
+  const title = String(name || 'Recipe').toUpperCase();
   return [
     title + '  ' + (totalG / 1000).toFixed(1) + ' kg',
     SEP,

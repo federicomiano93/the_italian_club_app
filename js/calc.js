@@ -1,61 +1,129 @@
-import { RECIPES } from './recipes.js';
+// calc.js — the per-recipe calculation, now fully data-driven. ONE generic calc(id)
+// scales whatever recipe the config holds (any ingredients, any of the three calc
+// logics), replacing the old hard-coded calcFocaccia/Brioche/Sourdough. Every DOM id
+// is derived from the recipe id, so the dynamic tabs (built in calculator-render.js)
+// and this module share the same naming.
+//
+// The dough math itself is the unified scaleRecipe (calculator-dough-math.js), fed by
+// recipeSpec(recipe). For the 'total' logic the leavening is neutralised so the
+// recipe scales purely pro-rata. The recipe is hidden until the first Confirm, then
+// stays visible AND editable — the recipe sheet and the log are independent.
+
 import {
-  computeTarget, getTabProducts, doughExtraGrams, isExtraDoughEnabled,
+  computeRecipeTarget, getTabProducts, doughExtraGrams, isExtraDoughEnabled,
   getDivisorProducts, divisorTotal, splitDough, DIVISOR_MAX,
   isCrateEnabled, getCratePerBox, crateCount,
+  getRecipeById, recipeSpec, showsLeaveningKnob,
 } from './calculator-config.js';
 import { getConfig } from './calculator-config-store.js';
 import { el } from './calculator-render.js';
-import { scaleFocaccia, scaleBrioche, scaleSourdough } from './calculator-dough-math.js';
+import { scaleRecipe } from './calculator-dough-math.js';
 import { buildRecipeText } from './calculator-recipe-text.js';
 
-export function showResult(id) { document.getElementById(id).classList.add('visible'); }
-export function hideResult(id) { document.getElementById(id).classList.remove('visible'); }
+export function showResult(id) { const e = document.getElementById(id); if (e) e.classList.add('visible'); }
+export function hideResult(id) { const e = document.getElementById(id); if (e) e.classList.remove('visible'); }
 
-// Reads a quantity input/select by id; 0 when the element is absent (the product
-// may have been removed in Settings) or empty. Works for <input> and <select>.
+// Reads a quantity input/select by id; 0 when absent or empty. Works for <input>/<select>.
 function qtyOf(id) {
-  const el = document.getElementById(id);
-  return el ? (+el.value || 0) : 0;
+  const e = document.getElementById(id);
+  return e ? (+e.value || 0) : 0;
 }
 
-// Extra dough: a free amount entered per tab (in g or kg), added on top of the
-// products' total. Independent of any product. Exported so the log can report it.
-export function extraDoughGramsFor(tab) {
-  if (!isExtraDoughEnabled(getConfig(), tab)) return 0; // box hidden for this tab
-  const valEl = document.getElementById(tab[0] + '-extra');
+// Extra dough for a recipe: a free amount in g/kg added on top (orders/both logics).
+// 0 when the box is hidden for this recipe or the element does not exist (e.g. a
+// 'total' recipe, which has no extra box).
+export function extraDoughGramsFor(recipeId) {
+  if (!isExtraDoughEnabled(getConfig(), recipeId)) return 0;
+  const valEl = document.getElementById(recipeId + '-extra');
   if (!valEl) return 0;
-  const unitEl = document.getElementById(tab[0] + '-extra-unit');
+  const unitEl = document.getElementById(recipeId + '-extra-unit');
   return doughExtraGrams(valEl.value, unitEl ? unitEl.value : 'g');
 }
 
-// The fixed parameter field locked together with the quantities, per tab.
-const PARAM_ID = { focaccia: 'f-yeast-pct', brioche: 'b-yeast-pct', sourdough: 's-starter-pct' };
-
-// Inputs locked after Confirm: all the tab's product quantities + its parameter.
-// Built from config so newly added products are locked too. Divisor fields are
-// excluded — they only split dough into portions and never affect the log.
-function lockIds(tab) {
-  const ids = getTabProducts(getConfig(), tab).map(p => p.id);
-  if (PARAM_ID[tab]) ids.push(PARAM_ID[tab]);
-  ids.push(tab[0] + '-extra', tab[0] + '-extra-unit'); // the extra-dough box is locked too
-  return ids;
+// The typed total (grams) for a 'total'/'both' recipe; 0 when the field is absent.
+function totalInputFor(recipeId) {
+  const e = document.getElementById(recipeId + '-total-input');
+  return e ? Math.max(0, +e.value || 0) : 0;
 }
-function setDisabled(tab, disabled) {
-  lockIds(tab).forEach(id => { const el = document.getElementById(id); if (el) el.disabled = disabled; });
+
+// The leavening % in effect: the knob value when the recipe shows a knob, otherwise
+// the recipe's default %.
+function leaveningPctFor(recipe) {
+  if (showsLeaveningKnob(recipe)) {
+    const e = document.getElementById(recipe.id + '-param');
+    if (e && e.value !== '') return +e.value || recipe.leaveningDefaultPct || 0;
+  }
+  return recipe.leaveningDefaultPct || 0;
 }
-export function lockInputs(tab) { setDisabled(tab, true); }
-export function unlockInputs(tab) { setDisabled(tab, false); }
 
-// The computed ingredients for each dough's last calculation: the SINGLE source
-// of truth shared by the on-screen render and the Copy/WhatsApp export. Each entry
-// is { rows: [{ name, grams }], totalG }. Set only on a successful calculation
-// (target > 0), exactly like the rendered rows used to be.
-const lastRecipe = { focaccia: null, brioche: null, sourdough: null };
+// ── Per-recipe UI state (keyed by recipe id) ──────────────────────────────────
+// `revealed` is whether a recipe's result card is shown (after the first Confirm).
+const revealed = {};
+export function markRevealed(id) {
+  revealed[id] = true;
+  try { localStorage.setItem('revealed-' + id, '1'); } catch (e) {}
+}
+export function clearRevealed(id) {
+  revealed[id] = false;
+  try { localStorage.removeItem('revealed-' + id); } catch (e) {}
+}
+export function restoreRevealed(id) {
+  if (localStorage.getItem('revealed-' + id) === '1') revealed[id] = true;
+}
 
-// Render an ingredient list into a container, replacing its contents. CSP-safe:
-// built with the el() DOM helper (no innerHTML), matching js/log-view.js. Keeps
-// the .ing-row / .ing-name / .ing-val classes unchanged (shared with Log/Orders).
+// Confirm/Edit lock: a confirmed recipe greys its inputs and swaps Confirm for Edit;
+// `logId` ties it to the log it confirmed so the next Confirm updates that same log.
+const lockState = {};
+export function getLock(id) { return lockState[id] || { locked: false, logId: null }; }
+
+// Whether a recipe has something to confirm (target raw grams > 0).
+function recipeReady(recipe) {
+  return computeRecipeTarget(getConfig(), recipe, {
+    getQty: qtyOf, extraGrams: extraDoughGramsFor(recipe.id), totalInput: totalInputFor(recipe.id),
+  }) > 0;
+}
+
+// Reflect a recipe's lock state in its tab: grey/disable inputs when locked, and show
+// the right control (Confirm when ready & unlocked, Edit when locked, neither otherwise).
+export function applyTabState(id) {
+  const recipe = getRecipeById(getConfig(), id);
+  if (!recipe) return;
+  const locked = getLock(id).locked;
+  const ready = recipeReady(recipe);
+  const root = document.getElementById('tab-' + id);
+  if (root) {
+    root.querySelectorAll('input[type="number"], select.qty-select, select.extra-unit-select, select.divisor-select')
+      .forEach(elm => { elm.disabled = locked; });
+  }
+  const dayBox = document.getElementById(id + '-day-confirm');
+  const editBtn = document.getElementById(id + '-edit-btn');
+  if (dayBox)  dayBox.style.display  = (ready && !locked) ? 'block' : 'none';
+  if (editBtn) editBtn.style.display = (ready && locked)  ? 'block' : 'none';
+}
+
+export function setLock(id, locked, logId) {
+  lockState[id] = { locked: !!locked, logId: logId || null };
+  try { localStorage.setItem('lock-' + id, JSON.stringify(lockState[id])); } catch (e) {}
+  applyTabState(id);
+}
+
+export function clearLock(id) {
+  lockState[id] = { locked: false, logId: null };
+  try { localStorage.removeItem('lock-' + id); } catch (e) {}
+  applyTabState(id);
+}
+
+export function restoreLock(id) {
+  try {
+    const raw = localStorage.getItem('lock-' + id);
+    if (raw) { const v = JSON.parse(raw); lockState[id] = { locked: !!v.locked, logId: v.logId || null }; }
+  } catch (e) {}
+}
+
+// The computed ingredients for each recipe's last calculation: the single source of
+// truth shared by the on-screen render and the Copy/WhatsApp export.
+const lastRecipe = {};
+
 function renderIngredients(containerId, rows) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -69,47 +137,36 @@ function renderIngredients(containerId, rows) {
 }
 
 // ── Divisor box (display-only crate split) ────────────────────────────────────
-// Builds a tab's divisor box skeleton from config: a names line (filled by
-// updateDivisorBox) + a "÷ N" row with a 0–4 dropdown. Rebuilt whenever the config
-// changes (which products are ticked); the names and running totals are refreshed
-// by updateDivisorBox on every quantity change. The box never affects the recipe
-// or the log — it only splits dough into crates. Exported because app.js rebuilds
-// it on each config render.
-export function buildDivisorBox(tab) {
-  const box = document.getElementById(tab[0] + '-divisor-box');
+export function buildDivisorBox(id) {
+  const box = document.getElementById(id + '-divisor-box');
   if (!box) return;
   box.textContent = '';
-  // No product ticked for this tab → the box can never appear; nothing to build.
-  if (getDivisorProducts(getConfig(), tab).length === 0) { box.style.display = 'none'; return; }
+  if (getDivisorProducts(getConfig(), id).length === 0) { box.style.display = 'none'; return; }
 
-  const select = el('select', { id: tab[0] + '-divisor-div', class: 'divisor-select', 'aria-label': 'Number of crates' });
+  const select = el('select', { id: id + '-divisor-div', class: 'divisor-select', 'aria-label': 'Number of crates' });
   for (let n = 0; n <= DIVISOR_MAX; n++) select.appendChild(el('option', { value: String(n) }, String(n)));
-  select.addEventListener('change', () => updateDivisorBox(tab));
+  select.addEventListener('change', () => updateDivisorBox(id));
 
-  box.appendChild(el('div', { class: 'divisor-names', id: tab[0] + '-divisor-names' }, ''));
+  box.appendChild(el('div', { class: 'divisor-names', id: id + '-divisor-names' }, ''));
   box.appendChild(el('div', { class: 'divisor-row' }, [
-    el('span', { class: 'divisor-total', id: tab[0] + '-divisor-total' }, '0'),
+    el('span', { class: 'divisor-total', id: id + '-divisor-total' }, '0'),
     el('span', { class: 'divisor-unit' }, 'g'),
     el('span', { class: 'divisor-sym' }, '÷'),
     select,
     el('span', { class: 'divisor-eq' }, '='),
-    el('span', { class: 'divisor-result', id: tab[0] + '-divisor-result' }, '0'),
+    el('span', { class: 'divisor-result', id: id + '-divisor-result' }, '0'),
     el('span', { class: 'divisor-unit' }, 'g'),
   ]));
-  updateDivisorBox(tab);
+  updateDivisorBox(id);
 }
 
-// Refresh a divisor box from the current quantities and dropdown value. Only the
-// ticked products that actually have a quantity entered now are shown and summed,
-// so the box reflects exactly what is being calculated. Hides the box when no such
-// product exists (nothing ticked, or nothing entered yet).
-export function updateDivisorBox(tab) {
-  const box = document.getElementById(tab[0] + '-divisor-box');
+export function updateDivisorBox(id) {
+  const box = document.getElementById(id + '-divisor-box');
   if (!box) return;
-  const namesEl = document.getElementById(tab[0] + '-divisor-names');
-  if (!namesEl) { box.style.display = 'none'; return; } // skeleton not built (none ticked)
+  const namesEl = document.getElementById(id + '-divisor-names');
+  if (!namesEl) { box.style.display = 'none'; return; }
 
-  const active = getDivisorProducts(getConfig(), tab).filter(p => qtyOf(p.id) > 0);
+  const active = getDivisorProducts(getConfig(), id).filter(p => qtyOf(p.qtyId) > 0);
   if (active.length === 0) { box.style.display = 'none'; return; }
   box.style.display = '';
 
@@ -117,25 +174,21 @@ export function updateDivisorBox(tab) {
   for (const p of active) if (!names.includes(p.name)) names.push(p.name);
   namesEl.textContent = names.join(', ');
 
-  const total = divisorTotal(getConfig(), tab, qtyOf);
-  const divEl = document.getElementById(tab[0] + '-divisor-div');
+  const total = divisorTotal(getConfig(), id, qtyOf);
+  const divEl = document.getElementById(id + '-divisor-div');
   const n = divEl ? (+divEl.value || 0) : 0;
-  document.getElementById(tab[0] + '-divisor-total').textContent = Math.round(total);
-  document.getElementById(tab[0] + '-divisor-result').textContent = Math.round(splitDough(total, n));
+  document.getElementById(id + '-divisor-total').textContent = Math.round(total);
+  document.getElementById(id + '-divisor-result').textContent = Math.round(splitDough(total, n));
 }
 
-// Crate boxes: a display-only helper, one box per product that has opted in
-// (product.crate.show) and currently has a quantity. Each box shows the product
-// name, how many crates the order fills (quantity ÷ pieces per crate) and the crate
-// weight (pieces × the product's unit weight). Bound to the product, not its name,
-// so renaming never breaks it. Rebuilt on every recalculation — no persistent state.
-function renderCrateBoxes(tab) {
-  const wrap = document.getElementById(tab[0] + '-crate-boxes');
+// Crate boxes: one per association that opted in and has a quantity.
+function renderCrateBoxes(id) {
+  const wrap = document.getElementById(id + '-crate-boxes');
   if (!wrap) return;
   wrap.textContent = '';
-  for (const p of getTabProducts(getConfig(), tab)) {
+  for (const p of getTabProducts(getConfig(), id)) {
     if (!isCrateEnabled(p)) continue;
-    const qty = qtyOf(p.id);
+    const qty = qtyOf(p.qtyId);
     if (qty <= 0) continue;
     const perBox = getCratePerBox(p);
     const crates = crateCount(qty, perBox);
@@ -150,140 +203,60 @@ function renderCrateBoxes(tab) {
   }
 }
 
-export function calcFocaccia() {
-  const yeastPct = +document.getElementById('f-yeast-pct').value || 0.65;
-  const target = computeTarget(getConfig(), 'focaccia', qtyOf) + extraDoughGramsFor('focaccia');
-  if (target === 0) {
-    hideResult('focaccia-result');
-    const fbtn0 = document.getElementById('f-confirm-btn');
-    fbtn0.classList.remove('visible');
-    fbtn0.dataset.mode = '';
-    fbtn0.textContent = '✓ Confirm';
-    fbtn0.disabled = false;
+// The generic calculation for one recipe: compute the target by logic, scale the
+// recipe to it, render the ingredients, badge, total, divisor and crate boxes.
+export function calc(id) {
+  const config = getConfig();
+  const recipe = getRecipeById(config, id);
+  if (!recipe) return;
+
+  const target = computeRecipeTarget(config, recipe, {
+    getQty: qtyOf, extraGrams: extraDoughGramsFor(id), totalInput: totalInputFor(id),
+  });
+  const resultId = id + '-result';
+  if (target <= 0) {
+    hideResult(resultId);
+    applyTabState(id);
     return;
   }
 
-  const [flu, flt, mlt, sug, slt, yst, oyl, w1, w2] = scaleFocaccia(RECIPES.focaccia, target, yeastPct);
+  const pct = leaveningPctFor(recipe);
+  const spec = recipeSpec(recipe);
+  if (recipe.logic === 'total') spec.leaveningKey = null; // pure pro-rata, no leavening adjust
+  const scaled = scaleRecipe(spec, target, pct);
+  const rows = recipe.ingredients.map((ing, i) => ({ name: ing.label, grams: scaled[i] || 0 }));
+  renderIngredients(id + '-ingredients', rows);
+  lastRecipe[id] = { rows, totalG: Math.round(target), name: recipe.name };
 
-  const rows = [
-    { name: 'Flour uniqua blue', grams: flu }, { name: 'Flour T65', grams: flt },
-    { name: 'Malt', grams: mlt }, { name: 'Sugar', grams: sug }, { name: 'Salt', grams: slt },
-    { name: 'Yeast', grams: yst }, { name: 'Oil', grams: oyl },
-    { name: '1° Water', grams: w1 }, { name: '2° Water', grams: w2 },
-  ];
-  renderIngredients('f-ingredients', rows);
-  lastRecipe.focaccia = { rows, totalG: Math.round(target) };
+  const disp = document.getElementById(id + '-param-display');
+  if (disp) disp.textContent = pct;
+  const badge = document.getElementById(id + '-badge');
+  if (badge) badge.textContent = Math.round(target) + ' g raw';
+  const totalEl = document.getElementById(id + '-total');
+  if (totalEl) totalEl.textContent = Math.round(target);
 
-  document.getElementById('f-yeast-display').textContent = yeastPct;
-  document.getElementById('f-badge').textContent = Math.round(target) + ' g raw';
-  document.getElementById('f-total').textContent  = Math.round(target);
-  updateDivisorBox('focaccia');
-  renderCrateBoxes('focaccia');
-  const fbtn = document.getElementById('f-confirm-btn');
-  if (fbtn.dataset.mode !== 'saved') {
-    fbtn.textContent = '✓ Confirm';
-    fbtn.dataset.saved = '';
-    fbtn.dataset.mode = '';
-    fbtn.disabled = false;
-    fbtn.classList.add('visible');
-    hideResult('focaccia-result');
-  }
+  updateDivisorBox(id);
+  renderCrateBoxes(id);
+  applyTabState(id);
+  if (revealed[id]) showResult(resultId); else hideResult(resultId);
 }
 
-export function calcBrioche() {
-  const yeastPct = +document.getElementById('b-yeast-pct').value || 4;
-  const target = computeTarget(getConfig(), 'brioche', qtyOf) + extraDoughGramsFor('brioche');
-  if (target === 0) {
-    hideResult('brioche-result');
-    const bbtn0 = document.getElementById('b-confirm-btn');
-    bbtn0.classList.remove('visible');
-    bbtn0.dataset.mode = '';
-    bbtn0.textContent = '✓ Confirm';
-    bbtn0.disabled = false;
-    return;
-  }
-
-  const [fl, ys, wt] = scaleBrioche(RECIPES.brioche, target, yeastPct);
-
-  const rows = [
-    { name: 'Mella brioche pof', grams: fl }, { name: 'Yeast', grams: ys }, { name: 'Water', grams: wt },
-  ];
-  renderIngredients('b-ingredients', rows);
-  lastRecipe.brioche = { rows, totalG: Math.round(target) };
-
-  document.getElementById('b-yeast-display').textContent = yeastPct;
-  document.getElementById('b-badge').textContent = Math.round(target) + ' g raw';
-  document.getElementById('b-total').textContent  = Math.round(target);
-  updateDivisorBox('brioche');
-  renderCrateBoxes('brioche');
-  const bbtn = document.getElementById('b-confirm-btn');
-  if (bbtn.dataset.mode !== 'saved') {
-    bbtn.textContent = '✓ Confirm';
-    bbtn.dataset.saved = '';
-    bbtn.dataset.mode = '';
-    bbtn.disabled = false;
-    bbtn.classList.add('visible');
-    hideResult('brioche-result');
-  }
-}
-
-export function calcSourdough() {
-  const starterPct = +document.getElementById('s-starter-pct').value || 18;
-  const target = computeTarget(getConfig(), 'sourdough', qtyOf) + extraDoughGramsFor('sourdough');
-
-  if (target === 0) {
-    hideResult('sourdough-result');
-    const sbtn0 = document.getElementById('s-confirm-btn');
-    sbtn0.classList.remove('visible');
-    sbtn0.dataset.mode = '';
-    sbtn0.textContent = '✓ Confirm';
-    sbtn0.disabled = false;
-    return;
-  }
-
-  const [flu, flt, flw, w1, st, mlt, slt, w2] = scaleSourdough(RECIPES.sourdough, target, starterPct);
-
-  const rows = [
-    { name: 'Flour uniqua blue', grams: flu }, { name: 'Flour T65', grams: flt },
-    { name: 'Flour wholemeal', grams: flw }, { name: '1° Water', grams: w1 },
-    { name: 'Starter', grams: st },
-    { name: 'Malt', grams: mlt }, { name: 'Salt', grams: slt }, { name: '2° Water', grams: w2 },
-  ];
-  renderIngredients('s-ingredients', rows);
-  lastRecipe.sourdough = { rows, totalG: Math.round(target) };
-
-  document.getElementById('s-badge').textContent  = Math.round(target) + ' g raw';
-  document.getElementById('s-total').textContent  = Math.round(target);
-  updateDivisorBox('sourdough');
-  renderCrateBoxes('sourdough');
-  const sbtn = document.getElementById('s-confirm-btn');
-  if (sbtn.dataset.mode !== 'saved') {
-    sbtn.textContent = '✓ Confirm';
-    sbtn.dataset.saved = '';
-    sbtn.dataset.mode = '';
-    sbtn.disabled = false;
-    sbtn.classList.add('visible');
-    hideResult('sourdough-result');
-  }
-}
-
-// Recipe text for the Copy/WhatsApp export, built from the in-memory ingredient
-// model (the same data the screen shows) — no DOM scraping. Empty until the dough
-// has been calculated at least once.
-function recipeTextFor(tab) {
-  const model = lastRecipe[tab];
+// Recipe text for the Copy/WhatsApp export, from the in-memory ingredient model.
+function recipeTextFor(id) {
+  const model = lastRecipe[id];
   if (!model) return '';
-  return buildRecipeText(tab, model.rows, model.totalG);
+  return buildRecipeText(model.name, model.rows, model.totalG);
 }
 
-export function copyRecipe(tab) {
-  const btn = document.getElementById(tab[0] + '-copy-btn');
-  navigator.clipboard.writeText(recipeTextFor(tab)).then(() => {
+export function copyRecipe(id) {
+  const btn = document.getElementById(id + '-copy-btn');
+  navigator.clipboard.writeText(recipeTextFor(id)).then(() => {
+    if (!btn) return;
     btn.textContent = 'Copied ✓';
     setTimeout(() => { btn.textContent = 'Copy recipe'; }, 2000);
   });
 }
 
-export function shareRecipeWA(tab) {
-  window.open('https://wa.me/?text=' + encodeURIComponent(recipeTextFor(tab)), '_blank');
+export function shareRecipeWA(id) {
+  window.open('https://wa.me/?text=' + encodeURIComponent(recipeTextFor(id)), '_blank');
 }

@@ -14,6 +14,10 @@
 //     bakery: 'main',             // discriminator, like the rest of the app
 //     dough: 'Focaccia'|'Brioche'|'Sourdough',
 //     forDay: 'today'|'tomorrow', // chosen at creation (A)
+//     origin: 'calculator'|'manual', // where it was made: a calculator Confirm, or
+//                                 // a manual "+ Add log". Only manual logs can be
+//                                 // edited from the Log screen; calculator logs are
+//                                 // edited only from the calculator (Edit → Confirm).
 //     createdAtMs,                // for stable ordering (passed in by the caller)
 //     versions: [ version, ... ], // append-only; versions[last] is the latest
 //   }
@@ -34,20 +38,10 @@
 //     source: 'client' (a configured category product) | 'occasional'
 //   occ  = { name, products: [ { name, qty, weightG, unit } ] }
 
-import { scaleFocaccia, scaleBrioche, scaleSourdough } from './calculator-dough-math.js';
+import { scaleRecipe } from './calculator-dough-math.js';
+import { recipeSpec } from './calculator-config.js';
 
-export const DOUGHS = ['Focaccia', 'Brioche', 'Sourdough'];
 export const FOR_DAYS = ['today', 'tomorrow'];
-
-// Ingredient row names per dough, in the exact order the scale functions return
-// them — kept identical to calc.js so the read-only sheet looks like the live one.
-export const ING_NAMES = {
-  Focaccia: ['Flour uniqua blue', 'Flour T65', 'Malt', 'Sugar', 'Salt', 'Yeast', 'Oil', '1° Water', '2° Water'],
-  Brioche: ['Mella brioche pof', 'Yeast', 'Water'],
-  Sourdough: ['Flour uniqua blue', 'Flour T65', 'Flour wholemeal', '1° Water', 'Starter', 'Malt', 'Salt', '2° Water'],
-};
-export const PARAM_LABEL = { Focaccia: 'Yeast %', Brioche: 'Yeast %', Sourdough: 'Starter %' };
-export const PARAM_DEFAULT = { Focaccia: 0.65, Brioche: 4, Sourdough: 18 };
 
 // Deep clone of plain data (no functions/dates), used to keep callers from mutating
 // shared version objects when appending or restoring.
@@ -55,7 +49,9 @@ function clone(v) { return JSON.parse(JSON.stringify(v)); }
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
-function safeDough(d) { return DOUGHS.includes(d) ? d : 'Focaccia'; }
+// A recipe's display name for a log. Any non-empty string is kept (recipes are now
+// arbitrary, no fixed enum); blank falls back to a generic label.
+function safeDough(d) { const s = String(d == null ? '' : d).trim(); return s || 'Recipe'; }
 function safeForDay(d) { return FOR_DAYS.includes(d) ? d : 'today'; }
 
 // ── Sheet math (pure) ─────────────────────────────────────────────────────────
@@ -65,24 +61,37 @@ function safeForDay(d) { return FOR_DAYS.includes(d) ? d : 'today'; }
 // stored sheet is faithful and independent of any later recipe/config change.
 //   items: [{ id, name, qty, weightG, kind, crate }]
 //   divisor: { includedIds: [...], n: 0..4 }  (optional, display-only crate split)
-export function buildSheet({ dough, recipe, items, extraGrams = 0, param, divisor }) {
-  const D = safeDough(dough);
+// `recipe` is the CONFIG recipe (id, name, logic, ingredients[{key,label,grams}],
+// leaveningKey, leaveningDefaultPct, baselinePct). The target is computed by the
+// recipe's logic (orders → items + extra; total → typed total; both → items + total
+// + extra), then the recipe is scaled to it with the unified scaleRecipe — so the
+// stored sheet is faithful and independent of any later config change.
+//   items:   [{ id, name, clientName, qty, weightG, kind, crate }]
+//   divisor: { includedIds: [...], n: 0..4 }  (optional, display-only crate split)
+export function buildSheet({ recipe, items, extraGrams = 0, totalInput = 0, leaveningPct, divisor }) {
   const lines = Array.isArray(items) ? items : [];
   const productsTotal = lines.reduce((s, it) => s + num(it.qty) * num(it.weightG), 0);
   const extra = Math.max(0, num(extraGrams));
-  const total = productsTotal + extra;
+  const typed = Math.max(0, num(totalInput));
+  const logic = (recipe && recipe.logic) || 'orders';
+  const total = logic === 'total' ? typed
+    : logic === 'both' ? (productsTotal + typed + extra)
+    : (productsTotal + extra);
 
-  const p = Number(param);
-  const paramVal = Number.isFinite(p) ? p : PARAM_DEFAULT[D];
-
+  const recipeIngs = (recipe && Array.isArray(recipe.ingredients)) ? recipe.ingredients : [];
+  const pct = Number.isFinite(Number(leaveningPct)) ? Number(leaveningPct) : (recipe ? num(recipe.leaveningDefaultPct) : 0);
+  const spec = recipeSpec(recipe || {});
+  if (logic === 'total') spec.leaveningKey = null; // pure pro-rata
   let amounts = [];
-  if (total > 0 && recipe) {
-    if (D === 'Focaccia') amounts = scaleFocaccia(recipe, total, paramVal);
-    else if (D === 'Brioche') amounts = scaleBrioche(recipe, total, paramVal);
-    else if (D === 'Sourdough') amounts = scaleSourdough(recipe, total, paramVal);
+  if (total > 0 && recipeIngs.length) amounts = scaleRecipe(spec, total, pct);
+  const ingredients = recipeIngs.map((ing, i) => ({ name: ing.label, grams: Math.round(num(amounts[i])) }));
+
+  // The parameter line shown on the sheet: the leavening % when the recipe uses one.
+  let paramOut = null;
+  if (recipe && recipe.leaveningKey && (logic === 'orders' || logic === 'both')) {
+    const lev = recipeIngs.find(g => g.key === recipe.leaveningKey);
+    paramOut = { label: (lev ? lev.label : 'Leavening') + ' %', value: pct };
   }
-  const names = ING_NAMES[D];
-  const ingredients = names.map((name, i) => ({ name, grams: Math.round(num(amounts[i])) }));
 
   // Divisor (display-only): sum the included lines that have a quantity, then split.
   let divisorOut = null;
@@ -108,8 +117,9 @@ export function buildSheet({ dough, recipe, items, extraGrams = 0, param, diviso
   }
 
   return {
-    dough: D,
-    param: { label: PARAM_LABEL[D], value: paramVal },
+    dough: recipe ? safeDough(recipe.name) : 'Recipe',
+    recipeId: recipe ? recipe.id : '',
+    param: paramOut,
     total_g: Math.round(total),
     extra_g: Math.round(extra),
     ingredients,
@@ -150,12 +160,14 @@ export function buildLogText(items, occasional, extra) {
 
 // A brand-new log with its first version. Each Confirm makes a NEW log — it never
 // overwrites an existing one (the whole point of the new model).
-export function createLog({ id, dough, forDay, version, createdAtMs }) {
+export function createLog({ id, dough, recipeId, forDay, version, createdAtMs, origin }) {
   return {
     id: String(id),
     bakery: 'main',
     dough: safeDough(dough),
+    recipeId: String(recipeId || ''),
     forDay: safeForDay(forDay),
+    origin: origin === 'manual' ? 'manual' : 'calculator',
     createdAtMs: num(createdAtMs),
     versions: [clone(version)],
   };
@@ -174,6 +186,22 @@ export function addVersion(log, version) {
   if (!Array.isArray(next.versions)) next.versions = [];
   next.versions.push(clone(version));
   return next;
+}
+
+// Change a log's target day (today/tomorrow) without touching its version history.
+// Used when an edit re-confirms and the user picks a different Today/Tomorrow.
+// Returns a NEW log object (pure); an invalid day keeps the existing one.
+export function setForDay(log, forDay) {
+  const next = clone(log);
+  next.forDay = FOR_DAYS.includes(forDay) ? forDay : next.forDay;
+  return next;
+}
+
+// Decide whether a calculator Confirm should CREATE a new log or UPDATE an existing
+// one. A tab confirms into the SAME log until Reset clears the link; if the linked
+// log no longer exists (e.g. it was deleted), fall back to creating a fresh one.
+export function confirmTarget({ linkedId, linkedExists }) {
+  return (linkedId && linkedExists) ? 'update' : 'create';
 }
 
 // Restore a past version: append a COPY of versions[index] on top as a new entry,
@@ -217,6 +245,28 @@ export function migrateOldLogs(records, makeId, baseMs = 0) {
     out.push(migrateOldRecord(r, { id: makeId(r, i), createdAtMs: baseMs + i }));
   });
   return out;
+}
+
+// Filter logs for the app's Log LIST only: keep a log when its dough type is visible
+// AND it is still within the retention window (created no more than retentionHours
+// ago). DISPLAY-only — the database keeps every log; this never deletes anything.
+// Pure (nowMs is passed in) so it can be unit-tested. `visibility` is keyed by the
+// lowercase dough name (focaccia/brioche/sourdough); a missing key counts as visible.
+export function filterVisibleLogs(logs, { visibility = {}, retentionHours = 24, nowMs = 0 } = {}) {
+  const list = Array.isArray(logs) ? logs : [];
+  // retentionHours may be a single number (applies to every dough) OR a per-dough
+  // map keyed by lowercase dough name (focaccia/brioche/sourdough).
+  const hoursFor = (key) => num(
+    retentionHours && typeof retentionHours === 'object' ? retentionHours[key] : retentionHours
+  );
+  return list.filter((log) => {
+    // Key by recipe id (new logs) falling back to the dough name (migrated logs).
+    const key = String((log && (log.recipeId || log.dough)) || '').toLowerCase();
+    if (visibility[key] === false) return false;
+    const windowMs = Math.max(0, hoursFor(key)) * 3600 * 1000;
+    if (windowMs > 0 && num(nowMs) - num(log && log.createdAtMs) > windowMs) return false;
+    return true;
+  });
 }
 
 // Sort logs for display: newest first by creation time, with a stable id tiebreak.

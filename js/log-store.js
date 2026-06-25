@@ -10,7 +10,7 @@ import {
   watchLogs, saveLogDoc, deleteLogDoc, getLogsOnce, readOldLogsOnce,
 } from './firebase.js';
 import {
-  createLog, addVersion, restoreVersion, migrateOldLogs, sortLogs,
+  createLog, addVersion, setForDay, restoreVersion, migrateOldLogs, sortLogs,
 } from './log-model.js';
 
 const CACHE_KEY = 'logs-cache';
@@ -80,18 +80,21 @@ function syncFail(label) {
   return (err) => { console.warn('[logs] ' + label + ' saved locally but not synced:', err); };
 }
 
-// Create a brand-new log (each Confirm makes a new one — never overwrites).
-export function createAndSave({ dough, forDay, version, createdAtMs }) {
-  const log = createLog({ id: genLogId(), dough, forDay, version, createdAtMs });
+// Create a brand-new log. The caller may pass an id (so it can link the calculator
+// tab to this log straight away); otherwise one is generated.
+export function createAndSave({ id, dough, recipeId, forDay, version, createdAtMs, origin }) {
+  const log = createLog({ id: id || genLogId(), dough, recipeId, forDay, version, createdAtMs, origin });
   applyLocal(log);
   return saveLogDoc(log).catch(syncFail('create')).then(() => log);
 }
 
-// Append an edited version to an existing log (append-only).
-export function appendAndSave(logId, version) {
+// Append an edited version to an existing log (append-only). An optional forDay
+// updates the log's target day too, for a re-confirm that changed Today/Tomorrow.
+export function appendAndSave(logId, version, forDay) {
   const log = getLogById(logId);
   if (!log) return Promise.resolve(null);
-  const next = addVersion(log, version);
+  let next = addVersion(log, version);
+  if (forDay) next = setForDay(next, forDay);
   applyLocal(next);
   return saveLogDoc(next).catch(syncFail('edit')).then(() => next);
 }

@@ -23,58 +23,96 @@ export function fixRounding(amounts, total) {
   return rounded;
 }
 
-// Focaccia: yeast is a percentage of the flour weight; everything else scales
-// pro-rata to fill the remaining weight up to the target.
-// Returns [flourBlu, flourT65, malt, sugar, salt, yeast, oil, water1, water2].
+// The three named recipes are now thin wrappers over the unified scaleRecipe
+// (defined below; hoisted). Their signatures and returned array order are
+// UNCHANGED, so calc.js and log-model.js call them exactly as before.
+//
+// baselinePct is FIXED for brioche (4) and sourdough (18) — matching their original
+// hard-coded baselines — so they stay byte-identical even if the recipe is edited.
+// For focaccia it is DERIVED from the current flour (yeast / total flour), which
+// makes the unified method coincide with the old focaccia math at the recipe's
+// natural ratio and stay within a few grams elsewhere (see unified-scaler tests).
+
+// Focaccia. Returns [flourBlu, flourT65, malt, sugar, salt, yeast, oil, water1, water2].
 export function scaleFocaccia(recipe, target, yeastPct) {
   const R = recipe;
-  const baseTotal = recipeTotal(R);
-  const scale = target / baseTotal;
   const totalFlour = R.flourBlu + R.flourT65;
-  const yeast = totalFlour * scale * (yeastPct / 100);
-  const remaining = target - yeast;
-  const nonYeastBase = baseTotal - R.yeast;
-  const amounts = [
-    R.flourBlu * remaining / nonYeastBase,
-    R.flourT65 * remaining / nonYeastBase,
-    R.malt     * remaining / nonYeastBase,
-    R.sugar    * remaining / nonYeastBase,
-    R.salt     * remaining / nonYeastBase,
-    yeast,
-    R.oil      * remaining / nonYeastBase,
-    R.water1   * remaining / nonYeastBase,
-    R.water2   * remaining / nonYeastBase,
-  ];
-  return fixRounding(amounts, target);
+  return scaleRecipe({
+    amounts: {
+      flourBlu: R.flourBlu, flourT65: R.flourT65, malt: R.malt, sugar: R.sugar,
+      salt: R.salt, yeast: R.yeast, oil: R.oil, water1: R.water1, water2: R.water2,
+    },
+    leaveningKey: 'yeast',
+    baselinePct: totalFlour ? R.yeast / totalFlour * 100 : null,
+  }, target, yeastPct);
 }
 
-// Brioche: yeast scales from a 4% baseline, then flour/yeast/water scale together
-// to the target. Returns [flour, yeast, water].
+// Brioche. Returns [flour, yeast, water].
 export function scaleBrioche(recipe, target, yeastPct) {
   const R = recipe;
-  const yeastBase = R.yeast * (yeastPct / 4);
-  const provisionalTotal = R.flour + yeastBase + R.water;
-  const factor = target / provisionalTotal;
-  return fixRounding([R.flour * factor, yeastBase * factor, R.water * factor], target);
+  return scaleRecipe({
+    amounts: { flour: R.flour, yeast: R.yeast, water: R.water },
+    leaveningKey: 'yeast',
+    baselinePct: 4,
+  }, target, yeastPct);
 }
 
-// Sourdough: starter scales from an 18% baseline, then everything scales together
-// to the target. Returns [flourBlu, flourT65, flourWhole, water1, starter, malt,
-// salt, water2].
+// Sourdough. Returns [flourBlu, flourT65, flourWhole, water1, starter, malt, salt, water2].
 export function scaleSourdough(recipe, target, starterPct) {
   const R = recipe;
-  const starterBase = R.starter * (starterPct / 18);
-  const provisionalTotal =
-    R.flourBlu + R.flourT65 + R.flourWhole + R.water1 + starterBase + R.malt + R.salt + R.water2;
-  const factor = target / provisionalTotal;
-  return fixRounding([
-    R.flourBlu   * factor,
-    R.flourT65   * factor,
-    R.flourWhole * factor,
-    R.water1     * factor,
-    starterBase  * factor,
-    R.malt       * factor,
-    R.salt       * factor,
-    R.water2     * factor,
-  ], target);
+  return scaleRecipe({
+    amounts: {
+      flourBlu: R.flourBlu, flourT65: R.flourT65, flourWhole: R.flourWhole,
+      water1: R.water1, starter: R.starter, malt: R.malt, salt: R.salt, water2: R.water2,
+    },
+    leaveningKey: 'starter',
+    baselinePct: 18,
+  }, target, starterPct);
+}
+
+// Generic recipe scaler — the single, unified dough math that every recipe can use.
+// It reproduces scaleBrioche and scaleSourdough EXACTLY (byte-for-byte) and brings
+// focaccia onto the same clean method (sub-gram differences vs the old focaccia
+// math at normal settings; coincides exactly at the default 0.65%). Equivalence is
+// proven in tests/unified-scaler.test.mjs.
+//
+// spec = {
+//   amounts:      { key: grams, ... }  // insertion order = output order
+//   leaveningKey: string | null        // which ingredient is the yeast/starter
+//   baselinePct:  number | null        // the leavening percentage at which the
+//                                       // recipe values sit "at rest"
+// }
+// target       = desired total raw weight in grams
+// leaveningPct = the chosen leavening percentage (from the knob, or the default)
+//
+// Returns the per-ingredient grams as an array (same order as spec.amounts keys),
+// rounded so the integers sum EXACTLY to Math.round(target) — see fixRounding.
+//
+// Why baselinePct is STORED, not derived from leavening/flour: brioche's yeast is
+// exactly 4% of its flour, but sourdough's starter is 18% by design while
+// starter/flour = 1024/5690 = 17.996%. Deriving it would drift sourdough off its
+// locked values; storing the intended baseline (brioche 4, sourdough 18, focaccia
+// ≈ 3.6/556*100 = 0.6475) keeps both byte-identical to their original functions.
+export function scaleRecipe(spec, target, leaveningPct) {
+  const { amounts, leaveningKey, baselinePct } = spec;
+  const keys = Object.keys(amounts);
+  const totalBase = keys.reduce((s, k) => s + amounts[k], 0);
+
+  // No designated leavening (or no baseline) → pure pro-rata scaling.
+  if (leaveningKey == null || !baselinePct) {
+    if (totalBase <= 0) return keys.map(() => 0);
+    const factor = target / totalBase;
+    return fixRounding(keys.map(k => amounts[k] * factor), target);
+  }
+
+  // Bring the leavening to its share for the chosen percentage, then scale the
+  // whole recipe uniformly to hit the target.
+  const base = amounts[leaveningKey] * (leaveningPct / baselinePct);
+  const provisional = totalBase - amounts[leaveningKey] + base;
+  if (provisional <= 0) return keys.map(() => 0);
+  const factor = target / provisional;
+  return fixRounding(
+    keys.map(k => (k === leaveningKey ? base : amounts[k]) * factor),
+    target
+  );
 }

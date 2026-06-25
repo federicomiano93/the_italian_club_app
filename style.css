@@ -83,6 +83,10 @@ header p { font-size: 11px; color: rgba(255,255,255,0.55); margin-top: 1px; font
 }
 #yeast-banner.hidden { display: none; }
 
+/* Utility: hide an element from markup without an inline style="" attribute,
+   which the page CSP (style-src 'self') blocks. Use this class instead. */
+.is-hidden { display: none !important; }
+
 /* Tab bar */
 .tab-bar {
   display: flex;
@@ -195,7 +199,8 @@ input[type="number"]:focus { outline: none; border-color: var(--accent); backgro
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
 /* Locked after Confirm — visibly greyed until the user taps Edit */
-input[type="number"]:disabled, select.qty-select:disabled { opacity: 0.55; cursor: not-allowed; }
+input[type="number"]:disabled, select.qty-select:disabled,
+select.extra-unit-select:disabled, select.divisor-select:disabled { opacity: 0.55; cursor: not-allowed; }
 
 select.qty-select {
   width: 80px;
@@ -528,6 +533,22 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .drill-item:active { background: var(--surface2); }
 .drill-chevron { color: var(--accent); opacity: 0.6; font-size: 20px; flex-shrink: 0; }
 
+/* Recipe form footer: prominent Save (.cp-save-bottom) + a low-key Reset below it. */
+.recipe-reset-btn {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text2);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.recipe-reset-btn:active { background: var(--border); }
+
 /* Client boxes reordered with SortableJS (long-press to grab, drag to reorder).
    No text-selection / iOS callout on long press. */
 .drill-reorder { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
@@ -673,6 +694,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   font-weight: 700;
 }
 .cp-prod-card-row { display: flex; align-items: center; gap: 8px; }
+/* Read-only product name in the Products view (not an input — no border/field look). */
+.cp-prod-ro-name { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; color: var(--text); }
 .cp-prod-dough {
   flex: 1;
   min-width: 0;
@@ -702,6 +725,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   cursor: pointer;
 }
 .cp-save-bottom:active { filter: brightness(0.95); }
+.cp-save-bottom:disabled { opacity: 0.5; cursor: default; }
 
 /* Group editor: one checkbox row per address-book client. */
 .cp-check-row {
@@ -739,7 +763,10 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
    the Settings hub. */
 #extra-overlay,
 #divisor-overlay,
-#wa-overlay {
+#wa-overlay,
+#logsettings-overlay,
+#products-overlay,
+#ingredients-overlay {
   position: fixed;
   inset: 0;
   z-index: 520;
@@ -749,8 +776,11 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 }
 #extra-overlay.visible,
 #divisor-overlay.visible,
-#wa-overlay.visible { display: flex; }
-#extra-content, #divisor-content, #wa-content { padding: 14px 16px; }
+#wa-overlay.visible,
+#logsettings-overlay.visible,
+#products-overlay.visible,
+#ingredients-overlay.visible { display: flex; }
+#extra-content, #divisor-content, #wa-content, #logsettings-content, #products-content, #ingredients-content { padding: 14px 16px; }
 
 /* WhatsApp lists editor: a list/client/entry row pairs a drill-in with a low-key
    remove icon beside it (the top screen deletes lists & direct clients there). */
@@ -820,7 +850,10 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   align-items: center;
   gap: 12px;
 }
-.recipe-back-btn {
+.recipe-back-btn,
+.settings-back-btn, .extra-back-btn, .divisor-back-btn, .logsettings-back-btn,
+.wa-back-btn, .cp-back-btn,
+.logview-back-btn, .logedit-back-btn, .logadd-back-btn, .loghistory-back-btn {
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -995,9 +1028,22 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .confirm-btn-primary.visible { display: block; }
 .confirm-btn-primary:active { background: #1e3810; box-shadow: none; }
 .confirm-btn-primary:disabled { opacity: 0.6; cursor: default; }
+/* "Edit" mode (tab locked): a distinct slate look so it never reads as a fresh Confirm */
+.confirm-btn-primary.is-edit { background: #5a6b7a; box-shadow: 0 2px 8px rgba(40,55,70,0.25); }
+.confirm-btn-primary.is-edit:active { background: #44525e; }
+/* Today/Tomorrow buttons inside the day picker modal (opened by a tab's Confirm). */
+.day-row { display: flex; gap: 10px; }
+.day-btn {
+  flex: 1; padding: 16px; border: none; border-radius: var(--radius-sm);
+  background: var(--accent); color: #fff; font-family: 'DM Sans', sans-serif;
+  font-size: 16px; font-weight: 600; cursor: pointer; letter-spacing: 0.01em;
+  box-shadow: 0 2px 8px rgba(45,80,22,0.25);
+}
+.day-btn:active { background: #1e3810; box-shadow: none; }
+.day-btn:disabled { opacity: 0.6; cursor: default; }
 
-/* Order modal + list picker (same bottom-sheet style) */
-#loaf-modal, #list-select-modal {
+/* Order modal + list picker + day picker (same bottom-sheet style) */
+#loaf-modal, #list-select-modal, #day-modal {
   display: none;
   position: fixed;
   inset: 0;
@@ -1007,8 +1053,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   justify-content: center;
   padding: 0;
 }
-#loaf-modal.visible, #list-select-modal.visible { display: flex; }
-#loaf-modal-box, #list-select-box {
+#loaf-modal.visible, #list-select-modal.visible, #day-modal.visible { display: flex; }
+#loaf-modal-box, #list-select-box, #day-modal-box {
   background: var(--surface);
   border-radius: var(--radius) var(--radius) 0 0;
   padding: 24px 20px 32px;
@@ -1021,7 +1067,11 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .loaf-modal-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 20px; text-align: center; }
 /* Section labels ("Groups" / "Clients") inside the Send-order picker. */
 .send-picker-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text2); margin: 6px 2px 8px; }
-.order-section { margin-bottom: 20px; }
+.order-section { margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+.order-section:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+/* Log settings: one card per dough (products line + the two settings). */
+.logset-card { margin-bottom: 14px; }
+.logset-products { font-size: 13px; color: var(--text3); margin: 4px 0 12px; }
 .order-section-title {
   font-size: 15px;
   font-weight: 700;
@@ -1103,11 +1153,14 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .log-item strong { color: var(--accent); font-weight: 700; }
 .log-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
   margin-top: 14px;
   padding-top: 12px;
   border-top: 1px solid var(--border);
 }
+/* Delete sits at the far right (low-key, separated from History/Edit on the left). */
+.log-delete-btn { margin-left: auto; }
 .log-wa-btn {
   flex: 1;
   padding: 9px 10px;
@@ -1184,21 +1237,11 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .log-ver-count { font-size: 11px; color: var(--text3); margin-bottom: 6px; }
 .log-hist-btn {
   background: var(--surface); border: 1px solid var(--border); color: var(--text2);
-  border-radius: var(--radius-sm); padding: 8px 12px; font-size: 13px; cursor: pointer;
+  border-radius: var(--radius-sm); padding: 9px 14px; font-size: 13px; cursor: pointer;
   font-family: 'DM Sans', sans-serif;
 }
 
-/* Save-log modal (Today / Tomorrow + calculated by) — same shell as the WA modal. */
-#logday-modal {
-  display: none; position: fixed; inset: 0; z-index: 1000;
-  background: rgba(0,0,0,0.45); align-items: flex-end; justify-content: center;
-}
-#logday-modal.visible { display: flex; }
-#logday-box {
-  background: var(--surface); border-radius: var(--radius) var(--radius) 0 0;
-  padding: 24px 20px 32px; width: 100%; max-width: 480px;
-}
-.logday-q { text-align: center; color: var(--text2); font-size: 14px; margin-bottom: 14px; }
+/* Today/Tomorrow choice buttons — used by the "+ Add log" screen. */
 .logday-choices { display: flex; gap: 10px; margin-bottom: 18px; }
 .logday-choice {
   flex: 1; padding: 16px; border-radius: var(--radius-sm); cursor: pointer;
@@ -1206,21 +1249,6 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600;
 }
 .logday-choice.selected { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
-.logday-by-label { display: block; font-size: 13px; color: var(--text2); margin-bottom: 6px; }
-.logday-by-input {
-  width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
-  font-size: 16px; font-family: 'DM Sans', sans-serif; background: var(--surface); color: var(--text);
-}
-.logday-cancel {
-  flex: 1; padding: 13px; background: var(--surface2); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-weight: 600;
-  color: var(--text2); cursor: pointer;
-}
-.logday-save {
-  flex: 2; padding: 13px; background: var(--accent); border: none; border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif; font-weight: 700; color: #fff; cursor: pointer;
-}
-.logday-save:disabled { opacity: 0.5; cursor: default; }
 
 /* Log overlays (read-only view, edit screen, history) — same shell as #recipe-overlay. */
 .log-overlay {
