@@ -104,6 +104,67 @@ export const DEFAULT_CONFIG = {
       { productId: 'f-panini', kind: 'number' },
     ] },
   ],
+  // The recipes — the base everything else hangs off. Each has a calc logic, an
+  // ordered ingredient list, an optional designated leavening (yeast/starter) with a
+  // default % and a "show the knob" flag, a stored baseline % (the leavening's share
+  // at rest — see scaleRecipe), and its calculator-tab order + visibility. The three
+  // shipped recipes reproduce today's exact amounts, names, order and leavening, so
+  // the dough math is byte-identical (proven in tests/unified-scaler + dynamic-recipes).
+  recipes: [
+    { id: 'focaccia', name: 'Focaccia', logic: 'orders',
+      ingredients: [
+        { key: 'flourBlu', label: 'Flour uniqua blue', grams: 278 },
+        { key: 'flourT65', label: 'Flour T65', grams: 278 },
+        { key: 'malt', label: 'Malt', grams: 3 },
+        { key: 'sugar', label: 'Sugar', grams: 8 },
+        { key: 'salt', label: 'Salt', grams: 11 },
+        { key: 'yeast', label: 'Yeast', grams: 3.6 },
+        { key: 'oil', label: 'Oil', grams: 56 },
+        { key: 'water1', label: '1° Water', grams: 334 },
+        { key: 'water2', label: '2° Water', grams: 24 },
+      ],
+      leaveningKey: 'yeast', leaveningDefaultPct: 0.65, showLeavening: true,
+      baselinePct: 0.6474820143884892, order: 0, visible: true },
+    { id: 'brioche', name: 'Brioche', logic: 'orders',
+      ingredients: [
+        { key: 'flour', label: 'Mella brioche pof', grams: 3185 },
+        { key: 'yeast', label: 'Yeast', grams: 127.4 },
+        { key: 'water', label: 'Water', grams: 1575 },
+      ],
+      leaveningKey: 'yeast', leaveningDefaultPct: 4, showLeavening: true,
+      baselinePct: 4, order: 1, visible: true },
+    { id: 'sourdough', name: 'Sourdough', logic: 'orders',
+      ingredients: [
+        { key: 'flourBlu', label: 'Flour uniqua blue', grams: 2560 },
+        { key: 'flourT65', label: 'Flour T65', grams: 2560 },
+        { key: 'flourWhole', label: 'Flour wholemeal', grams: 570 },
+        { key: 'water1', label: '1° Water', grams: 3800 },
+        { key: 'starter', label: 'Starter', grams: 1024 },
+        { key: 'malt', label: 'Malt', grams: 30 },
+        { key: 'salt', label: 'Salt', grams: 124 },
+        { key: 'water2', label: '2° Water', grams: 300 },
+      ],
+      leaveningKey: 'starter', leaveningDefaultPct: 18, showLeavening: true,
+      baselinePct: 18, order: 2, visible: true },
+  ],
+  // The ingredient registry — a master list of names for autocomplete when composing
+  // a recipe. Independent of the recipes (a name can exist here without being used).
+  // Seeded with the distinct ingredient names of the three recipes.
+  ingredients: [
+    { id: 'ing-flourblue', name: 'Flour uniqua blue' },
+    { id: 'ing-flourt65', name: 'Flour T65' },
+    { id: 'ing-flourwhole', name: 'Flour wholemeal' },
+    { id: 'ing-malt', name: 'Malt' },
+    { id: 'ing-sugar', name: 'Sugar' },
+    { id: 'ing-salt', name: 'Salt' },
+    { id: 'ing-yeast', name: 'Yeast' },
+    { id: 'ing-starter', name: 'Starter' },
+    { id: 'ing-oil', name: 'Oil' },
+    { id: 'ing-water1', name: '1° Water' },
+    { id: 'ing-water2', name: '2° Water' },
+    { id: 'ing-water', name: 'Water' },
+    { id: 'ing-mella', name: 'Mella brioche pof' },
+  ],
   // Independent WhatsApp order lists (decoupled from the recipe tabs): a title plus
   // client entries, each naming an address-book client and the catalogue product ids
   // it should show. References are resolved live; deleted clients/products are pruned.
@@ -227,6 +288,64 @@ export function getAllProducts(config) {
     const names = clientsByProduct.get(p.id) || [];
     return { ...p, clientNames: names, clientCount: names.length };
   });
+}
+
+// ── Recipes (the base) + ingredient registry ──────────────────────────────────
+
+// The three calc logics a recipe can use:
+//   'orders' → quantities from clients (+ leavening knob) — today's behaviour
+//   'total'  → one typed total in grams, ingredients pro-rata (no clients/leavening)
+//   'both'   → orders + a typed total + leavening; the two totals are summed
+export const LOGICS = ['orders', 'total', 'both'];
+
+// The maximum number of recipes that can be visible as calculator tabs at once.
+export const MAX_VISIBLE_RECIPES = 4;
+
+// All recipes (empty array for a missing/garbage config).
+export function getRecipes(config) {
+  return (config && Array.isArray(config.recipes)) ? config.recipes : [];
+}
+
+export function getRecipeById(config, id) {
+  return getRecipes(config).find(r => r && r.id === id) || null;
+}
+
+// The recipes shown as calculator tabs: those flagged visible, in their chosen
+// order, capped at MAX_VISIBLE_RECIPES (screen space). Stage 5 builds the tabs from
+// this; in Stage 4 all three ship visible, so it returns the three as today.
+export function getVisibleRecipes(config) {
+  return getRecipes(config)
+    .filter(r => r && r.visible !== false)
+    .slice()
+    .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0))
+    .slice(0, MAX_VISIBLE_RECIPES);
+}
+
+// The ingredient registry (empty array for a missing/garbage config).
+export function getIngredients(config) {
+  return (config && Array.isArray(config.ingredients)) ? config.ingredients : [];
+}
+
+// Whether a recipe's calculator tab shows a leavening knob: only logics that order
+// or sum ('orders'/'both'), and only when the recipe designates a leavening with the
+// "show the knob" flag on. A 'total' recipe never shows it (pure pro-rata).
+export function showsLeaveningKnob(recipe) {
+  if (!recipe || (recipe.logic !== 'orders' && recipe.logic !== 'both')) return false;
+  return !!(recipe.leaveningKey && recipe.showLeavening);
+}
+
+// Build the scaleRecipe spec from a config recipe: the ordered {key: grams} amounts,
+// which ingredient is the leavening, and the stored baseline %. The dough math
+// (calc.js, log) feeds this straight into scaleRecipe — see calculator-dough-math.js.
+export function recipeSpec(recipe) {
+  const amounts = {};
+  for (const ing of (recipe && Array.isArray(recipe.ingredients) ? recipe.ingredients : [])) {
+    if (ing && ing.key) amounts[ing.key] = Number(ing.grams) || 0;
+  }
+  const leaveningKey = (recipe && recipe.leaveningKey && amounts[recipe.leaveningKey] != null)
+    ? recipe.leaveningKey : null;
+  const baselinePct = (recipe && Number.isFinite(Number(recipe.baselinePct))) ? Number(recipe.baselinePct) : null;
+  return { amounts, leaveningKey, baselinePct };
 }
 
 // The saved independent WhatsApp lists (empty array for a missing/garbage config).
@@ -559,6 +678,87 @@ function normalizeDivisorIncluded(raw, products) {
   return out;
 }
 
+// A slug suitable for a stable-ish id derived from a name (lowercase, hyphenated).
+function slug(s) {
+  return String(s || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+// One recipe ingredient row: a stable key (its identity within the recipe), a label
+// (the displayed name) and grams. Keys are made unique within a recipe by the caller.
+function normalizeIngredientRow(raw, index) {
+  if (!raw || typeof raw !== 'object') return null;
+  const label = String(raw.label || raw.name || 'Ingredient');
+  const key = raw.key ? String(raw.key) : (slug(label) || ('ing' + index));
+  return { key, label, grams: Number(raw.grams) || 0 };
+}
+
+// One recipe: id, name, logic, ordered ingredients (unique keys), optional designated
+// leavening with its default % / show flag, the stored baseline %, order and
+// visibility. Anything invalid falls back to a safe value so the math always runs.
+function normalizeRecipe(raw, index) {
+  if (!raw || typeof raw !== 'object') return null;
+  const name = String(raw.name || 'Recipe');
+  const id = String(raw.id || ('r-' + (slug(name) || index)));
+  const logic = LOGICS.includes(raw.logic) ? raw.logic : 'orders';
+
+  const ingredients = [];
+  const usedKeys = new Set();
+  const rawIngs = Array.isArray(raw.ingredients) ? raw.ingredients : [];
+  rawIngs.forEach((ri, i) => {
+    const row = normalizeIngredientRow(ri, i);
+    if (!row) return;
+    let key = row.key;
+    while (usedKeys.has(key)) key = key + '-' + i; // keep keys unique within the recipe
+    usedKeys.add(key);
+    ingredients.push({ key, label: row.label, grams: row.grams });
+  });
+
+  const leaveningKey = (raw.leaveningKey && usedKeys.has(String(raw.leaveningKey)))
+    ? String(raw.leaveningKey) : null;
+  const leaveningDefaultPct = Math.max(0, Number(raw.leaveningDefaultPct) || 0);
+  const showLeavening = raw.showLeavening !== false;
+  const baselinePct = Number.isFinite(Number(raw.baselinePct)) && Number(raw.baselinePct) > 0
+    ? Number(raw.baselinePct)
+    : (leaveningKey && leaveningDefaultPct > 0 ? leaveningDefaultPct : null);
+
+  return {
+    id, name, logic, ingredients,
+    leaveningKey, leaveningDefaultPct, showLeavening, baselinePct,
+    order: Number(raw.order) || 0,
+    visible: raw.visible !== false,
+  };
+}
+
+// The recipe list. A missing/garbage list falls back to the three shipped recipes so
+// the calculator always has something to scale. Ids are de-duplicated (first wins).
+function normalizeRecipes(raw) {
+  if (!Array.isArray(raw)) return cloneConfig(DEFAULT_CONFIG.recipes);
+  const out = [];
+  const seen = new Set();
+  raw.forEach((r, i) => {
+    const nr = normalizeRecipe(r, i);
+    if (nr && !seen.has(nr.id)) { seen.add(nr.id); out.push(nr); }
+  });
+  return out.length ? out : cloneConfig(DEFAULT_CONFIG.recipes);
+}
+
+// The ingredient registry: every saved registry name PLUS every label used by a
+// recipe (so the autocomplete pool is always a superset of what is in use), de-duped
+// case-insensitively. Independent of the recipes — a name can exist here unused.
+function normalizeIngredients(raw, recipes) {
+  const byName = new Map(); // lowercased name -> { id, name }
+  function add(name, idHint) {
+    const clean = String(name || '').trim();
+    if (!clean) return;
+    const key = clean.toLowerCase();
+    if (byName.has(key)) return;
+    byName.set(key, { id: String(idHint || ('ing-' + (slug(clean) || byName.size))), name: clean });
+  }
+  if (Array.isArray(raw)) for (const r of raw) if (r && typeof r === 'object') add(r.name, r.id);
+  for (const recipe of recipes) for (const ing of (recipe.ingredients || [])) add(ing.label);
+  return [...byName.values()];
+}
+
 // Assemble the normalised config from an already-normalised catalogue + clients plus
 // the raw document's remaining sections. Shared by the new-shape and migration paths.
 function assemble(products, clients, raw) {
@@ -566,9 +766,12 @@ function assemble(products, clients, raw) {
   const rawLists = Array.isArray(raw.whatsappLists)
     ? raw.whatsappLists
     : groupsToLists(raw.groups, clients);
+  const recipes = normalizeRecipes(raw.recipes);
   return {
     products,
     clients,
+    recipes,
+    ingredients: normalizeIngredients(raw.ingredients, recipes),
     whatsappLists: normalizeWhatsappLists(rawLists, clients, validProductIds),
     whatsappClients: normalizeWhatsappClients(raw.whatsappClients, validProductIds),
     extraDough: normalizeExtraDough(raw.extraDough),
