@@ -646,17 +646,18 @@ function groupsToLists(groups, clients) {
   });
 }
 
-// Per-tab "show Extra dough box" flags. Default shown (true) unless explicitly false.
-function normalizeExtraDough(raw) {
+// Per-recipe "show Extra dough box" flags. Default shown (true) unless explicitly
+// false. Keyed by every recipe id so a new recipe can carry its own setting.
+function normalizeExtraDough(raw, ids) {
   const out = {};
-  for (const tab of TABS) out[tab] = !(raw && raw[tab] === false);
+  for (const id of ids) out[id] = !(raw && raw[id] === false);
   return out;
 }
 
-// Per-tab "show this recipe's logs" flags. Default shown (true) unless explicitly false.
-function normalizeLogVisibility(raw) {
+// Per-recipe "show this recipe's logs" flags. Default shown (true) unless explicitly false.
+function normalizeLogVisibility(raw, ids) {
   const out = {};
-  for (const tab of TABS) out[tab] = !(raw && raw[tab] === false);
+  for (const id of ids) out[id] = !(raw && raw[id] === false);
   return out;
 }
 
@@ -665,12 +666,12 @@ function normalizeLogRetention(raw) {
   return LOG_RETENTION_OPTIONS.includes(n) ? n : LOG_RETENTION_DEFAULT;
 }
 
-function normalizeLogRetentionByDough(raw, legacyGlobal) {
+function normalizeLogRetentionByDough(raw, legacyGlobal, ids) {
   const fallback = normalizeLogRetention(legacyGlobal);
   const out = {};
-  for (const tab of TABS) {
-    const n = raw && Number(raw[tab]);
-    out[tab] = LOG_RETENTION_OPTIONS.includes(n) ? n : fallback;
+  for (const id of ids) {
+    const n = raw && Number(raw[id]);
+    out[id] = LOG_RETENTION_OPTIONS.includes(n) ? n : fallback;
   }
   return out;
 }
@@ -682,14 +683,14 @@ function recipeProductIds(products, recipeId) {
   return ids;
 }
 
-// Which catalogue product ids each tab's divisor includes, pruned to ids that still
-// exist in that recipe so a deleted product never lingers. Defaults to none.
-function normalizeDivisorIncluded(raw, products) {
+// Which catalogue product ids each recipe's divisor includes, pruned to ids that
+// still exist in that recipe so a deleted product never lingers. Defaults to none.
+function normalizeDivisorIncluded(raw, products, recipeIds) {
   const out = {};
-  for (const tab of TABS) {
-    const ids = recipeProductIds(products, tab);
-    const stored = raw && Array.isArray(raw[tab]) ? raw[tab].map(String) : [];
-    out[tab] = stored.filter(id => ids.has(id));
+  for (const rid of recipeIds) {
+    const validIds = recipeProductIds(products, rid);
+    const stored = raw && Array.isArray(raw[rid]) ? raw[rid].map(String) : [];
+    out[rid] = stored.filter(id => validIds.has(id));
   }
   return out;
 }
@@ -783,6 +784,7 @@ function assemble(products, clients, raw) {
     ? raw.whatsappLists
     : groupsToLists(raw.groups, clients);
   const recipes = normalizeRecipes(raw.recipes);
+  const recipeIds = recipes.map(r => r.id);
   return {
     products,
     clients,
@@ -790,11 +792,11 @@ function assemble(products, clients, raw) {
     ingredients: normalizeIngredients(raw.ingredients, recipes),
     whatsappLists: normalizeWhatsappLists(rawLists, clients, validProductIds),
     whatsappClients: normalizeWhatsappClients(raw.whatsappClients, validProductIds),
-    extraDough: normalizeExtraDough(raw.extraDough),
-    divisorIncluded: normalizeDivisorIncluded(raw.divisorIncluded, products),
-    logVisibility: normalizeLogVisibility(raw.logVisibility),
+    extraDough: normalizeExtraDough(raw.extraDough, recipeIds),
+    divisorIncluded: normalizeDivisorIncluded(raw.divisorIncluded, products, recipeIds),
+    logVisibility: normalizeLogVisibility(raw.logVisibility, recipeIds),
     logRetentionHours: normalizeLogRetention(raw.logRetentionHours),
-    logRetentionByDough: normalizeLogRetentionByDough(raw.logRetentionByDough, raw.logRetentionHours),
+    logRetentionByDough: normalizeLogRetentionByDough(raw.logRetentionByDough, raw.logRetentionHours, recipeIds),
   };
 }
 

@@ -126,27 +126,31 @@
       </button>
       <button id="open-products-btn" class="settings-menu-btn">
         <span class="settings-menu-title">Products</span>
-        <span class="settings-menu-sub">See every product at a glance, grouped by dough</span>
+        <span class="settings-menu-sub">Add, rename or delete products and set their recipe and weight</span>
+      </button>
+      <button id="open-recipes-btn" class="settings-menu-btn">
+        <span class="settings-menu-title">Recipes</span>
+        <span class="settings-menu-sub">Add, edit or delete recipes; pick which show as tabs</span>
+      </button>
+      <button id="open-ingredients-btn" class="settings-menu-btn">
+        <span class="settings-menu-title">Ingredients</span>
+        <span class="settings-menu-sub">The master list of ingredient names used in recipes</span>
       </button>
       <button id="open-whatsapp-btn" class="settings-menu-btn">
         <span class="settings-menu-title">WhatsApp</span>
         <span class="settings-menu-sub">Build order lists: pick clients and the products to send</span>
       </button>
-      <button id="open-recipes-btn" class="settings-menu-btn">
-        <span class="settings-menu-title">Recipes</span>
-        <span class="settings-menu-sub">Edit the dough ingredient amounts</span>
-      </button>
       <button id="open-extra-btn" class="settings-menu-btn">
         <span class="settings-menu-title">Extra dough</span>
-        <span class="settings-menu-sub">Show or hide the extra-dough box in each tab</span>
+        <span class="settings-menu-sub">Show or hide the extra-dough box in each recipe</span>
       </button>
       <button id="open-divisor-btn" class="settings-menu-btn">
         <span class="settings-menu-title">Divisor</span>
-        <span class="settings-menu-sub">Choose which products the divisor box splits, per tab</span>
+        <span class="settings-menu-sub">Choose which products the divisor box splits, per recipe</span>
       </button>
       <button id="open-logsettings-btn" class="settings-menu-btn">
         <span class="settings-menu-title">Log</span>
-        <span class="settings-menu-sub">Choose which doughs' logs to show, and how long they stay</span>
+        <span class="settings-menu-sub">Choose which recipes' logs to show, and how long they stay</span>
       </button>
     </div>
   </div>
@@ -162,10 +166,8 @@
   </div>
   <div class="recipe-scroll">
     <div id="extra-content">
-      <p class="extra-help">Show the "Extra dough" box in each tab. Tap Save to apply your changes.</p>
-      <label class="extra-toggle-row"><span>Focaccia</span><input type="checkbox" id="extra-toggle-focaccia"></label>
-      <label class="extra-toggle-row"><span>Brioche</span><input type="checkbox" id="extra-toggle-brioche"></label>
-      <label class="extra-toggle-row"><span>Sourdough</span><input type="checkbox" id="extra-toggle-sourdough"></label>
+      <p class="extra-help">Show the "Extra dough" box in each recipe tab. Tap Save to apply your changes.</p>
+      <div id="extra-content-list"></div>
       <button class="cp-save-bottom" id="extra-save-btn" type="button" disabled>Save</button>
     </div>
   </div>
@@ -235,6 +237,20 @@
   </div>
   <div class="recipe-scroll">
     <div id="products-content"></div>
+  </div>
+</div>
+
+<div id="ingredients-overlay">
+  <div class="recipe-overlay-header">
+    <button class="ingredients-back-btn">&#8592;</button>
+    <span class="recipe-overlay-title">Ingredients</span>
+    <button class="overlay-home-btn" id="ingredients-home-btn" type="button" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </button>
+    <button id="ingredients-save-btn" disabled>Save</button>
+  </div>
+  <div class="recipe-scroll">
+    <div id="ingredients-content"></div>
   </div>
 </div>
 

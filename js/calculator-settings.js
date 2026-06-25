@@ -23,7 +23,8 @@
 
 import { getConfig, saveConfig } from './calculator-config-store.js';
 import {
-  WEIGHT_MIN, WEIGHT_MAX, TABS, cloneConfig, isExtraDoughEnabled, getTabProducts, isInDivisor,
+  WEIGHT_MIN, WEIGHT_MAX, cloneConfig, isExtraDoughEnabled, getTabProducts, isInDivisor,
+  getRecipes, getRecipeById, getIngredients,
 } from './calculator-config.js';
 import { el } from './calculator-render.js';
 import { openRecipes } from './recipes.js';
@@ -31,7 +32,8 @@ import { openWhatsapp } from './calculator-whatsapp-settings.js';
 import { confirmDiscard } from './calculator-confirm.js';
 import Sortable from './vendor/sortable.esm.js';
 
-const DOUGH_LABELS = { focaccia: 'Focaccia', brioche: 'Brioche', sourdough: 'Sourdough' };
+// A recipe's display name (falls back to its id if the recipe was deleted).
+function recipeLabel(id) { const r = getRecipeById(getConfig(), id); return r ? r.name : id; }
 
 // How the quantity is entered on the calculator. 'kg' is not offered here (it is a
 // legacy widget tied to the old extra-dough product, no longer creatable).
@@ -301,7 +303,7 @@ function itemCard(client, item, ii) {
   select.appendChild(el('option', { value: '' }, '— Choose a product —'));
   for (const p of catalogue()) {
     if (usedElsewhere.has(p.id)) continue;
-    const opt = el('option', { value: p.id }, p.name + ' (' + DOUGH_LABELS[p.recipeId] + ')');
+    const opt = el('option', { value: p.id }, p.name + ' (' + recipeLabel(p.recipeId) + ')');
     select.appendChild(opt);
   }
   select.value = item.productId || '';
@@ -315,7 +317,7 @@ function itemCard(client, item, ii) {
 
   if (product) {
     children.push(el('div', { class: 'cp-prod-card-row' }, [
-      el('span', { class: 'cp-unit' }, DOUGH_LABELS[product.recipeId] + ' · ' + product.weight + ' g'),
+      el('span', { class: 'cp-unit' }, recipeLabel(product.recipeId) + ' · ' + product.weight + ' g'),
     ]));
 
     if (item.kind === 'kg') {
@@ -470,10 +472,10 @@ function renderProductsList() {
   if (products.length === 0) {
     content.appendChild(el('div', { class: 'cp-empty-hint' }, 'No products yet. Add your first one below.'));
   } else {
-    for (const tab of TABS) {
-      const inTab = products.filter(p => p.recipeId === tab);
+    for (const recipe of getRecipes(getConfig())) {
+      const inTab = products.filter(p => p.recipeId === recipe.id);
       if (inTab.length === 0) continue;
-      content.appendChild(el('div', { class: 'section-label' }, DOUGH_LABELS[tab]));
+      content.appendChild(el('div', { class: 'section-label' }, recipe.name));
       inTab.forEach(p => content.appendChild(productListBox(p)));
     }
   }
@@ -539,14 +541,17 @@ function renderProductDetail(pi) {
     el('div', { class: 'cp-name-row' }, [nameInput, del]),
   ]));
 
-  // Recipe selector.
-  const recipe = el('select', { class: 'cp-prod-dough', 'aria-label': 'Recipe' });
-  for (const t of TABS) recipe.appendChild(el('option', { value: t }, DOUGH_LABELS[t]));
-  recipe.value = TABS.includes(product.recipeId) ? product.recipeId : 'focaccia';
-  recipe.addEventListener('change', () => { product.recipeId = recipe.value; prodMarkDirty(); });
+  // Recipe selector (from the recipes defined in Settings → Recipes).
+  const recipeSel = el('select', { class: 'cp-prod-dough', 'aria-label': 'Recipe' });
+  const allRecipes = getRecipes(getConfig());
+  for (const rc of allRecipes) recipeSel.appendChild(el('option', { value: rc.id }, rc.name));
+  const hasRecipe = allRecipes.some(rc => rc.id === product.recipeId);
+  recipeSel.value = hasRecipe ? product.recipeId : (allRecipes[0] ? allRecipes[0].id : '');
+  if (!hasRecipe && allRecipes[0]) product.recipeId = allRecipes[0].id;
+  recipeSel.addEventListener('change', () => { product.recipeId = recipeSel.value; prodMarkDirty(); });
   content.appendChild(el('div', { class: 'cp-field' }, [
     el('label', { class: 'cp-label' }, 'Recipe'),
-    recipe,
+    recipeSel,
   ]));
 
   // Weight (grams).
@@ -563,6 +568,68 @@ function renderProductDetail(pi) {
   content.appendChild(saveBottomButton(saveProducts));
 }
 
+// ── Ingredients registry (separate Settings screen) ───────────────────────────
+// The master list of ingredient names used for autocomplete when composing a recipe.
+// Independent of the recipes: a name can exist here unused. Names used by a recipe are
+// always present (re-seeded on save), so deleting one only removes an UNUSED name.
+let ingWorking = null;
+let ingDirty = false;
+
+function ingList() {
+  if (!Array.isArray(ingWorking.ingredients)) ingWorking.ingredients = [];
+  return ingWorking.ingredients;
+}
+function updateIngSaveBtn() {
+  const btn = document.getElementById('ingredients-save-btn');
+  if (!btn) return;
+  btn.disabled = !ingDirty;
+  btn.classList.toggle('dirty', ingDirty);
+}
+function ingMarkDirty() { ingDirty = true; updateIngSaveBtn(); }
+
+function openIngredients() {
+  ingWorking = cloneConfig(getConfig());
+  ingDirty = false;
+  renderIngredientsList();
+  updateIngSaveBtn();
+  show('ingredients-overlay');
+}
+function closeIngredients() {
+  if (!confirmDiscard(ingDirty)) return;
+  hide('ingredients-overlay');
+}
+
+function renderIngredientsList() {
+  const content = document.getElementById('ingredients-content');
+  content.textContent = '';
+  content.appendChild(el('p', { class: 'extra-help' },
+    'The ingredient names that autocomplete when you build a recipe. Names used by a recipe always stay; deleting only removes an unused name.'));
+  ingList().forEach((ing, ii) => {
+    const nameInput = el('input', { class: 'cp-prod-name', type: 'text', value: ing.name || '', placeholder: 'Ingredient name' });
+    nameInput.addEventListener('input', () => { ing.name = nameInput.value; ingMarkDirty(); });
+    const del = deleteIcon('Delete ingredient', () => { ingList().splice(ii, 1); ingMarkDirty(); renderIngredientsList(); });
+    content.appendChild(el('div', { class: 'cp-prod-card' }, [el('div', { class: 'cp-prod-card-head' }, [nameInput, del])]));
+  });
+  const add = el('button', { class: 'cp-add-client', type: 'button' }, '+ Add ingredient');
+  add.addEventListener('click', () => { ingList().push({ id: genId('ing'), name: '' }); ingMarkDirty(); renderIngredientsList(); });
+  content.appendChild(add);
+}
+
+async function saveIngredients() {
+  // Drop blank rows; normalizeConfig de-dupes and re-seeds names used by recipes.
+  ingWorking.ingredients = ingList().filter(i => !isBlank(i.name));
+  if (!confirm('Save these changes?')) return;
+  try {
+    await saveConfig(ingWorking);
+    ingDirty = false;
+    updateIngSaveBtn();
+    ingWorking = cloneConfig(getConfig());
+    renderIngredientsList();
+  } catch (e) {
+    alert('Could not save. Check your connection and try again.');
+  }
+}
+
 // ── Extra-dough visibility (separate Settings screen) ─────────────────────────
 let extraWorking = null;
 let extraDirty = false;
@@ -577,10 +644,22 @@ function updateExtraSaveBtn() {
 function openExtra() {
   extraWorking = cloneConfig(getConfig());
   extraDirty = false;
-  TABS.forEach(tab => {
-    const cb = document.getElementById('extra-toggle-' + tab);
-    if (cb) cb.checked = isExtraDoughEnabled(extraWorking, tab);
-  });
+  // One toggle per recipe, generated (recipes are dynamic).
+  const list = document.getElementById('extra-content-list');
+  if (list) {
+    list.textContent = '';
+    for (const recipe of getRecipes(extraWorking)) {
+      const cb = el('input', { type: 'checkbox' });
+      cb.checked = isExtraDoughEnabled(extraWorking, recipe.id);
+      cb.addEventListener('change', () => {
+        if (!extraWorking.extraDough || typeof extraWorking.extraDough !== 'object') extraWorking.extraDough = {};
+        extraWorking.extraDough[recipe.id] = cb.checked;
+        extraDirty = true;
+        updateExtraSaveBtn();
+      });
+      list.appendChild(el('label', { class: 'extra-toggle-row' }, [el('span', {}, recipe.name), cb]));
+    }
+  }
   updateExtraSaveBtn();
   show('extra-overlay');
 }
@@ -600,16 +679,6 @@ async function saveExtra() {
   }
 }
 
-TABS.forEach(tab => {
-  const cb = document.getElementById('extra-toggle-' + tab);
-  if (!cb) return;
-  cb.addEventListener('change', () => {
-    if (!extraWorking.extraDough || typeof extraWorking.extraDough !== 'object') extraWorking.extraDough = {};
-    extraWorking.extraDough[tab] = cb.checked;
-    extraDirty = true;
-    updateExtraSaveBtn();
-  });
-});
 document.getElementById('open-extra-btn').addEventListener('click', openExtra);
 document.querySelector('.extra-back-btn').addEventListener('click', closeExtra);
 document.getElementById('extra-save-btn').addEventListener('click', saveExtra);
@@ -667,19 +736,19 @@ function renderDivisorTabChooser() {
   const content = document.getElementById('divisor-content');
   content.textContent = '';
   content.appendChild(el('p', { class: 'extra-help' },
-    'Pick which products each tab’s divisor box splits into crates. Nothing is split until you tick it. Tap Save to apply.'));
-  for (const tab of TABS) {
+    'Pick which products each recipe’s divisor box splits into crates. Nothing is split until you tick it. Tap Save to apply.'));
+  for (const recipe of getRecipes(getConfig())) {
     const box = el('button', { class: 'drill-item', type: 'button' }, [
-      el('span', {}, DOUGH_LABELS[tab]),
+      el('span', {}, recipe.name),
       el('span', { class: 'drill-chevron' }, '→'),
     ]);
-    box.addEventListener('click', () => { divisorTab = tab; renderDivisorSettings(); });
+    box.addEventListener('click', () => { divisorTab = recipe.id; renderDivisorSettings(); });
     content.appendChild(box);
   }
 }
 
 function renderDivisorTabDetail(tab) {
-  setDivisorTitle(DOUGH_LABELS[tab] + ' divisor');
+  setDivisorTitle(recipeLabel(tab) + ' divisor');
   setDivisorHomeVisible(false);
   if (divisorWorking === null) { divisorWorking = cloneConfig(getConfig()); divisorDirty = false; }
   const content = document.getElementById('divisor-content');
@@ -763,3 +832,10 @@ document.getElementById('cp-save-btn').addEventListener('click', saveClients);
 document.querySelector('.products-back-btn').addEventListener('click', closeProducts);
 document.getElementById('products-home-btn').addEventListener('click', goHomeFromProducts);
 document.getElementById('products-save-btn').addEventListener('click', saveProducts);
+document.getElementById('open-ingredients-btn').addEventListener('click', openIngredients);
+document.querySelector('.ingredients-back-btn').addEventListener('click', closeIngredients);
+document.getElementById('ingredients-home-btn').addEventListener('click', () => {
+  if (!confirmDiscard(ingDirty)) return;
+  window.location.href = 'index.html';
+});
+document.getElementById('ingredients-save-btn').addEventListener('click', saveIngredients);

@@ -761,7 +761,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 #divisor-overlay,
 #wa-overlay,
 #logsettings-overlay,
-#products-overlay {
+#products-overlay,
+#ingredients-overlay {
   position: fixed;
   inset: 0;
   z-index: 520;
@@ -773,8 +774,9 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 #divisor-overlay.visible,
 #wa-overlay.visible,
 #logsettings-overlay.visible,
-#products-overlay.visible { display: flex; }
-#extra-content, #divisor-content, #wa-content, #logsettings-content, #products-content { padding: 14px 16px; }
+#products-overlay.visible,
+#ingredients-overlay.visible { display: flex; }
+#extra-content, #divisor-content, #wa-content, #logsettings-content, #products-content, #ingredients-content { padding: 14px 16px; }
 
 /* WhatsApp lists editor: a list/client/entry row pairs a drill-in with a low-key
    remove icon beside it (the top screen deletes lists & direct clients there). */
