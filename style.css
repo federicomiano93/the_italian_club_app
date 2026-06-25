@@ -83,6 +83,10 @@ header p { font-size: 11px; color: rgba(255,255,255,0.55); margin-top: 1px; font
 }
 #yeast-banner.hidden { display: none; }
 
+/* Utility: hide an element from markup without an inline style="" attribute,
+   which the page CSP (style-src 'self') blocks. Use this class instead. */
+.is-hidden { display: none !important; }
+
 /* Tab bar */
 .tab-bar {
   display: flex;
