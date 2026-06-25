@@ -1,29 +1,29 @@
-// calculator-settings.js — the Settings hub and the address-book (Clients) editor.
+// calculator-settings.js — the Settings hub, the Clients editor and the Products
+// (catalogue) editor.
 //
 // The footer "Settings" button opens a small chooser (#settings-overlay) whose
 // entries each open their own overlay: Clients (this editor, #cp-overlay), Products
-// (a read-only catalogue view, #products-overlay, below), WhatsApp
+// (the catalogue editor, #products-overlay, below), WhatsApp
 // (calculator-whatsapp-settings.js), Recipes (recipes.js), Extra dough and Divisor.
 //
-// This editor manages the single address book: a drill-in from the client list to a
-// tapped client's detail with its products inline. Each product carries which dough
-// it belongs to (focaccia/brioche/sourdough) and its own weight; the dough tabs are
-// filtered views of this. (WhatsApp order lists live in their own editor and are
-// fully independent of the dough tabs — see calculator-whatsapp-settings.js.)
+// THE MODEL (Stage 3): products live ONCE in a shared catalogue (config.products[]),
+// each with a name, a recipe and a weight. A client has `items[]`: the products it
+// orders, each association carrying how its quantity is entered (`kind`) and its
+// optional crate box (`crate`). So:
+//   • Products edits the catalogue: create / rename / delete a product, set its
+//     recipe and weight. A product used by a client cannot be deleted until it is
+//     removed from those clients first (safer — P20).
+//   • Clients edits the address book: a client's name and the products it orders,
+//     each picked from the catalogue via a dropdown, with its quantity type and crate.
 //
-// Detail screens show a prominent Save at the bottom; deleting is a small icon by
-// the name (kept low-key). New clients/products start with EMPTY names and are
-// validated on Save — nothing is persisted until every client and product has a
-// name. Moving between levels never loses data — the editor works on a deep copy of
-// the live config and nothing is touched until the user taps Save, which persists
-// through the config store (Firestore + cache) and triggers a calculator re-render.
-// Weights are clamped on save (a typo can never reach the dough math unbounded —
-// see calculator-config.js).
+// Both editors work on a deep copy of the live config and touch nothing until the
+// user taps Save (with a confirm), which persists through the config store (Firestore
+// + cache) and triggers a calculator re-render. Required fields are validated on Save;
+// deleting is a small low-key icon, never competing with Save (P20).
 
 import { getConfig, saveConfig } from './calculator-config-store.js';
 import {
   WEIGHT_MIN, WEIGHT_MAX, TABS, cloneConfig, isExtraDoughEnabled, getTabProducts, isInDivisor,
-  getAllProducts,
 } from './calculator-config.js';
 import { el } from './calculator-render.js';
 import { openRecipes } from './recipes.js';
@@ -37,7 +37,7 @@ const DOUGH_LABELS = { focaccia: 'Focaccia', brioche: 'Brioche', sourdough: 'Sou
 // legacy widget tied to the old extra-dough product, no longer creatable).
 const TYPE_LABELS = { number: 'Number', dropdown: 'Dropdown' };
 
-let working = null;        // deep copy being edited
+let working = null;        // Clients editor: deep copy being edited
 let activeClient = null;   // null = the client list, an index = a client's detail
 let freshlyAdded = false;  // the item just opened was created by an "Add" button
 let showErrors = false;    // after a failed Save, mark empty required fields
@@ -57,16 +57,21 @@ function isBlank(s) { return !s || !String(s).trim(); }
 export function openSettings() { show('settings-overlay'); }
 function closeSettings() { hide('settings-overlay'); }
 
-// ── Working-copy accessors (always present, even on a fresh/garbage config) ────
+// ── Clients editor ─────────────────────────────────────────────────────────────
 function clients() {
   if (!Array.isArray(working.clients)) working.clients = [];
   return working.clients;
 }
+function catalogue() {
+  return Array.isArray(working.products) ? working.products : [];
+}
+function productOf(id) {
+  return catalogue().find(p => p && p.id === id) || null;
+}
 
 function cpTitle() { return document.querySelector('#cp-overlay .recipe-overlay-title'); }
 
-// The header Home button is hidden on detail screens (Edit client / Edit group),
-// shown on the lists.
+// The header Home button is hidden on detail screens, shown on the list.
 function setHomeVisible(visible) {
   const btn = document.getElementById('cp-home-btn');
   if (btn) btn.style.display = visible ? '' : 'none';
@@ -80,19 +85,15 @@ function openClients() {
   dirty = false;
   renderEditor();
   updateSaveBtn();
-  // Settings stays mounted underneath (lower z-index); closing this reveals it.
   show('cp-overlay');
 }
 
-// True when a just-added item was left untouched, so it should not be kept.
+// True when a just-added client was left untouched (no name, no items), so it should
+// not be kept when leaving its detail screen.
 function isEmptyClient(c) {
-  return !c || (isBlank(c.name) && (!c.products || c.products.length === 0));
+  return !c || (isBlank(c.name) && (!c.items || c.items.length === 0));
 }
 
-// Contextual "back": step up one level (detail → list) without losing data —
-// edits live in the working copy. A just-added but still-empty item is offered
-// for discard, so leaving the "add" screen without filling anything does not
-// leave junk behind. Only a real exit from a list fires the unsaved guard.
 function closeClients() {
   if (activeClient !== null) {
     const client = clients()[activeClient];
@@ -109,7 +110,6 @@ function closeClients() {
   hide('cp-overlay');
 }
 
-// Jump straight to the home screen, guarding unsaved edits.
 function goHomeFromClients() {
   if (!confirmDiscard(dirty)) return;
   window.location.href = 'index.html';
@@ -123,28 +123,26 @@ function updateSaveBtn() {
   btn.classList.toggle('dirty', dirty);
 }
 
-// The index of the first client with a missing name (its own or a product's), or
-// null if every client and product is named.
+// The index of the first client that is invalid (a blank name, or an item with no
+// product chosen), or null if every client and item is complete.
 function findInvalid() {
   const cs = clients();
   for (let i = 0; i < cs.length; i++) {
     if (isBlank(cs[i].name)) return i;
-    for (const p of (cs[i].products || [])) {
-      if (isBlank(p.name)) return i;
+    for (const it of (cs[i].items || [])) {
+      if (!it.productId || !productOf(it.productId)) return i;
     }
   }
   return null;
 }
 
 async function saveClients() {
-  // Required-field guard: never persist a nameless client/product/group. Jump to
-  // the first offender and highlight the empty fields.
   const invalid = findInvalid();
   if (invalid !== null) {
     showErrors = true;
     activeClient = invalid;
     renderEditor();
-    alert('Please give every client and product a name before saving.');
+    alert('Please name every client and choose a product for every row before saving.');
     return;
   }
   if (!confirm('Save these changes?')) return;
@@ -153,8 +151,6 @@ async function saveClients() {
     showErrors = false;
     dirty = false;
     updateSaveBtn();
-    // Return to the client list — a clear "saved" signal and the natural next step
-    // when adding clients one after another.
     freshlyAdded = false;
     activeClient = null;
     renderEditor();
@@ -163,20 +159,17 @@ async function saveClients() {
   }
 }
 
-// Dispatch to the active level: the client list, or a client's detail.
 function renderEditor() {
   if (activeClient === null) renderClientList();
   else renderClientDetail(activeClient);
 }
 
-// A prominent Save button for the bottom of a detail screen.
-function saveBottomButton() {
+function saveBottomButton(onSave) {
   const btn = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Save');
-  btn.addEventListener('click', saveClients);
+  btn.addEventListener('click', onSave);
   return btn;
 }
 
-// A small, low-key delete icon (used in a detail's header row).
 function deleteIcon(label, onDelete) {
   const btn = el('button', { class: 'cp-del-icon', type: 'button', 'aria-label': label }, '🗑');
   btn.addEventListener('click', onDelete);
@@ -184,7 +177,7 @@ function deleteIcon(label, onDelete) {
 }
 
 // ── Clients Level 0: the address book ─────────────────────────────────────────
-let clientSortable = null; // active SortableJS instance on the client list
+let clientSortable = null;
 
 function renderClientList() {
   cpTitle().textContent = 'Clients';
@@ -193,8 +186,6 @@ function renderClientList() {
   if (clientSortable) { clientSortable.destroy(); clientSortable = null; }
   content.textContent = '';
 
-  // The reorderable client boxes live in their own list wrapper; the "Add" button
-  // sits outside it so it can never be dragged or used as a drop target.
   const listWrap = el('div', { class: 'cp-client-list' });
   clients().forEach((client, ci) => listWrap.appendChild(clientBox(client, ci)));
   content.appendChild(listWrap);
@@ -202,7 +193,7 @@ function renderClientList() {
   if (clients().length > 1) {
     clientSortable = Sortable.create(listWrap, {
       animation: 150,
-      delay: 200,            // hold to grab, so a quick swipe still scrolls/taps
+      delay: 200,
       delayOnTouchOnly: true,
       draggable: '.drill-reorder',
       ghostClass: 'cp-sortable-ghost',
@@ -214,7 +205,7 @@ function renderClientList() {
 
   const add = el('button', { class: 'cp-add-client', type: 'button' }, '+ Add client');
   add.addEventListener('click', () => {
-    clients().push({ id: genId('c'), name: '', products: [] });
+    clients().push({ id: genId('c'), name: '', items: [] });
     markDirty();
     freshlyAdded = true;
     activeClient = clients().length - 1;
@@ -223,9 +214,6 @@ function renderClientList() {
   content.appendChild(add);
 }
 
-// A tappable box that drills into a client's detail. It is also a SortableJS
-// drag handle (class drill-reorder). The click looks up the client's CURRENT
-// index by id, so it stays correct even after a reorder moved boxes around.
 function clientBox(client, ci) {
   const box = el('button', { class: 'drill-item drill-reorder', type: 'button', 'data-cid': client.id }, [
     el('span', {}, client.name || 'Unnamed client'),
@@ -241,9 +229,6 @@ function clientBox(client, ci) {
   return box;
 }
 
-// After a drag, reorder the working client array to match the on-screen order.
-// SortableJS has already moved the DOM nodes; we just read them back. Persists
-// only on Save, like every other edit.
 function syncClientOrderFromDom() {
   const ids = [...document.querySelectorAll('#cp-content .drill-reorder')].map(n => n.dataset.cid);
   const cs = clients();
@@ -252,15 +237,15 @@ function syncClientOrderFromDom() {
   if (cs.map(c => c.id).join('|') !== before) markDirty();
 }
 
-// ── Clients Level 1: a client's detail (name + product cards) ─────────────────
+// ── Clients Level 1: a client's detail (name + ordered-product cards) ──────────
 function renderClientDetail(ci) {
   const client = clients()[ci];
+  if (!Array.isArray(client.items)) client.items = [];
   cpTitle().textContent = 'Edit client';
   setHomeVisible(false);
   const content = document.getElementById('cp-content');
   content.textContent = '';
 
-  // Name (prominent) with a small delete icon beside it.
   const nameInput = el('input', { class: 'cp-client-name', type: 'text', value: client.name || '', placeholder: 'Client name' });
   if (showErrors && isBlank(client.name)) nameInput.classList.add('cp-invalid');
   nameInput.addEventListener('input', () => { client.name = nameInput.value; nameInput.classList.remove('cp-invalid'); markDirty(); });
@@ -276,108 +261,309 @@ function renderClientDetail(ci) {
     el('div', { class: 'cp-name-row' }, [nameInput, del]),
   ]));
 
-  // Products, each as its own clearly separated card.
-  const cards = (client.products || []).map((p, pi) => productCard(client, p, pi));
-  const addProd = el('button', { class: 'cp-add-prod', type: 'button' }, '+ Add product');
-  addProd.addEventListener('click', () => {
-    if (!client.products) client.products = [];
-    client.products.push({ id: genId('p'), name: '', dough: 'focaccia', weight: 100, kind: 'number' });
-    markDirty();
-    renderEditor();
-  });
-  content.appendChild(el('div', { class: 'cp-field' }, [
-    el('label', { class: 'cp-label' }, 'Products'), ...cards, addProd,
-  ]));
+  // The products this client orders, each its own card. Products come from the
+  // catalogue (the Products tab) — here you only pick which ones, and set how the
+  // quantity is entered and the crate box (these can differ per client).
+  const field = el('div', { class: 'cp-field' }, [el('label', { class: 'cp-label' }, 'Products ordered')]);
+  if (catalogue().length === 0) {
+    field.appendChild(el('div', { class: 'cp-empty-hint' }, 'No products yet. Add them in Settings → Products first, then come back here.'));
+  } else {
+    client.items.forEach((it, ii) => field.appendChild(itemCard(client, it, ii)));
+    const addProd = el('button', { class: 'cp-add-prod', type: 'button' }, '+ Add product');
+    addProd.addEventListener('click', () => {
+      client.items.push({ productId: '', kind: 'number', crate: { show: false, perBox: 20 } });
+      markDirty();
+      renderEditor();
+    });
+    field.appendChild(addProd);
+  }
+  content.appendChild(field);
 
-  content.appendChild(saveBottomButton());
+  content.appendChild(saveBottomButton(saveClients));
 }
 
-// One product card: a prominent name on top, then dough selector + weight, with a
-// small delete icon. Clearly boxed so products do not blur into one another.
-function productCard(client, p, pi) {
-  const nameInput = el('input', { class: 'cp-prod-name', type: 'text', value: p.name || '', placeholder: 'Product name' });
-  if (showErrors && isBlank(p.name)) nameInput.classList.add('cp-invalid');
-  nameInput.addEventListener('input', () => { p.name = nameInput.value; nameInput.classList.remove('cp-invalid'); markDirty(); });
-
-  const del = deleteIcon('Delete product', () => {
-    client.products.splice(pi, 1);
+// One ordered-product card: a dropdown to pick which catalogue product, a read-only
+// line showing its recipe + weight, the quantity type, the crate box, and a remove
+// icon. Picking a product re-renders so the recipe/weight line updates.
+function itemCard(client, item, ii) {
+  const del = deleteIcon('Remove product', () => {
+    client.items.splice(ii, 1);
     markDirty();
     renderEditor();
   });
 
-  const dough = el('select', { class: 'cp-prod-dough', 'aria-label': 'Dough' });
-  for (const t of TABS) {
-    dough.appendChild(el('option', { value: t }, DOUGH_LABELS[t]));
+  // Product dropdown: catalogue products not already ordered by this client (plus the
+  // one this row currently holds), so a client never orders the same product twice.
+  const usedElsewhere = new Set(
+    client.items.filter((_, i) => i !== ii).map(i => i.productId).filter(Boolean)
+  );
+  const select = el('select', { class: 'cp-prod-name', 'aria-label': 'Product' });
+  select.appendChild(el('option', { value: '' }, '— Choose a product —'));
+  for (const p of catalogue()) {
+    if (usedElsewhere.has(p.id)) continue;
+    const opt = el('option', { value: p.id }, p.name + ' (' + DOUGH_LABELS[p.recipeId] + ')');
+    select.appendChild(opt);
   }
-  dough.value = TABS.includes(p.dough) ? p.dough : 'focaccia';
-  dough.addEventListener('change', () => { p.dough = dough.value; markDirty(); });
+  select.value = item.productId || '';
+  if (showErrors && (!item.productId || !productOf(item.productId))) select.classList.add('cp-invalid');
+  select.addEventListener('change', () => { item.productId = select.value; markDirty(); renderEditor(); });
 
-  // How the quantity is entered: a plain number field or a fixed preset dropdown.
-  // Drives only the calculator widget, never the dough math. Hidden for the legacy
-  // 'kg' widget (not creatable here).
-  let typeRow = null;
-  if (p.kind !== 'kg') {
-    const type = el('select', { class: 'cp-prod-dough', 'aria-label': 'Quantity type' });
-    for (const k of ['number', 'dropdown']) {
-      type.appendChild(el('option', { value: k }, TYPE_LABELS[k]));
+  const head = el('div', { class: 'cp-prod-card-head' }, [select, del]);
+
+  const product = productOf(item.productId);
+  const children = [head];
+
+  if (product) {
+    children.push(el('div', { class: 'cp-prod-card-row' }, [
+      el('span', { class: 'cp-unit' }, DOUGH_LABELS[product.recipeId] + ' · ' + product.weight + ' g'),
+    ]));
+
+    if (item.kind === 'kg') {
+      // Legacy kg association: quantity entered in kilograms; no type/crate options.
+      children.push(el('div', { class: 'cp-prod-card-row' }, [el('span', { class: 'cp-kg-note' }, 'kg')]));
+    } else {
+      const type = el('select', { class: 'cp-prod-dough', 'aria-label': 'Quantity type' });
+      for (const k of ['number', 'dropdown']) type.appendChild(el('option', { value: k }, TYPE_LABELS[k]));
+      type.value = item.kind === 'dropdown' ? 'dropdown' : 'number';
+      type.addEventListener('change', () => { item.kind = type.value; markDirty(); });
+      children.push(el('div', { class: 'cp-prod-card-row' }, [el('span', { class: 'cp-unit' }, 'Type'), type]));
+
+      if (!item.crate || typeof item.crate !== 'object') item.crate = { show: false, perBox: 20 };
+      const crateToggle = el('input', { type: 'checkbox' });
+      crateToggle.checked = !!item.crate.show;
+      const perBoxInput = el('input', {
+        class: 'cp-prod-weight', type: 'number', min: '1', max: '1000', step: '1',
+        value: String(item.crate.perBox || 20), inputmode: 'numeric',
+      });
+      perBoxInput.disabled = !item.crate.show;
+      crateToggle.addEventListener('change', () => {
+        item.crate.show = crateToggle.checked;
+        perBoxInput.disabled = !crateToggle.checked;
+        markDirty();
+      });
+      perBoxInput.addEventListener('input', () => { item.crate.perBox = +perBoxInput.value || 0; markDirty(); });
+      children.push(el('div', { class: 'cp-prod-card-row' }, [
+        el('label', { class: 'cp-crate-label' }, [crateToggle, el('span', {}, 'Crate box')]),
+        perBoxInput,
+        el('span', { class: 'cp-unit' }, 'pz'),
+      ]));
     }
-    type.value = p.kind === 'dropdown' ? 'dropdown' : 'number';
-    type.addEventListener('change', () => { p.kind = type.value; markDirty(); });
-    typeRow = el('div', { class: 'cp-prod-card-row' }, [el('span', { class: 'cp-unit' }, 'Type'), type]);
   }
 
-  const rowChildren = [dough];
-  if (p.kind === 'kg') {
-    // Extra-dough row: quantity is entered in kilograms, weight is not editable.
-    rowChildren.push(el('span', { class: 'cp-kg-note' }, 'kg'));
+  return el('div', { class: 'cp-prod-card' }, children);
+}
+
+// ── Products (catalogue) editor ────────────────────────────────────────────────
+// The shared product list: create / rename / delete a product, set its recipe and
+// weight. A product ordered by a client cannot be deleted until removed from those
+// clients first. Edited on its own working copy, saved with a confirm.
+let prodWorking = null;
+let prodActive = null;   // null = the product list, an index = a product's detail
+let prodFresh = false;
+let prodShowErrors = false;
+let prodDirty = false;
+
+function pcProducts() {
+  if (!Array.isArray(prodWorking.products)) prodWorking.products = [];
+  return prodWorking.products;
+}
+function pcTitle() { return document.querySelector('#products-overlay .recipe-overlay-title'); }
+function setProdHomeVisible(visible) {
+  const btn = document.getElementById('products-home-btn');
+  if (btn) btn.style.display = visible ? '' : 'none';
+}
+function prodMarkDirty() { prodDirty = true; updateProdSaveBtn(); }
+function updateProdSaveBtn() {
+  const btn = document.getElementById('products-save-btn');
+  if (!btn) return;
+  btn.disabled = !prodDirty;
+  btn.classList.toggle('dirty', prodDirty);
+}
+
+function openProducts() {
+  prodWorking = cloneConfig(getConfig());
+  prodActive = null;
+  prodFresh = false;
+  prodShowErrors = false;
+  prodDirty = false;
+  renderProductsEditor();
+  updateProdSaveBtn();
+  show('products-overlay');
+}
+
+// How many clients order a given product (drives the delete guard + the list hint).
+function clientCountFor(productId) {
+  let n = 0;
+  for (const c of (prodWorking.clients || [])) {
+    if ((c.items || []).some(i => i.productId === productId)) n++;
+  }
+  return n;
+}
+
+function isEmptyProduct(p) { return !p || isBlank(p.name); }
+
+function closeProducts() {
+  if (prodActive !== null) {
+    const product = pcProducts()[prodActive];
+    if (prodFresh && isEmptyProduct(product)) {
+      if (!confirm('Discard this new product? You have not named it.')) return;
+      pcProducts().splice(prodActive, 1);
+    }
+    prodFresh = false;
+    prodActive = null;
+    renderProductsEditor();
+    return;
+  }
+  if (!confirmDiscard(prodDirty)) return;
+  hide('products-overlay');
+}
+
+function goHomeFromProducts() {
+  if (!confirmDiscard(prodDirty)) return;
+  window.location.href = 'index.html';
+}
+
+function findInvalidProduct() {
+  const ps = pcProducts();
+  for (let i = 0; i < ps.length; i++) if (isBlank(ps[i].name)) return i;
+  return null;
+}
+
+async function saveProducts() {
+  const invalid = findInvalidProduct();
+  if (invalid !== null) {
+    prodShowErrors = true;
+    prodActive = invalid;
+    renderProductsEditor();
+    alert('Please give every product a name before saving.');
+    return;
+  }
+  if (!confirm('Save these changes?')) return;
+  try {
+    await saveConfig(prodWorking);
+    prodShowErrors = false;
+    prodDirty = false;
+    updateProdSaveBtn();
+    prodFresh = false;
+    prodActive = null;
+    renderProductsEditor();
+  } catch (e) {
+    alert('Could not save. Check your connection and try again.');
+  }
+}
+
+function renderProductsEditor() {
+  if (prodActive === null) renderProductsList();
+  else renderProductDetail(prodActive);
+}
+
+// Level 0: the catalogue, grouped by recipe, each product a drill-in row.
+function renderProductsList() {
+  pcTitle().textContent = 'Products';
+  setProdHomeVisible(true);
+  const content = document.getElementById('products-content');
+  content.textContent = '';
+  content.appendChild(el('p', { class: 'extra-help' },
+    'Your products, grouped by recipe. Tap one to edit its name, recipe or weight, or add a new one. Pick which clients order them in Settings → Clients.'));
+
+  const products = pcProducts();
+  if (products.length === 0) {
+    content.appendChild(el('div', { class: 'cp-empty-hint' }, 'No products yet. Add your first one below.'));
   } else {
-    const weight = el('input', {
-      class: 'cp-prod-weight', type: 'number', min: String(WEIGHT_MIN), max: String(WEIGHT_MAX),
-      step: '1', value: String(p.weight), inputmode: 'numeric',
-    });
-    weight.addEventListener('input', () => { p.weight = +weight.value || 0; markDirty(); });
-    rowChildren.push(weight, el('span', { class: 'cp-unit' }, 'g'));
+    for (const tab of TABS) {
+      const inTab = products.filter(p => p.recipeId === tab);
+      if (inTab.length === 0) continue;
+      content.appendChild(el('div', { class: 'section-label' }, DOUGH_LABELS[tab]));
+      inTab.forEach(p => content.appendChild(productListBox(p)));
+    }
   }
 
-  // Optional crate box: tick to show a "how many crates" helper in the calculator,
-  // and set how many pieces fit one crate. Bound to this product (not its name). The
-  // pieces field is enabled only while the box is on. Not offered for 'kg' products.
-  let crateRow = null;
-  if (p.kind !== 'kg') {
-    if (!p.crate || typeof p.crate !== 'object') p.crate = { show: false, perBox: 20 };
-    const crateToggle = el('input', { type: 'checkbox' });
-    crateToggle.checked = !!p.crate.show;
-    const perBoxInput = el('input', {
-      class: 'cp-prod-weight', type: 'number', min: '1', max: '1000', step: '1',
-      value: String(p.crate.perBox || 20), inputmode: 'numeric',
-    });
-    perBoxInput.disabled = !p.crate.show;
-    crateToggle.addEventListener('change', () => {
-      p.crate.show = crateToggle.checked;
-      perBoxInput.disabled = !crateToggle.checked;
-      markDirty();
-    });
-    perBoxInput.addEventListener('input', () => { p.crate.perBox = +perBoxInput.value || 0; markDirty(); });
-    crateRow = el('div', { class: 'cp-prod-card-row' }, [
-      el('label', { class: 'cp-crate-label' }, [crateToggle, el('span', {}, 'Crate box')]),
-      perBoxInput,
-      el('span', { class: 'cp-unit' }, 'pz'),
-    ]);
-  }
+  const add = el('button', { class: 'cp-add-client', type: 'button' }, '+ Add product');
+  add.addEventListener('click', () => {
+    pcProducts().push({ id: genId('p'), name: '', recipeId: 'focaccia', weight: 100 });
+    prodMarkDirty();
+    prodFresh = true;
+    prodActive = pcProducts().length - 1;
+    renderProductsEditor();
+  });
+  content.appendChild(add);
+}
 
-  return el('div', { class: 'cp-prod-card' }, [
-    el('div', { class: 'cp-prod-card-head' }, [nameInput, del]),
-    typeRow,
-    el('div', { class: 'cp-prod-card-row' }, rowChildren),
-    crateRow,
+function productListBox(product) {
+  const n = clientCountFor(product.id);
+  const sub = product.weight + ' g' + (n ? '  ·  ' + n + (n === 1 ? ' client' : ' clients') : '  ·  unused');
+  const box = el('button', { class: 'drill-item wa-entry-open', type: 'button', 'data-pid': product.id }, [
+    el('span', { class: 'wa-entry-text' }, [
+      el('span', { class: 'wa-entry-name' }, product.name || 'Unnamed product'),
+      el('span', { class: 'wa-entry-sub' }, sub),
+    ]),
+    el('span', { class: 'drill-chevron' }, '→'),
   ]);
+  box.addEventListener('click', () => {
+    const idx = pcProducts().findIndex(p => p.id === product.id);
+    if (idx === -1) return;
+    prodFresh = false;
+    prodActive = idx;
+    renderProductsEditor();
+  });
+  return box;
+}
+
+// Level 1: a product's detail — name, recipe, weight, and a low-key delete (blocked
+// while any client still orders it).
+function renderProductDetail(pi) {
+  const product = pcProducts()[pi];
+  pcTitle().textContent = 'Edit product';
+  setProdHomeVisible(false);
+  const content = document.getElementById('products-content');
+  content.textContent = '';
+
+  const nameInput = el('input', { class: 'cp-client-name', type: 'text', value: product.name || '', placeholder: 'Product name' });
+  if (prodShowErrors && isBlank(product.name)) nameInput.classList.add('cp-invalid');
+  nameInput.addEventListener('input', () => { product.name = nameInput.value; nameInput.classList.remove('cp-invalid'); prodMarkDirty(); });
+
+  const used = clientCountFor(product.id);
+  const del = deleteIcon('Delete product', () => {
+    if (used > 0) {
+      alert('This product is ordered by ' + used + (used === 1 ? ' client' : ' clients') + '. Remove it from them in Settings → Clients first.');
+      return;
+    }
+    if (!confirm('Delete this product?')) return;
+    pcProducts().splice(pi, 1);
+    prodMarkDirty();
+    prodActive = null;
+    renderProductsEditor();
+  });
+  content.appendChild(el('div', { class: 'cp-field' }, [
+    el('label', { class: 'cp-label' }, 'Product name'),
+    el('div', { class: 'cp-name-row' }, [nameInput, del]),
+  ]));
+
+  // Recipe selector.
+  const recipe = el('select', { class: 'cp-prod-dough', 'aria-label': 'Recipe' });
+  for (const t of TABS) recipe.appendChild(el('option', { value: t }, DOUGH_LABELS[t]));
+  recipe.value = TABS.includes(product.recipeId) ? product.recipeId : 'focaccia';
+  recipe.addEventListener('change', () => { product.recipeId = recipe.value; prodMarkDirty(); });
+  content.appendChild(el('div', { class: 'cp-field' }, [
+    el('label', { class: 'cp-label' }, 'Recipe'),
+    recipe,
+  ]));
+
+  // Weight (grams).
+  const weight = el('input', {
+    class: 'cp-prod-weight', type: 'number', min: String(WEIGHT_MIN), max: String(WEIGHT_MAX),
+    step: '1', value: String(product.weight), inputmode: 'numeric',
+  });
+  weight.addEventListener('input', () => { product.weight = +weight.value || 0; prodMarkDirty(); });
+  content.appendChild(el('div', { class: 'cp-field' }, [
+    el('label', { class: 'cp-label' }, 'Weight'),
+    el('div', { class: 'cp-prod-card-row' }, [weight, el('span', { class: 'cp-unit' }, 'g')]),
+  ]));
+
+  content.appendChild(saveBottomButton(saveProducts));
 }
 
 // ── Extra-dough visibility (separate Settings screen) ─────────────────────────
-// Three switches (one per dough tab) that show/hide the per-tab Extra-dough box.
-// Edited on a working copy: toggling a switch changes nothing live until the user
-// taps Save (with a confirm), and leaving with unsaved changes is guarded — so an
-// accidental toggle is never silently persisted.
 let extraWorking = null;
 let extraDirty = false;
 
@@ -433,14 +619,8 @@ document.getElementById('extra-home-btn').addEventListener('click', () => {
 });
 
 // ── Divisor selection (separate Settings screen) ──────────────────────────────
-// A drill-in: first a chooser of the three dough tabs, then a tapped tab's product
-// checklist. Ticked = included in that tab's divisor box (opt-in: nothing is split
-// until ticked, so a new product never joins on its own). Edited on a working copy:
-// ticking/unticking (and "Untick all") change nothing live until the user taps Save
-// (with a confirm), and leaving a changed checklist is guarded — so an accidental
-// tick is never silently persisted.
-let divisorTab = null;     // null = the tab chooser; a tab name = that tab's checklist
-let divisorWorking = null; // deep copy edited while a tab's checklist is open
+let divisorTab = null;
+let divisorWorking = null;
 let divisorDirty = false;
 
 function openDivisor() {
@@ -450,8 +630,6 @@ function openDivisor() {
 }
 function closeDivisor() { hide('divisor-overlay'); }
 
-// Contextual back: from a tab's checklist step up to the chooser (guarding unsaved
-// edits); from the chooser close the overlay (revealing the Settings hub underneath).
 function backDivisor() {
   if (divisorTab !== null) {
     if (!confirmDiscard(divisorDirty)) return;
@@ -466,7 +644,6 @@ function setDivisorTitle(text) {
   const t = document.querySelector('#divisor-overlay .recipe-overlay-title');
   if (t) t.textContent = text;
 }
-// Home is shown on the chooser, hidden on a tab's checklist (a detail screen).
 function setDivisorHomeVisible(visible) {
   const btn = document.getElementById('divisor-home-btn');
   if (btn) btn.style.display = visible ? '' : 'none';
@@ -484,7 +661,6 @@ function renderDivisorSettings() {
   else renderDivisorTabDetail(divisorTab);
 }
 
-// Level 0: one drill-in box per dough tab.
 function renderDivisorTabChooser() {
   setDivisorTitle('Divisor');
   setDivisorHomeVisible(true);
@@ -502,15 +678,21 @@ function renderDivisorTabChooser() {
   }
 }
 
-// Level 1: a tab's product checklist + "Untick all" + a Save button. Edits live in
-// divisorWorking (a deep copy made on first entry to the tab) until the user Saves.
 function renderDivisorTabDetail(tab) {
   setDivisorTitle(DOUGH_LABELS[tab] + ' divisor');
   setDivisorHomeVisible(false);
   if (divisorWorking === null) { divisorWorking = cloneConfig(getConfig()); divisorDirty = false; }
   const content = document.getElementById('divisor-content');
   content.textContent = '';
-  const products = getTabProducts(getConfig(), tab);
+  // One checkbox per product of this recipe (by product id, not per client), so a
+  // ticked product is split across every client that orders it. De-duplicate the
+  // tab rows (which are per client) down to one row per product.
+  const seen = new Set();
+  const products = getTabProducts(getConfig(), tab).filter(p => {
+    if (seen.has(p.id)) return false;
+    seen.add(p.id);
+    return true;
+  });
   if (products.length === 0) {
     content.appendChild(el('div', { class: 'cp-empty-hint' }, 'No products in this tab yet.'));
     return;
@@ -525,28 +707,24 @@ function renderDivisorTabDetail(tab) {
   updateDivisorSaveBtn();
 }
 
-// A checkbox row toggling one product's membership in its tab's divisor (in the
-// working copy). The client name disambiguates same-named products of different clients.
 function divisorProductRow(tab, product) {
   const box = el('input', { type: 'checkbox' });
   box.checked = isInDivisor(divisorWorking, tab, product.id);
   box.addEventListener('change', () => toggleDivisorProduct(tab, product.id, box.checked));
-  const label = product.name + (product.clientName ? '  ·  ' + product.clientName : '');
-  return el('label', { class: 'cp-check-row' }, [box, el('span', {}, label)]);
+  return el('label', { class: 'cp-check-row' }, [box, el('span', {}, product.name)]);
 }
 
 function toggleDivisorProduct(tab, productId, included) {
   if (!divisorWorking.divisorIncluded || typeof divisorWorking.divisorIncluded !== 'object') divisorWorking.divisorIncluded = {};
   const list = Array.isArray(divisorWorking.divisorIncluded[tab]) ? divisorWorking.divisorIncluded[tab] : [];
   const i = list.indexOf(productId);
-  if (included && i === -1) list.push(productId);       // tick → include
-  else if (!included && i !== -1) list.splice(i, 1);    // untick → exclude
+  if (included && i === -1) list.push(productId);
+  else if (!included && i !== -1) list.splice(i, 1);
   divisorWorking.divisorIncluded[tab] = list;
   divisorDirty = true;
   updateDivisorSaveBtn();
 }
 
-// Untick every product of a tab at once (working copy), then re-render the boxes.
 function clearDivisorTab(tab) {
   if (!divisorWorking.divisorIncluded || typeof divisorWorking.divisorIncluded !== 'object') divisorWorking.divisorIncluded = {};
   divisorWorking.divisorIncluded[tab] = [];
@@ -573,64 +751,15 @@ document.getElementById('divisor-home-btn').addEventListener('click', () => {
   window.location.href = 'index.html';
 });
 
-// ── Products (read-only catalogue view) ───────────────────────────────────────
-// A flat, read-only view of every product across all clients, grouped by dough.
-// Editing still happens inside Clients (Stage 2 is a view-only split — the data
-// model is unchanged; products are still nested under each client). It reuses
-// getAllProducts (each product tagged with its owning client) and shows weight +
-// client per card. No working copy / Save here: nothing is edited.
-function openProducts() {
-  renderProductsList();
-  show('products-overlay');
-}
-function closeProducts() { hide('products-overlay'); }
-
-function renderProductsList() {
-  const content = document.getElementById('products-content');
-  content.textContent = '';
-  content.appendChild(el('p', { class: 'extra-help' },
-    'Every product you have added, grouped by dough. To add or edit a product, open Clients.'));
-  const all = getAllProducts(getConfig());
-  if (all.length === 0) {
-    content.appendChild(el('div', { class: 'cp-empty-hint' }, 'No products yet. Open Clients to add some.'));
-    return;
-  }
-  for (const tab of TABS) {
-    content.appendChild(el('div', { class: 'section-label' }, DOUGH_LABELS[tab]));
-    const inTab = all.filter(p => p.dough === tab);
-    if (inTab.length === 0) {
-      content.appendChild(el('div', { class: 'cp-empty-hint' }, 'No products in this dough yet.'));
-      continue;
-    }
-    inTab.forEach(p => content.appendChild(productViewCard(p)));
-  }
-}
-
-// One read-only product card: a bold name plus a grey "weight · client" line.
-function productViewCard(p) {
-  const clientName = p.ownerClientName || 'Unnamed client';
-  const unit = p.kind === 'kg' ? 'kg' : (p.weight + ' g');
-  return el('div', { class: 'cp-prod-card' }, [
-    el('div', { class: 'cp-prod-card-row' }, [
-      el('span', { class: 'cp-prod-ro-name' }, p.name || 'Unnamed product'),
-      el('span', { class: 'cp-unit' }, unit + ' · ' + clientName),
-    ]),
-  ]);
-}
-
 // ── Static wiring (elements exist in calculator.html) ─────────────────────────
 document.querySelector('.settings-back-btn').addEventListener('click', closeSettings);
 document.getElementById('open-clients-btn').addEventListener('click', openClients);
 document.getElementById('open-products-btn').addEventListener('click', openProducts);
-document.querySelector('.products-back-btn').addEventListener('click', closeProducts);
-document.getElementById('products-home-btn').addEventListener('click', () => {
-  window.location.href = 'index.html';
-});
-// WhatsApp / Recipes / Extra dough / Divisor each open on top of Settings (which
-// stays mounted underneath); closing them reveals Settings again. WhatsApp lists
-// have their own editor module (calculator-whatsapp-settings.js).
 document.getElementById('open-whatsapp-btn').addEventListener('click', openWhatsapp);
 document.getElementById('open-recipes-btn').addEventListener('click', openRecipes);
 document.querySelector('.cp-back-btn').addEventListener('click', closeClients);
 document.getElementById('cp-home-btn').addEventListener('click', goHomeFromClients);
 document.getElementById('cp-save-btn').addEventListener('click', saveClients);
+document.querySelector('.products-back-btn').addEventListener('click', closeProducts);
+document.getElementById('products-home-btn').addEventListener('click', goHomeFromProducts);
+document.getElementById('products-save-btn').addEventListener('click', saveProducts);

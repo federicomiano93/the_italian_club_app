@@ -31,9 +31,12 @@ function isoDate() {
 
 // ── Gather the current calculator state for a dough tab ───────────────────────
 function gatherItems(tab) {
+  // One line per (client, product) association. `id` stays the product id so the
+  // divisor (which selects by product) still matches; the quantity is read per pair
+  // (qtyId), so two clients ordering the same product are two independent lines.
   return getTabProducts(getConfig(), tab).map(p => ({
     id: p.id, name: p.name, clientName: p.clientName,
-    qty: qtyOf(p.id), weightG: p.weight, kind: p.kind,
+    qty: qtyOf(p.qtyId), weightG: p.weight, kind: p.kind,
     crate: p.crate || { show: false, perBox: 20 },
   }));
 }
@@ -51,7 +54,7 @@ function buildDailyEntry(tab, sheet, at) {
     date_iso: isoDate(), date: at.date, time: at.time, dough: DOUGH[tab],
     total_g: sheet.total_g, extra_g: sheet.extra_g,
   };
-  for (const p of getTabProducts(getConfig(), tab)) base['qty_' + p.id] = qtyOf(p.id);
+  for (const p of getTabProducts(getConfig(), tab)) base['qty_' + p.qtyId] = qtyOf(p.qtyId);
   return base;
 }
 

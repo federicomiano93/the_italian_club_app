@@ -165,7 +165,7 @@ export function updateDivisorBox(tab) {
   const namesEl = document.getElementById(tab[0] + '-divisor-names');
   if (!namesEl) { box.style.display = 'none'; return; } // skeleton not built (none ticked)
 
-  const active = getDivisorProducts(getConfig(), tab).filter(p => qtyOf(p.id) > 0);
+  const active = getDivisorProducts(getConfig(), tab).filter(p => qtyOf(p.qtyId) > 0);
   if (active.length === 0) { box.style.display = 'none'; return; }
   box.style.display = '';
 
@@ -191,7 +191,7 @@ function renderCrateBoxes(tab) {
   wrap.textContent = '';
   for (const p of getTabProducts(getConfig(), tab)) {
     if (!isCrateEnabled(p)) continue;
-    const qty = qtyOf(p.id);
+    const qty = qtyOf(p.qtyId);
     if (qty <= 0) continue;
     const perBox = getCratePerBox(p);
     const crates = crateCount(qty, perBox);

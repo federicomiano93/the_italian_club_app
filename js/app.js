@@ -79,8 +79,11 @@ function switchTab(name) {
 const DOUGH_TABS = ['focaccia', 'brioche', 'sourdough'];
 const CALC = { focaccia: calcFocaccia, brioche: calcBrioche, sourdough: calcSourdough };
 
+// The per (client, product) quantity keys of a tab — the ids of the rendered inputs
+// and the localStorage keys their values persist under. The same product ordered by
+// two clients has two keys, so each client's quantity is saved/restored independently.
 function productIds(tab) {
-  return getTabProducts(getConfig(), tab).map(p => p.id);
+  return getTabProducts(getConfig(), tab).map(p => p.qtyId);
 }
 
 // localStorage persistence: one key per product ('qty-<id>'), so the working

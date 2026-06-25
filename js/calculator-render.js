@@ -32,18 +32,19 @@ export function el(tag, attrs, children) {
 
 const DROPDOWN_OPTIONS = [0, 20, 40, 60, 80, 100];
 
-// The quantity widget for a product. A 'dropdown' product picks its quantity from
-// a fixed preset list; every other product is a plain number field. Kg products
-// take decimals (kilograms).
+// The quantity widget for a product row. A 'dropdown' product picks its quantity
+// from a fixed preset list; every other product is a plain number field. Kg products
+// take decimals (kilograms). The element id is the row's `qtyId` — the per (client,
+// product) quantity key — so the same product ordered by two clients gets its own box.
 function quantityControl(product) {
   if (product.kind === 'dropdown') {
-    const select = el('select', { id: product.id, class: 'qty-select' });
+    const select = el('select', { id: product.qtyId, class: 'qty-select' });
     for (const v of DROPDOWN_OPTIONS) {
       select.appendChild(el('option', { value: String(v) }, String(v)));
     }
     return select;
   }
-  const attrs = { type: 'number', id: product.id, value: '0', min: '0' };
+  const attrs = { type: 'number', id: product.qtyId, value: '0', min: '0' };
   if (product.kind === 'kg') {
     attrs.step = '0.5';
     attrs.inputmode = 'decimal';

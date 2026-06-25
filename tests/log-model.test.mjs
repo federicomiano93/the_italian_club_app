@@ -10,7 +10,7 @@ import {
   createLog, latestVersion, addVersion, restoreVersion,
   migrateOldRecord, migrateOldLogs, sortLogs,
 } from '../js/log-model.js';
-import { computeTarget, DEFAULT_CONFIG } from '../js/calculator-config.js';
+import { computeTarget, DEFAULT_CONFIG, pairId } from '../js/calculator-config.js';
 
 // Recipes are defined inline here (not imported from recipes.js, which reads
 // localStorage on import and cannot load under Node — same reason the dough-math
@@ -61,8 +61,9 @@ test('buildSheet: zero total produces zero ingredients, no NaN', () => {
 });
 
 test('buildSheet: matches the live computeTarget for the same quantities', () => {
-  // One Pizzas (201g) × 4 + one Focaccias (181g) × 2 via the config helper.
-  const getQty = (id) => ({ 'f-pizze': 4, 'f-focacce': 2 }[id] || 0);
+  // One Pizzas (201g) × 4 + one Focaccias (181g) × 2 via the config helper. The
+  // config keys quantities per (client, product) pair; both default to the Bakery.
+  const getQty = (id) => ({ [pairId('c-bakery', 'f-pizze')]: 4, [pairId('c-bakery', 'f-focacce')]: 2 }[id] || 0);
   const target = computeTarget(DEFAULT_CONFIG, 'focaccia', getQty);
   const sheet = buildSheet({
     dough: 'Focaccia', recipe: FOCACCIA, param: 0.65,
