@@ -690,6 +690,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   font-weight: 700;
 }
 .cp-prod-card-row { display: flex; align-items: center; gap: 8px; }
+/* Read-only product name in the Products view (not an input — no border/field look). */
+.cp-prod-ro-name { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; color: var(--text); }
 .cp-prod-dough {
   flex: 1;
   min-width: 0;
@@ -758,7 +760,8 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 #extra-overlay,
 #divisor-overlay,
 #wa-overlay,
-#logsettings-overlay {
+#logsettings-overlay,
+#products-overlay {
   position: fixed;
   inset: 0;
   z-index: 520;
@@ -769,8 +772,9 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 #extra-overlay.visible,
 #divisor-overlay.visible,
 #wa-overlay.visible,
-#logsettings-overlay.visible { display: flex; }
-#extra-content, #divisor-content, #wa-content, #logsettings-content { padding: 14px 16px; }
+#logsettings-overlay.visible,
+#products-overlay.visible { display: flex; }
+#extra-content, #divisor-content, #wa-content, #logsettings-content, #products-content { padding: 14px 16px; }
 
 /* WhatsApp lists editor: a list/client/entry row pairs a drill-in with a low-key
    remove icon beside it (the top screen deletes lists & direct clients there). */

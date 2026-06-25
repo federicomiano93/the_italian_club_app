@@ -1,9 +1,9 @@
 // calculator-settings.js — the Settings hub and the address-book (Clients) editor.
 //
 // The footer "Settings" button opens a small chooser (#settings-overlay) whose
-// entries each open their own overlay: Clients & products (this editor, #cp-overlay),
-// WhatsApp (calculator-whatsapp-settings.js), Recipes (recipes.js), Extra dough and
-// Divisor (below).
+// entries each open their own overlay: Clients (this editor, #cp-overlay), Products
+// (a read-only catalogue view, #products-overlay, below), WhatsApp
+// (calculator-whatsapp-settings.js), Recipes (recipes.js), Extra dough and Divisor.
 //
 // This editor manages the single address book: a drill-in from the client list to a
 // tapped client's detail with its products inline. Each product carries which dough
@@ -23,6 +23,7 @@
 import { getConfig, saveConfig } from './calculator-config-store.js';
 import {
   WEIGHT_MIN, WEIGHT_MAX, TABS, cloneConfig, isExtraDoughEnabled, getTabProducts, isInDivisor,
+  getAllProducts,
 } from './calculator-config.js';
 import { el } from './calculator-render.js';
 import { openRecipes } from './recipes.js';
@@ -186,7 +187,7 @@ function deleteIcon(label, onDelete) {
 let clientSortable = null; // active SortableJS instance on the client list
 
 function renderClientList() {
-  cpTitle().textContent = 'Clients & products';
+  cpTitle().textContent = 'Clients';
   setHomeVisible(true);
   const content = document.getElementById('cp-content');
   if (clientSortable) { clientSortable.destroy(); clientSortable = null; }
@@ -572,9 +573,59 @@ document.getElementById('divisor-home-btn').addEventListener('click', () => {
   window.location.href = 'index.html';
 });
 
+// ── Products (read-only catalogue view) ───────────────────────────────────────
+// A flat, read-only view of every product across all clients, grouped by dough.
+// Editing still happens inside Clients (Stage 2 is a view-only split — the data
+// model is unchanged; products are still nested under each client). It reuses
+// getAllProducts (each product tagged with its owning client) and shows weight +
+// client per card. No working copy / Save here: nothing is edited.
+function openProducts() {
+  renderProductsList();
+  show('products-overlay');
+}
+function closeProducts() { hide('products-overlay'); }
+
+function renderProductsList() {
+  const content = document.getElementById('products-content');
+  content.textContent = '';
+  content.appendChild(el('p', { class: 'extra-help' },
+    'Every product you have added, grouped by dough. To add or edit a product, open Clients.'));
+  const all = getAllProducts(getConfig());
+  if (all.length === 0) {
+    content.appendChild(el('div', { class: 'cp-empty-hint' }, 'No products yet. Open Clients to add some.'));
+    return;
+  }
+  for (const tab of TABS) {
+    content.appendChild(el('div', { class: 'section-label' }, DOUGH_LABELS[tab]));
+    const inTab = all.filter(p => p.dough === tab);
+    if (inTab.length === 0) {
+      content.appendChild(el('div', { class: 'cp-empty-hint' }, 'No products in this dough yet.'));
+      continue;
+    }
+    inTab.forEach(p => content.appendChild(productViewCard(p)));
+  }
+}
+
+// One read-only product card: a bold name plus a grey "weight · client" line.
+function productViewCard(p) {
+  const clientName = p.ownerClientName || 'Unnamed client';
+  const unit = p.kind === 'kg' ? 'kg' : (p.weight + ' g');
+  return el('div', { class: 'cp-prod-card' }, [
+    el('div', { class: 'cp-prod-card-row' }, [
+      el('span', { class: 'cp-prod-ro-name' }, p.name || 'Unnamed product'),
+      el('span', { class: 'cp-unit' }, unit + ' · ' + clientName),
+    ]),
+  ]);
+}
+
 // ── Static wiring (elements exist in calculator.html) ─────────────────────────
 document.querySelector('.settings-back-btn').addEventListener('click', closeSettings);
 document.getElementById('open-clients-btn').addEventListener('click', openClients);
+document.getElementById('open-products-btn').addEventListener('click', openProducts);
+document.querySelector('.products-back-btn').addEventListener('click', closeProducts);
+document.getElementById('products-home-btn').addEventListener('click', () => {
+  window.location.href = 'index.html';
+});
 // WhatsApp / Recipes / Extra dough / Divisor each open on top of Settings (which
 // stays mounted underneath); closing them reveals Settings again. WhatsApp lists
 // have their own editor module (calculator-whatsapp-settings.js).

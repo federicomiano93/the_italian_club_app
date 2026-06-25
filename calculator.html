@@ -121,8 +121,12 @@
   <div class="recipe-scroll">
     <div class="settings-menu">
       <button id="open-clients-btn" class="settings-menu-btn">
-        <span class="settings-menu-title">Clients &amp; products</span>
-        <span class="settings-menu-sub">Add or rename clients, set product weights per client</span>
+        <span class="settings-menu-title">Clients</span>
+        <span class="settings-menu-sub">Add or rename clients and edit their products</span>
+      </button>
+      <button id="open-products-btn" class="settings-menu-btn">
+        <span class="settings-menu-title">Products</span>
+        <span class="settings-menu-sub">See every product at a glance, grouped by dough</span>
       </button>
       <button id="open-whatsapp-btn" class="settings-menu-btn">
         <span class="settings-menu-title">WhatsApp</span>
@@ -209,7 +213,7 @@
 <div id="cp-overlay">
   <div class="recipe-overlay-header">
     <button class="cp-back-btn">&#8592;</button>
-    <span class="recipe-overlay-title">Clients &amp; products</span>
+    <span class="recipe-overlay-title">Clients</span>
     <button class="overlay-home-btn" id="cp-home-btn" type="button" aria-label="Home">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
     </button>
@@ -217,6 +221,19 @@
   </div>
   <div class="recipe-scroll">
     <div id="cp-content"></div>
+  </div>
+</div>
+
+<div id="products-overlay">
+  <div class="recipe-overlay-header">
+    <button class="products-back-btn">&#8592;</button>
+    <span class="recipe-overlay-title">Products</span>
+    <button class="overlay-home-btn" id="products-home-btn" type="button" aria-label="Home">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 9.5V21h14V9.5"/></svg>
+    </button>
+  </div>
+  <div class="recipe-scroll">
+    <div id="products-content"></div>
   </div>
 </div>
 
