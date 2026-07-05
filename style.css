@@ -1,22 +1,22 @@
-/* Self-hosted fonts (DM Sans, DM Mono — SIL Open Font License), vendored from
+/* Self-hosted fonts (Manrope, DM Mono — SIL Open Font License), vendored from
    Google Fonts. Loading them from the app itself (instead of fetching the font
    CSS from Google on every open) removes a ~0.8s render-blocking request and
    makes the fonts available offline. Same weights as before, so the look is
    unchanged. The files live in ./fonts/ and are precached by the service worker. */
 @font-face {
-  font-family: 'DM Sans';
+  font-family: 'Manrope';
   font-style: normal;
-  font-weight: 400 600;
+  font-weight: 400 800;
   font-display: swap;
-  src: url(fonts/dm-sans-latin.woff2) format('woff2');
+  src: url(fonts/manrope-latin.woff2) format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
-  font-family: 'DM Sans';
+  font-family: 'Manrope';
   font-style: normal;
-  font-weight: 400 600;
+  font-weight: 400 800;
   font-display: swap;
-  src: url(fonts/dm-sans-latin-ext.woff2) format('woff2');
+  src: url(fonts/manrope-latin-ext.woff2) format('woff2');
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 @font-face {
@@ -76,7 +76,7 @@ html, body {
 }
 
 body {
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   background: var(--bg);
   color: var(--text);
   display: flex;
@@ -152,7 +152,7 @@ header p { font-size: 11px; color: rgba(255,255,255,0.72); margin-top: 1px; font
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 15px;
   font-weight: 500;
   color: var(--text);
@@ -199,7 +199,7 @@ header p { font-size: 11px; color: rgba(255,255,255,0.72); margin-top: 1px; font
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 6px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   padding-bottom: 8px;
   border-bottom: 2px solid var(--accent-light);
 }
@@ -327,7 +327,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   color: var(--text);
   font-size: 14px;
   font-weight: 600;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   min-height: 40px;
 }
 
@@ -459,7 +459,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 13px;
   color: var(--text2);
   cursor: pointer;
@@ -489,7 +489,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   background: var(--surface);
   border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 13px;
   color: var(--accent);
   cursor: pointer;
@@ -508,7 +508,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   border-radius: var(--radius-sm);
   color: var(--text2);
   font-size: 13px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-weight: 500;
   cursor: pointer;
   display: inline-flex;
@@ -538,7 +538,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   border: 1.5px solid rgba(255,255,255,0.3);
   border-radius: var(--radius-sm);
   color: rgba(255,255,255,0.3);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 13px;
   font-weight: 500;
   padding: 5px 14px;
@@ -560,7 +560,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   gap: 4px;
 }
 .settings-menu-btn:active { background: var(--surface2); }
-.settings-menu-title { font-size: 16px; font-weight: 700; color: var(--text); font-family: 'DM Sans', sans-serif; }
+.settings-menu-title { font-size: 16px; font-weight: 700; color: var(--text); font-family: 'Manrope', sans-serif; }
 .settings-menu-sub { font-size: 13px; color: var(--text2); }
 
 /* Tappable "drill-in" row: the recipe picker and the client list both use it to
@@ -578,7 +578,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   color: var(--text);
   font-size: 16px;
   font-weight: 700;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   text-align: left;
   cursor: pointer;
 }
@@ -594,7 +594,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text2);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -631,7 +631,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   color: var(--text);
   font-size: 15px;
   font-weight: 700;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
 }
 .cp-del-client, .cp-del-prod {
   background: none;
@@ -757,7 +757,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   background: var(--surface2);
   color: var(--text);
   font-size: 13px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
 }
 
 /* A required field left empty when the user tried to Save. */
@@ -952,7 +952,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   border: 1.5px solid rgba(255,255,255,0.3);
   border-radius: var(--radius-sm);
   color: rgba(255,255,255,0.3);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 13px;
   font-weight: 500;
   padding: 5px 14px;
@@ -984,7 +984,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   color: var(--accent);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   padding-bottom: 8px;
   margin-bottom: 4px;
   border-bottom: 2px solid var(--accent-light);
@@ -1051,7 +1051,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   background: var(--surface);
   border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 13px;
   color: var(--accent);
   cursor: pointer;
@@ -1069,7 +1069,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   background: var(--accent);
   border: none;
   border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 16px;
   font-weight: 600;
   color: #fff;
@@ -1087,7 +1087,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .day-row { display: flex; gap: 10px; }
 .day-btn {
   flex: 1; padding: 16px; border: none; border-radius: var(--radius-sm);
-  background: var(--accent); color: #fff; font-family: 'DM Sans', sans-serif;
+  background: var(--accent); color: #fff; font-family: 'Manrope', sans-serif;
   font-size: 16px; font-weight: 600; cursor: pointer; letter-spacing: 0.01em;
   box-shadow: 0 2px 8px rgba(45,80,22,0.25);
 }
@@ -1127,7 +1127,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .order-section-title {
   font-size: 15px;
   font-weight: 700;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   color: var(--accent);
   padding-bottom: 8px;
   border-bottom: 2px solid var(--accent-light);
@@ -1166,7 +1166,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 15px;
   color: var(--text2);
   cursor: pointer;
@@ -1177,7 +1177,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   background: #25D366;
   border: none;
   border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 15px;
   font-weight: 600;
   color: #fff;
@@ -1219,7 +1219,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   background: #25D366;
   border: none;
   border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 13px;
   font-weight: 600;
   color: #fff;
@@ -1228,7 +1228,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .log-edit-btn, .log-delete-btn {
   padding: 9px 14px;
   border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -1290,7 +1290,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .log-hist-btn {
   background: var(--surface); border: 1px solid var(--border); color: var(--text2);
   border-radius: var(--radius-sm); padding: 9px 14px; font-size: 13px; cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
 }
 
 /* Today/Tomorrow choice buttons — used by the "+ Add log" screen. */
@@ -1298,7 +1298,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .logday-choice {
   flex: 1; padding: 16px; border-radius: var(--radius-sm); cursor: pointer;
   background: var(--surface2); border: 2px solid var(--border); color: var(--text);
-  font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600;
+  font-family: 'Manrope', sans-serif; font-size: 15px; font-weight: 600;
 }
 .logday-choice.selected { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
 
@@ -1313,7 +1313,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .overlay-home-spacer { margin-left: auto; width: 36px; }
 #logedit-save-btn {
   background: none; border: 1.5px solid rgba(255,255,255,0.3); border-radius: var(--radius-sm);
-  color: rgba(255,255,255,0.3); font-family: 'DM Sans', sans-serif; font-size: 13px;
+  color: rgba(255,255,255,0.3); font-family: 'Manrope', sans-serif; font-size: 13px;
   padding: 7px 14px; cursor: pointer;
 }
 #logedit-save-btn.dirty { color: #fff; border-color: rgba(255,255,255,0.8); }
@@ -1343,5 +1343,5 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .loghist-meta { font-size: 12px; color: var(--text2); }
 .loghist-tolist {
   background: none; border: none; color: var(--accent); font-size: 14px; cursor: pointer;
-  padding: 4px 0 12px; font-family: 'DM Sans', sans-serif;
+  padding: 4px 0 12px; font-family: 'Manrope', sans-serif;
 }
