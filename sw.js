@@ -1,4 +1,9 @@
-const CACHE_NAME = 'theitalianclub-v150';
+const CACHE_NAME = 'theitalianclub-v151';
+// Firebase SDK modules (loaded from gstatic) are cached SEPARATELY from CACHE_NAME
+// so they survive the cache-version bump that happens on every deploy — otherwise
+// the offline SDK would be wiped each release until the next online load. The name
+// carries the pinned SDK version; bumping the SDK orphans the old cache for cleanup.
+const SDK_CACHE = 'firebase-sdk-10-12-0';
 const ASSETS = [
   './',
   './index.html',
@@ -10,6 +15,12 @@ const ASSETS = [
   './js/install-guide.js',
   './style.css',
   './orders.css',
+  './fonts/dm-sans-latin.woff2',
+  './fonts/dm-sans-latin-ext.woff2',
+  './fonts/dm-mono-400-latin.woff2',
+  './fonts/dm-mono-400-latin-ext.woff2',
+  './fonts/dm-mono-500-latin.woff2',
+  './fonts/dm-mono-500-latin-ext.woff2',
   './js/app.js',
   './js/idle-reset.js',
   './js/install.js',
@@ -79,26 +90,48 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+      Promise.all(keys.filter(k => k !== CACHE_NAME && k !== SDK_CACHE).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', e => {
-  // Never touch cross-origin requests (Firebase SDK CDN, Firestore/Auth API and,
-  // on localhost, the Firebase emulator). Returning WITHOUT respondWith lets the
-  // browser perform them directly: re-issuing a cross-origin request through the
-  // service worker (the old e.respondWith(fetch(...)) ) could fail transiently on
-  // the very first call — e.g. a spurious auth/network-request-failed on anonymous
-  // sign-in. Bypassing the SW entirely is the correct pattern and also removes a
-  // pointless round-trip for the live Firebase calls.
-  if (new URL(e.request.url).origin !== self.location.origin) {
+  const url = new URL(e.request.url);
+
+  // Cross-origin requests are bypassed (the browser performs them directly) with
+  // ONE exception: the Firebase SDK modules on www.gstatic.com/firebasejs/*. Those
+  // are static, CORS-clean, immutable files — caching them in a SEPARATE, persistent
+  // cache (SDK_CACHE, untouched by the per-deploy CACHE_NAME bump) lets the app boot
+  // offline and start instantly on a slow network, with no SDK vendoring and no
+  // import rewriting; a version bump auto-refreshes it on the next online load.
+  // Everything else cross-origin — the live Firestore/Auth API, reCAPTCHA (also on
+  // gstatic, hence the /firebasejs/ path guard), the localhost emulator — is left
+  // untouched: re-issuing those through the SW could cause a transient
+  // auth/network-request-failed on the first anonymous sign-in.
+  if (url.origin !== self.location.origin) {
+    if (url.host === 'www.gstatic.com' && url.pathname.startsWith('/firebasejs/')) {
+      e.respondWith(
+        caches.open(SDK_CACHE).then(cache =>
+          cache.match(e.request).then(cached => {
+            const networkFetch = fetch(e.request).then(res => {
+              // Store only executable, CORS-clean module responses (not opaque/redirected).
+              if (res && res.status === 200 && !res.redirected &&
+                  (res.type === 'cors' || res.type === 'basic')) {
+                cache.put(e.request, res.clone()).catch(() => {});
+              }
+              return res;
+            }).catch(() => cached);
+            return cached || networkFetch;
+          })
+        )
+      );
+    }
     return;
   }
 
   // Install guide assets: always network-first (fresh from server), falling back
   // to cache only when offline. Avoids serving a stale guide after an update.
-  const p = new URL(e.request.url).pathname;
+  const p = url.pathname;
   if (p.endsWith('/install-guide.html') || p.endsWith('/qr.png') || p.endsWith('/js/install-guide.js')) {
     e.respondWith(
       fetch(e.request, { cache: 'no-store' }).then(res => {

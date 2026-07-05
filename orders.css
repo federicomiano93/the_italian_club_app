@@ -58,7 +58,7 @@
 .orders-header { gap: 12px; }
 .orders-header-title { flex: 1; text-align: center; }
 .orders-header-title h1 { font-size: 18px; font-weight: 600; color: #fff; letter-spacing: -0.3px; }
-.orders-header-title p { font-size: 11px; color: rgba(255, 255, 255, 0.55); margin-top: 1px; font-family: 'DM Mono', monospace; }
+.orders-header-title p { font-size: 11px; color: rgba(255, 255, 255, 0.72); margin-top: 1px; font-family: 'DM Mono', monospace; }
 
 .orders-icon-btn {
   width: 36px;
