@@ -50,18 +50,22 @@ service cloud.firestore {
     // bakery == 'main' (forward-compatible with future per-bakery isolation).
     // Shared across the team under Anonymous Auth, exactly like log/daily-logs.
     // Field-level validation will tighten per collection as each phase lands.
+    // Suppliers and ingredients can be permanently deleted from the management
+    // panel (a strong confirm gates it in the UI). Delete is allowed for any
+    // authenticated client, like the recipes/logs collections; "Deactivate"
+    // (active:false) remains the reversible option.
     match /suppliers/{id} {
       allow read: if request.auth != null;
       allow create, update: if request.auth != null
         && request.resource.data.bakery == 'main';
-      allow delete: if false;
+      allow delete: if request.auth != null;
     }
 
     match /ingredients/{id} {
       allow read: if request.auth != null;
       allow create, update: if request.auth != null
         && request.resource.data.bakery == 'main';
-      allow delete: if false;
+      allow delete: if request.auth != null;
     }
 
     // Drafts are overwritten on every change and cleared once an order is sent,

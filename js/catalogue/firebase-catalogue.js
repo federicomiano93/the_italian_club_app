@@ -23,6 +23,7 @@ import {
   getFirestore,
   collection,
   doc,
+  getDoc,
   setDoc,
   deleteDoc,
   onSnapshot,
@@ -88,6 +89,15 @@ export async function saveRecipeDoc(id, data) {
 export async function removeRecipeDoc(id) {
   await authReady;
   return deleteDoc(doc(db, RECIPES, id));
+}
+
+// Read the shared config/calculator document once (or null if it doesn't exist).
+// Read-only; used to check whether a catalogue recipe was imported into the
+// Calculator before deleting it (so we can warn). Never writes.
+export async function getCalculatorConfig() {
+  await authReady;
+  const snap = await getDoc(doc(db, 'config', 'calculator'));
+  return snap.exists() ? snap.data() : null;
 }
 
 // Atomically read-modify-write the shared config/calculator document. applyFn

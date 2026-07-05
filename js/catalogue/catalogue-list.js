@@ -62,7 +62,8 @@ export function renderList({ recipes, usageMap, initialQuery = '', onQueryChange
   }
 
   paint();
-  const root = el('div', { class: 'cat-view' }, [search, listContainer]);
+  const listPanel = el('div', { class: 'cat-list-panel' }, [listContainer]);
+  const root = el('div', { class: 'cat-view' }, [search, listPanel]);
 
   return {
     root,

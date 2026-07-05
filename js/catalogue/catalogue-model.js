@@ -153,3 +153,12 @@ export function mergeImportedRecipe(config, recipe) {
   }
   return { config: { ...config, recipes }, action };
 }
+
+// Find the Calculator copy of a catalogue recipe (imported as 'cat-<id>'), or null.
+// Pure — used to WARN before deleting a catalogue recipe that was imported into the
+// Calculator (the two are independent copies; deleting here never touches the Calculator).
+export function findCalculatorImport(config, catalogueId) {
+  const recipes = (config && Array.isArray(config.recipes)) ? config.recipes : [];
+  const importId = 'cat-' + catalogueId;
+  return recipes.find((r) => r && r.id === importId) || null;
+}

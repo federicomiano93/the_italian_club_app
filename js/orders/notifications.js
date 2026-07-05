@@ -2,16 +2,18 @@
 //
 // Computes three alerts and shows them as in-app banners; when the user grants
 // permission, it also raises a browser notification while the app is open:
-//   1. Order due — a supplier delivers today or tomorrow
-//   2. Bank holiday next week — plan orders ahead
+//   1. Place the order — a supplier's ORDER day is today (primary reminder)
+//   2. Bank holiday ahead — plan orders up to a week before
 //   3. Delivery conflict — an upcoming bank holiday falls on a supplier's delivery day
 //
-// Client-side only (per Federico): these fire while the app is open. Pushing to
-// staff with the app closed needs the server step (Firebase Cloud Functions),
-// deferred for now — see js/firebase.example.js.
+// Order timing is a fixed weekday model (per Federico): each supplier has its own
+// order days (the days he places the order) and delivery days. No "days-before"
+// math. Client-side only: these fire while the app is open. Pushing to staff with
+// the app closed needs the server step (Firebase Cloud Functions), deferred for
+// now — see js/firebase.example.js.
 
 import { el } from './dom.js';
-import { isBankHolidayWithinNextDays, nextBankHoliday, isBankHoliday } from './bank-holidays.js';
+import { isBankHoliday } from './bank-holidays.js';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const CONFLICT_WINDOW_DAYS = 14;
@@ -38,26 +40,47 @@ function upcomingHolidays(from, days) {
   return result;
 }
 
+// The first bank holiday within the next `days` days (from tomorrow), as
+// { iso, days }, or null. Gives an exact "in N days" countdown for the banner.
+function nextHolidayWithin(from, days) {
+  const start = new Date(from);
+  start.setHours(0, 0, 0, 0);
+  for (let i = 1; i <= days; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    const iso = toISODate(d);
+    if (isBankHoliday(iso)) return { iso, days: i };
+  }
+  return null;
+}
+
 export function computeAlerts(suppliers, now = new Date()) {
   const alerts = [];
   const active = (suppliers || []).filter(s => s.active !== false);
-
-  // 1. Order due — delivery today or tomorrow.
   const todayWd = WEEKDAYS[now.getDay()];
-  const tomorrowWd = WEEKDAYS[(now.getDay() + 1) % 7];
-  active.forEach(s => {
-    const days = s.deliveryDays || [];
-    if (days.includes(todayWd)) {
-      alerts.push({ kind: 'due', key: `due-${s.id}-${toISODate(now)}`, text: `Order due: ${s.name} delivers today (${todayWd}).` });
-    } else if (days.includes(tomorrowWd)) {
-      alerts.push({ kind: 'due', key: `soon-${s.id}-${toISODate(now)}`, text: `Order soon: ${s.name} delivers tomorrow (${tomorrowWd}).` });
-    }
-  });
 
-  // 2. Bank holiday next week.
-  if (isBankHolidayWithinNextDays(now, 7)) {
-    const h = nextBankHoliday(now);
-    alerts.push({ kind: 'holiday', key: `bh-${h}`, text: `UK bank holiday next week (${h}). Plan your orders ahead.` });
+  // 1. Place the order — every supplier whose ORDER day is today, in ONE grouped,
+  //    numbered banner (the primary reminder). Each line notes when they deliver.
+  const toOrder = active.filter(s => (s.orderDays || []).includes(todayWd));
+  if (toOrder.length) {
+    const items = toOrder.map(s => {
+      const deliver = (s.deliveryDays || []).join(', ');
+      return deliver ? `${s.name} (delivers ${deliver})` : s.name;
+    });
+    alerts.push({
+      kind: 'order',
+      key: `order-${toISODate(now)}`,
+      title: toOrder.length === 1 ? 'Order to place today' : 'Orders to place today',
+      items,
+      text: `Place today's order: ${toOrder.map(s => s.name).join(', ')}.`,
+    });
+  }
+
+  // 2. Bank holiday ahead — warn up to 7 days before so orders can be planned.
+  const holiday = nextHolidayWithin(now, 7);
+  if (holiday) {
+    const when = holiday.days === 1 ? 'tomorrow' : `in ${holiday.days} days`;
+    alerts.push({ kind: 'holiday', key: `bh-${holiday.iso}`, text: `UK bank holiday ${when} (${holiday.iso}). Plan your orders ahead.` });
   }
 
   // 3. Delivery conflict — an upcoming holiday lands on a supplier's delivery day.
@@ -84,21 +107,56 @@ function maybeNotify(alerts) {
   });
 }
 
-// Render the alert banners (and an "Enable notifications" button when relevant)
-// into `container`, and raise browser notifications for new alerts.
+// Build one banner. A grouped alert (with items[]) renders a title + numbered list;
+// a plain alert renders its text. Both use the same .alert-banner colouring by kind.
+function renderAlert(a) {
+  if (Array.isArray(a.items) && a.items.length) {
+    return el('div', { class: `alert-banner ${a.kind}` }, [
+      el('div', { class: 'alert-title', text: a.title || '' }),
+      el('ol', { class: 'alert-list' }, a.items.map(t => el('li', { text: t }))),
+    ]);
+  }
+  return el('div', { class: `alert-banner ${a.kind}`, text: a.text });
+}
+
+// Render the alert banners into `container`, and raise browser notifications for
+// new alerts. The "Enable notifications" control lives in Settings (see
+// renderNotificationSettings), not here — it must not clutter the main Order screen.
 export function renderAlerts(container, suppliers, now = new Date()) {
   if (!container) return;
   container.textContent = '';
 
-  const supported = 'Notification' in window;
-  if (supported && Notification.permission === 'default') {
-    container.appendChild(el('button', { type: 'button', class: 'enable-notifs', onClick: async () => {
-      try { await Notification.requestPermission(); } catch (err) { console.warn('Permission request failed:', err); }
-      renderAlerts(container, suppliers, now);
-    } }, '🔔 Enable notifications'));
+  const alerts = computeAlerts(suppliers, now);
+  alerts.forEach(a => container.appendChild(renderAlert(a)));
+  maybeNotify(alerts);
+}
+
+// Render the "Enable notifications" control + status into a settings container
+// (the management panel), so it no longer clutters the main Order screen. Shows a
+// short explanation, then either the enable button, an "on" status, or a "blocked"
+// hint depending on the current browser permission.
+export function renderNotificationSettings(container) {
+  if (!container) return;
+  container.textContent = '';
+
+  if (!('Notification' in window)) {
+    container.appendChild(el('p', { class: 'notif-note', text: 'This device does not support notifications.' }));
+    return;
   }
 
-  const alerts = computeAlerts(suppliers, now);
-  alerts.forEach(a => container.appendChild(el('div', { class: `alert-banner ${a.kind}`, text: a.text })));
-  maybeNotify(alerts);
+  container.appendChild(el('p', { class: 'notif-desc', text:
+    'Get an alert when an order is due (on a supplier’s order day), when a UK bank holiday is coming up, or when a holiday clashes with a supplier delivery day. Note: alerts only show while the app is open.' }));
+
+  const perm = Notification.permission;
+  if (perm === 'granted') {
+    container.appendChild(el('p', { class: 'notif-status on', text: '🔔 Notifications are on for this device.' }));
+  } else if (perm === 'denied') {
+    container.appendChild(el('p', { class: 'notif-status off', text:
+      'Notifications are blocked. Turn them on for this app in your browser/site settings, then reload.' }));
+  } else {
+    container.appendChild(el('button', { type: 'button', class: 'enable-notifs', onClick: async () => {
+      try { await Notification.requestPermission(); } catch (err) { console.warn('Permission request failed:', err); }
+      renderNotificationSettings(container);
+    } }, '🔔 Enable notifications'));
+  }
 }

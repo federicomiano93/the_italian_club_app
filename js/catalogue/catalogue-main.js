@@ -10,7 +10,7 @@ import {
 import { renderList } from './catalogue-list.js';
 import { renderDetail } from './catalogue-detail.js';
 import { renderEditor } from './catalogue-editor.js';
-import { importRecipeIntoCalculator } from './import-to-calculator.js';
+import { importRecipeIntoCalculator, isRecipeLinkedToCalculator } from './import-to-calculator.js';
 
 const screen = document.getElementById('catScreen');
 const titleEl = document.getElementById('catTitle');
@@ -153,6 +153,32 @@ const app = {
   deleteRecipe,
   bumpUsage,
   setLeaveGuard: (fn) => { leaveGuard = fn; },
+  // Delete a catalogue recipe with a strong confirm, warning first if the recipe
+  // was imported into the Calculator (the two are independent copies — deleting
+  // here never touches the Calculator). The link check is raced with a short
+  // timeout so a slow/offline read never blocks the delete. Returns true if it was
+  // deleted (and navigation moved back to the list), false if cancelled.
+  async confirmAndDelete(recipe) {
+    let linked = false;
+    try {
+      linked = await Promise.race([
+        isRecipeLinkedToCalculator(recipe.id),
+        new Promise((res) => setTimeout(() => res(false), 2500)),
+      ]);
+    } catch (e) { linked = false; }
+
+    const base = `Delete "${recipe.name || 'this recipe'}"? This cannot be undone.`;
+    const message = linked
+      ? base + ' It was imported into the Calculator — that copy will stay; remove it separately in the Calculator if you want it gone.'
+      : base;
+
+    const ok = await confirmDialog({ title: 'Delete recipe?', message, okLabel: 'Delete' });
+    if (!ok) return false;
+    deleteRecipe(recipe.id);
+    toast('Recipe deleted.');
+    showList();
+    return true;
+  },
   async importRecipe(recipe) {
     const ok = await confirmDialog({
       title: 'Import into Calculator?',

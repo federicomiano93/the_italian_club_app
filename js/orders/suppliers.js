@@ -1,9 +1,10 @@
 // suppliers.js — renders the supplier list.
 //
-// Each supplier is a collapsible card showing name, category, delivery days, a
-// product counter ("2 of 5") and a coloured badge (green = all products filled,
-// yellow = incomplete). Expanding a card reveals its ingredient list (built by
-// ingredients.js) with a progress bar on top.
+// Each supplier is a collapsible card showing name, category and delivery days.
+// Expanding a card reveals its ingredient list (built by ingredients.js) with a
+// progress bar on top ("2 of 5 filled"). The collapsed head is deliberately
+// quiet — no counter, no status dot — so the list reads cleanly (the progress
+// lives inside, where the work happens).
 
 import { el } from './dom.js';
 import { buildIngredientList } from './ingredients.js';
@@ -17,19 +18,14 @@ const DAY_SHORT = {
 export function supplierStats(ingredients, entries) {
   const total = ingredients.length;
   const filled = ingredients.filter(i => (entries[i.id]?.qty || 0) > 0).length;
-  return { total, filled, complete: total > 0 && filled === total };
+  return { total, filled };
 }
 
-// Refresh the counter, badge and progress bar for one supplier (no rebuild, so
-// inputs keep focus while the user types).
+// Refresh the in-body progress bar for one supplier (no rebuild, so inputs keep
+// focus while the user types). Guards on element presence: the bar exists only
+// while the card is expanded and the supplier has ingredients.
 export function refreshSupplierDerived(supplier, ingredients, entries) {
-  const { total, filled, complete } = supplierStats(ingredients, entries);
-
-  const counter = document.getElementById(`counter-${supplier.id}`);
-  if (counter) counter.textContent = `${filled} of ${total}`;
-
-  const badge = document.getElementById(`badge-${supplier.id}`);
-  if (badge) badge.className = `supplier-badge ${complete ? 'green' : 'yellow'}`;
+  const { total, filled } = supplierStats(ingredients, entries);
 
   const fill = document.getElementById(`progress-fill-${supplier.id}`);
   if (fill) fill.style.width = `${total ? Math.round((filled / total) * 100) : 0}%`;
@@ -50,8 +46,6 @@ function buildSupplierCard(supplier, ingredients, ctx) {
   const expanded = ctx.expanded.has(supplier.id);
   const days = (supplier.deliveryDays || []).map(d => DAY_SHORT[d] || d).join(', ');
 
-  const counter = el('span', { class: 'supplier-counter', id: `counter-${supplier.id}` }, '0 of 0');
-  const badge = el('span', { class: 'supplier-badge yellow', id: `badge-${supplier.id}` });
   const chevron = el('span', { class: `supplier-chevron${expanded ? ' open' : ''}` }, '▸');
 
   const head = el('button', {
@@ -63,7 +57,7 @@ function buildSupplierCard(supplier, ingredients, ctx) {
       el('span', { class: 'supplier-name', text: supplier.name }),
       el('span', { class: 'supplier-meta', text: [supplier.category, days].filter(Boolean).join(' · ') }),
     ]),
-    el('div', { class: 'supplier-head-right' }, [counter, badge, chevron]),
+    el('div', { class: 'supplier-head-right' }, [chevron]),
   ]);
 
   const bodyInner = buildIngredientList(supplier, ingredients, ctx.suggest, ctx.entries, ctx.hooks);
@@ -77,9 +71,6 @@ function buildSupplierCard(supplier, ingredients, ctx) {
     chevron.classList.toggle('open', nowOpen);
     if (nowOpen) ctx.expanded.add(supplier.id); else ctx.expanded.delete(supplier.id);
   });
-
-  // Set initial counter/badge/progress from current state.
-  refreshSupplierDerived(supplier, ingredients, ctx.entries);
 
   return el('div', { class: 'supplier-card', dataset: { supplier: supplier.id } }, [head, body]);
 }
