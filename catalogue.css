@@ -76,6 +76,14 @@ body {
 .cat-screen { flex: 1; overflow-y: auto; padding: 16px; }
 .cat-view { max-width: 620px; margin: 0 auto; }
 
+/* On each route change the view container is programmatically focused (see
+   swap() in catalogue-main.js) so keyboard / screen-reader users don't drop to
+   the top of the page. That focus is not user-driven keyboard navigation, so the
+   browser's default outline around the whole container is unwanted. Suppress it
+   only on that container — a tabindex="-1" element is never reached by Tab, so
+   the real controls inside keep their :focus-visible rings and a11y is unharmed. */
+.cat-screen > [tabindex="-1"]:focus { outline: none; }
+
 /* Search */
 .cat-search { position: relative; margin-bottom: 14px; }
 .cat-search svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--cat-text-2); }
