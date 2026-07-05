@@ -9,6 +9,8 @@ import { scaleCatalogue, baseAmounts } from './catalogue-model.js';
 
 const IMPORT_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>';
+const TRASH_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
 
 const nf = new Intl.NumberFormat('en-GB');
 const fmtG = (g) => nf.format(g) + ' g';
@@ -92,6 +94,17 @@ export function renderDetail({ recipe, app }) {
     'Import into Calculator',
   ]);
 
+  // Low-key delete (P20 — de-emphasised destructive action): routed through the
+  // shared guard, which warns if the recipe was imported into the Calculator and
+  // navigates back to the list once deleted.
+  const deleteBtn = el('button', {
+    class: 'cat-detail-del', type: 'button',
+    onclick: () => app.confirmAndDelete(recipe),
+  }, [
+    el('span', { icon: TRASH_SVG, 'aria-hidden': 'true' }),
+    'Delete recipe',
+  ]);
+
   renderRows();
 
   return el('div', { class: 'cat-view' }, [
@@ -104,5 +117,6 @@ export function renderDetail({ recipe, app }) {
       class: 'cat-import-hint',
       text: 'Makes a copy you can tweak just for the Calculator — the catalogue recipe stays untouched.',
     }),
+    deleteBtn,
   ]);
 }

@@ -122,16 +122,11 @@ export function renderEditor({ recipe, allRecipes, app }) {
   async function onDelete() {
     if (busy) return;
     busy = true;
-    const ok = await app.confirm({
-      title: 'Delete recipe?',
-      message: `Delete "${working.name || 'this recipe'}"? This cannot be undone.`,
-      okLabel: 'Delete',
-    });
-    if (!ok) { busy = false; return; }
-    dirty = false;
-    app.deleteRecipe(working.id); // local-first
-    app.toast('Recipe deleted.');
-    app.showList();
+    // Route through the shared guard so the editor and the detail view share the
+    // same confirm + Calculator-link warning. It deletes and navigates on success.
+    const done = await app.confirmAndDelete(recipe);
+    if (done) dirty = false;   // deleted + navigated away
+    else busy = false;         // cancelled — stay in the editor
   }
 
   // Discard protection: Back with unsaved edits asks first.

@@ -14,6 +14,7 @@ import {
   findInvalidRecipe,
   toCalculatorRecipe,
   mergeImportedRecipe,
+  findCalculatorImport,
 } from '../js/catalogue/catalogue-model.js';
 
 const FOCACCIA = {
@@ -171,4 +172,24 @@ test('mergeImportedRecipe updates in place, no duplicate, preserving order/visib
   assert.equal(config.recipes[1].name, 'New name');
   assert.equal(config.recipes[1].order, 2);    // preserved
   assert.equal(config.recipes[1].visible, true); // preserved
+});
+
+// ── findCalculatorImport (drives the "was this imported?" delete warning) ────────
+
+test('findCalculatorImport finds the imported copy by its cat-<id> provenance id', () => {
+  const cfg = { recipes: [{ id: 'brioche' }, { id: 'cat-foc', name: 'Focaccia' }] };
+  const hit = findCalculatorImport(cfg, 'foc');
+  assert.ok(hit);
+  assert.equal(hit.id, 'cat-foc');
+});
+
+test('findCalculatorImport returns null when the recipe was never imported', () => {
+  const cfg = { recipes: [{ id: 'brioche' }, { id: 'cat-other' }] };
+  assert.equal(findCalculatorImport(cfg, 'foc'), null);
+});
+
+test('findCalculatorImport is junk-safe (null config / missing recipes -> null)', () => {
+  assert.equal(findCalculatorImport(null, 'foc'), null);
+  assert.equal(findCalculatorImport({}, 'foc'), null);
+  assert.equal(findCalculatorImport({ recipes: 'x' }, 'foc'), null);
 });

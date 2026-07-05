@@ -9,8 +9,8 @@
 // write conflict Firestore re-reads and retries.
 
 import { normalizeConfig } from '../calculator-config.js';
-import { toCalculatorRecipe, mergeImportedRecipe } from './catalogue-model.js';
-import { updateConfigInTransaction } from './firebase-catalogue.js';
+import { toCalculatorRecipe, mergeImportedRecipe, findCalculatorImport } from './catalogue-model.js';
+import { updateConfigInTransaction, getCalculatorConfig } from './firebase-catalogue.js';
 
 // Import a catalogue recipe into the Calculator. Adds it, or updates the existing
 // copy in place (matched by its 'cat-<id>' provenance id) so a re-import never
@@ -30,4 +30,19 @@ export async function importRecipeIntoCalculator(catalogueRecipe) {
     return { ...normalizeConfig(merged.config), configRev: rev, bakery: 'main' };
   });
   return { action };
+}
+
+// Is this catalogue recipe currently imported into the Calculator (as 'cat-<id>')?
+// Reads the shared config once (read-only) and applies the pure findCalculatorImport
+// check. Used to WARN before deleting a catalogue recipe: the Calculator copy is
+// independent and stays. Returns false on any error/offline so a delete is never
+// blocked by a failed check (the warning is a nicety, not a gate).
+export async function isRecipeLinkedToCalculator(catalogueId) {
+  try {
+    const config = await getCalculatorConfig();
+    return !!findCalculatorImport(config, catalogueId);
+  } catch (err) {
+    console.warn('Calculator link check failed:', err);
+    return false;
+  }
 }
