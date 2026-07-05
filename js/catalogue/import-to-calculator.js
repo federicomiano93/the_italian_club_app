@@ -22,9 +22,12 @@ export async function importRecipeIntoCalculator(catalogueRecipe) {
     const cfg = normalizeConfig(rawConfig);        // null → DEFAULT_CONFIG (stays valid)
     const merged = mergeImportedRecipe(cfg, recipe);
     action = merged.action;
+    // Bump the optimistic-concurrency revision so a concurrent Calculator save
+    // detects this write and preserves the imported recipe.
+    const rev = (Number(rawConfig && rawConfig.configRev) || 0) + 1;
     // Re-normalize so the new recipe gets its keys/order/baseline tidied, then
-    // stamp bakery for the rules.
-    return { ...normalizeConfig(merged.config), bakery: 'main' };
+    // stamp the revision + bakery for the rules.
+    return { ...normalizeConfig(merged.config), configRev: rev, bakery: 'main' };
   });
   return { action };
 }

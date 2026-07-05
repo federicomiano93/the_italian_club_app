@@ -786,6 +786,9 @@ function assemble(products, clients, raw) {
   const recipes = normalizeRecipes(raw.recipes);
   const recipeIds = recipes.map(r => r.id);
   return {
+    // Optimistic-concurrency revision (see saveCalculatorConfig): preserved across
+    // load/edit/save so a concurrent write (e.g. a catalogue import) is detected.
+    configRev: Number(raw.configRev) || 0,
     products,
     clients,
     recipes,
@@ -919,4 +922,25 @@ export function normalizeConfig(raw) {
   }
 
   return base;
+}
+
+// Reconcile a config about to be written against the freshest server copy, for the
+// optimistic-concurrency save (see saveCalculatorConfig). Pure and testable.
+// If the server changed since `config` was loaded (its configRev differs), any
+// IMPORTED (cat-*) recipes present on the server but missing from `config` are
+// preserved, so a blind overwrite can't silently drop a recipe another writer (a
+// catalogue import) just added. Normal edits — including deleting a recipe — are
+// untouched when there is no concurrent writer (the revisions match). Returns the
+// recipes to write and the next revision (always server + 1, so it climbs monotonically).
+export function reconcileConfigWrite(config, server) {
+  const expectedRev = Number(config && config.configRev) || 0;
+  const serverRev = Number(server && server.configRev) || 0;
+  let recipes = Array.isArray(config && config.recipes) ? config.recipes : [];
+  if (server && serverRev !== expectedRev) {
+    const have = new Set(recipes.map(r => r && r.id));
+    const importedMissing = (Array.isArray(server.recipes) ? server.recipes : [])
+      .filter(r => r && typeof r.id === 'string' && r.id.indexOf('cat-') === 0 && !have.has(r.id));
+    if (importedMissing.length) recipes = recipes.concat(importedMissing);
+  }
+  return { recipes, configRev: serverRev + 1 };
 }
