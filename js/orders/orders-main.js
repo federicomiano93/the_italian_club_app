@@ -5,11 +5,11 @@
 // Phase 3: persistent autosaving draft, real-time sync, preview + send/archive.
 // Phase 4: order history view + management panel (suppliers & ingredients).
 
-import { authReady, watchCollection, saveDoc, createDoc, COLLECTIONS } from './firebase-orders.js';
+import { authReady, watchCollection, saveDoc, createDoc, removeDoc, COLLECTIONS } from './firebase-orders.js';
 import { el, groupBy } from './dom.js';
 import { renderSuppliers, refreshSupplierDerived } from './suppliers.js';
 import { scheduleDraftSave, watchDraft, archiveOrder, clearDraft } from './draft.js';
-import { buildPreview } from './preview.js';
+import { buildSendScreen } from './preview.js';
 import { renderHistory as renderHistoryView } from './history.js';
 import { buildManagement, isAdmin } from './management.js';
 import { computeSuggestion } from './suggestions.js';
@@ -76,10 +76,10 @@ function render() {
   if (!state.loaded.suppliers || !state.loaded.ingredients) return;
 
   const suppliers = activeSuppliers();
-  const previewBtn = document.getElementById('preview-btn');
+  const placedBtn = document.getElementById('orders-placed-btn');
 
   if (!suppliers.length) {
-    if (previewBtn) previewBtn.hidden = true;
+    if (placedBtn) placedBtn.hidden = true;
     renderEmptyState(container);
     return;
   }
@@ -90,7 +90,7 @@ function render() {
     expanded: state.expanded,
     hooks,
   });
-  if (previewBtn) previewBtn.hidden = false;
+  if (placedBtn) placedBtn.hidden = false;
 }
 
 function renderEmptyState(container) {
@@ -116,25 +116,51 @@ function showAlerts() {
   renderAlerts(document.getElementById('orders-alerts'), state.suppliers);
 }
 
-// ── Preview / send ────────────────────────────────────────────────────────────
-function openPreview() {
-  const overlay = buildPreview(activeSuppliers(), ingredientsBySupplier(), state.entries, {
+// Small on-brand confirmation dialog (matches the management panel's). Resolves
+// true (confirm) / false (cancel).
+function confirmDialog(message, confirmLabel = 'Confirm') {
+  return new Promise(resolve => {
+    const close = value => { wrap.remove(); resolve(value); };
+    const wrap = el('div', { class: 'confirm-overlay', onClick: e => { if (e.target === wrap) close(false); } }, [
+      el('div', { class: 'confirm-box' }, [
+        el('p', { class: 'confirm-msg', text: message }),
+        el('div', { class: 'confirm-actions' }, [
+          el('button', { type: 'button', class: 'btn-secondary', onClick: () => close(false) }, 'Cancel'),
+          el('button', { type: 'button', class: 'btn-primary', onClick: () => close(true) }, confirmLabel),
+        ]),
+      ]),
+    ]);
+    document.body.appendChild(wrap);
+  });
+}
+
+// ── Send order (WhatsApp selection screen) ────────────────────────────────────
+function openSendScreen() {
+  const overlay = buildSendScreen(activeSuppliers(), ingredientsBySupplier(), state.entries, {
     onBack: () => overlay.remove(),
-    onArchive: async () => {
-      try {
-        await archiveOrder(state.entries);
-        await clearDraft();
-        setEntries({});
-        syncInputsFromState();
-        overlay.remove();
-        setStatus('Order saved to history ✓', 'ok');
-      } catch (err) {
-        console.error('Archiving order failed:', err);
-        setStatus('Could not save the order — check your network and try again.', 'error');
-      }
-    },
   });
   document.body.appendChild(overlay);
+}
+
+// ── Orders placed (confirm → archive to history + clear the current order) ────
+async function ordersPlaced() {
+  const hasItems = Object.values(state.entries).some(e => (e?.qty || 0) > 0);
+  if (!hasItems) {
+    setStatus('Nothing to archive yet — add quantities first.', 'warn');
+    return;
+  }
+  const ok = await confirmDialog('Mark this order as placed? It will be saved to History and the current order cleared.', 'Orders placed');
+  if (!ok) return;
+  try {
+    await archiveOrder(state.entries);
+    await clearDraft();
+    setEntries({});
+    syncInputsFromState();
+    setStatus('Order saved to history ✓', 'ok');
+  } catch (err) {
+    console.error('Archiving order failed:', err);
+    setStatus('Could not save the order — check your network and try again.', 'error');
+  }
 }
 
 // ── Management panel ──────────────────────────────────────────────────────────
@@ -150,6 +176,8 @@ function openManagement() {
         id ? saveDoc(COLLECTIONS.ingredients, id, payload) : createDoc(COLLECTIONS.ingredients, payload),
       setSupplierActive: (id, active) => saveDoc(COLLECTIONS.suppliers, id, { active }),
       setIngredientActive: (id, active) => saveDoc(COLLECTIONS.ingredients, id, { active }),
+      deleteSupplier: (id) => removeDoc(COLLECTIONS.suppliers, id),
+      deleteIngredient: (id) => removeDoc(COLLECTIONS.ingredients, id),
     },
   );
   document.body.appendChild(mgmt.overlay);
@@ -173,19 +201,31 @@ function setupTabs() {
   });
 }
 
-function setStatus(text, kind) {
+let statusTimer = null;
+// Set the status line. With autoHideMs, the line hides itself after that delay,
+// but ONLY if its text is still the same — so a later error / "order saved"
+// message set in the meantime is never wiped. Used to make "Connected ✓" fade.
+function setStatus(text, kind, autoHideMs) {
   const elStatus = document.getElementById('orders-status');
   if (!elStatus) return;
+  clearTimeout(statusTimer);
+  elStatus.hidden = false;
   elStatus.textContent = text;
   elStatus.className = 'orders-status' + (kind ? ' ' + kind : '');
+  if (autoHideMs) {
+    statusTimer = setTimeout(() => {
+      if (elStatus.textContent === text) elStatus.hidden = true;
+    }, autoHideMs);
+  }
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
   setupTabs();
-  document.getElementById('preview-btn')?.addEventListener('click', openPreview);
+  document.getElementById('orders-placed-btn')?.addEventListener('click', ordersPlaced);
+  document.getElementById('orders-wa-btn')?.addEventListener('click', openSendScreen);
 
-  const settingsBtn = document.getElementById('orders-settings-btn');
+  const settingsBtn = document.getElementById('settings-footer-btn');
   if (settingsBtn) {
     if (isAdmin) settingsBtn.addEventListener('click', openManagement);
     else settingsBtn.hidden = true;
@@ -193,7 +233,7 @@ async function init() {
 
   try {
     await authReady;
-    setStatus('Connected ✓', 'ok');
+    setStatus('Connected ✓', 'ok', 2000);
   } catch (err) {
     console.error('Auth failed:', err);
     setStatus('Connection problem — check your network and reload.', 'error');

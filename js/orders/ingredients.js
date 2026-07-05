@@ -1,22 +1,41 @@
 // ingredients.js — builds the ingredient list for one supplier.
 //
-// Minimal, chef-first: each row shows the ingredient name + unit, a STOCK ON
-// HAND field (entered first), and the ORDER quantity (+/- stepper). Entering
-// stock auto-fills the suggested order quantity from history (Phase 5) — the
-// operator can always override it. A small line shows the suggestion, or a
-// countdown while fewer than 4 weeks of history exist.
+// Minimal, chef-first: each row shows the ingredient name + unit and two plain
+// number inputs side by side — STOCK ON HAND (entered first) and the ORDER
+// quantity. Entering stock auto-fills the suggested order quantity from history
+// (Phase 5) — the operator can always override it. When enough history exists a
+// small line shows the suggestion; otherwise nothing (no countdown noise).
 //
 // State lives in the shared `entries` object ({ [id]: { qty, stock } }).
 // `suggest(ingredientId, stock)` returns the suggestion engine result.
 
 import { el, groupBy } from './dom.js';
 
+// How many of a supplier's ingredients already have a quantity entered — used to
+// paint the progress bar correctly on first render (before any typing), so a
+// supplier is never stuck on a placeholder. refreshSupplierDerived (suppliers.js)
+// keeps it in sync as the operator types.
+function countFilled(ingredients, entries) {
+  return ingredients.filter(i => (entries[i.id]?.qty || 0) > 0).length;
+}
+
 export function buildIngredientList(supplier, ingredients, suggest, entries, hooks) {
+  // A supplier with no ingredients shows a clear empty state, not a progress bar
+  // stuck at 0 of 0 (the old "Loading…" bug: nothing ever replaced the placeholder).
+  if (!ingredients.length) {
+    return el('div', { class: 'ingredient-list' }, [
+      el('p', { class: 'ing-empty', text: 'No ingredients yet — add them in Settings ⚙.' }),
+    ]);
+  }
+
+  const total = ingredients.length;
+  const filled = countFilled(ingredients, entries);
+
+  const fill = el('div', { class: 'progress-fill', id: `progress-fill-${supplier.id}`,
+    style: { width: `${Math.round((filled / total) * 100)}%` } });
   const progress = el('div', { class: 'progress' }, [
-    el('div', { class: 'progress-track' }, [
-      el('div', { class: 'progress-fill', id: `progress-fill-${supplier.id}` }),
-    ]),
-    el('span', { class: 'progress-text', id: `progress-text-${supplier.id}` }, 'Loading…'),
+    el('div', { class: 'progress-track' }, [fill]),
+    el('span', { class: 'progress-text', id: `progress-text-${supplier.id}` }, `${filled} of ${total} filled`),
   ]);
 
   const body = el('div', { class: 'ingredient-list' }, [progress]);
@@ -52,15 +71,16 @@ function buildRow(ing, supplier, suggest, entries, hooks) {
     hooks.afterChange(supplier.id);
   }
 
+  // Show the "Suggested: X" hint only when history has produced an active
+  // suggestion; otherwise leave the line empty (no "available in N weeks" noise).
   function updateHint() {
     const result = suggest(ing.id, entries[ing.id].stock || 0);
     if (result.active) {
       hint.textContent = `Suggested: ${result.suggestion}`;
       hint.className = 'ing-suggestion active';
     } else {
-      const n = result.weeksRemaining;
-      hint.textContent = `Suggestion available in ${n} week${n === 1 ? '' : 's'}`;
-      hint.className = 'ing-suggestion pending';
+      hint.textContent = '';
+      hint.className = 'ing-suggestion';
     }
     return result;
   }
@@ -73,14 +93,6 @@ function buildRow(ing, supplier, suggest, entries, hooks) {
   });
   qtyInput.addEventListener('input', () => setQty(qtyInput.value, true));
 
-  const stepper = el('div', { class: 'qty-stepper' }, [
-    el('button', { type: 'button', class: 'step-btn', 'aria-label': 'Decrease',
-      onClick: () => setQty((entries[ing.id].qty || 0) - 1) }, '−'),
-    qtyInput,
-    el('button', { type: 'button', class: 'step-btn', 'aria-label': 'Increase',
-      onClick: () => setQty((entries[ing.id].qty || 0) + 1) }, '+'),
-  ]);
-
   const row = el('div', { class: 'ing-row', dataset: { ing: ing.id } }, [
     el('div', { class: 'ing-top' }, [
       el('span', { class: 'ing-name', text: ing.name }),
@@ -91,9 +103,9 @@ function buildRow(ing, supplier, suggest, entries, hooks) {
         el('span', { class: 'field-label', text: 'Stock' }),
         stockInput,
       ]),
-      el('div', { class: 'field order-field' }, [
+      el('label', { class: 'field order-field' }, [
         el('span', { class: 'field-label', text: 'Order' }),
-        stepper,
+        qtyInput,
       ]),
     ]),
     hint,
@@ -101,6 +113,6 @@ function buildRow(ing, supplier, suggest, entries, hooks) {
 
   stockInput.value = entry.stock || '';
   qtyInput.value = entry.qty || '';
-  updateHint(); // show suggestion/countdown without overwriting a restored quantity
+  updateHint(); // show suggestion without overwriting a restored quantity
   return row;
 }

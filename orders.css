@@ -12,6 +12,7 @@
 }
 
 .home-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -25,6 +26,25 @@
   min-height: 130px;
   justify-content: center;
   transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+}
+/* Count badge shown on the Orders card when an order is due to be placed today
+   (added by js/home-orders-badge.js; absent otherwise). */
+.home-card-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .home-card:active {
   transform: scale(0.985);
@@ -115,16 +135,12 @@
   border: none;
   cursor: pointer;
   text-align: left;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
 }
 .supplier-head-main { flex: 1; min-width: 0; }
 .supplier-name { display: block; font-size: 16px; font-weight: 600; color: var(--text); }
 .supplier-meta { display: block; font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 2px; }
 .supplier-head-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.supplier-counter { font-size: 13px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--text2); }
-.supplier-badge { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
-.supplier-badge.yellow { background: #E0A82E; }
-.supplier-badge.green { background: var(--accent); }
 .supplier-chevron { color: var(--text3); font-size: 14px; transition: transform 0.15s; }
 .supplier-chevron.open { transform: rotate(90deg); }
 .supplier-body { border-top: 1px solid var(--border); padding: 12px 14px 14px; }
@@ -151,43 +167,26 @@
 .ing-name { font-size: 16px; font-weight: 500; color: var(--text); }
 .ing-unit { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; }
 
-.ing-fields { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; }
+/* Two plain inputs, Stock then Order — no +/- steppers (they overflowed on
+   phones). Equal width and grouped at the left so they read as a neat pair. */
+.ing-fields { display: flex; align-items: flex-start; gap: 16px; }
 .field { display: flex; flex-direction: column; gap: 5px; }
 .field-label { font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; }
-.order-field { align-items: flex-end; }
 
-.qty-stepper { display: flex; align-items: center; gap: 8px; }
-.step-btn {
-  width: 40px;
-  height: 42px;
-  border-radius: var(--radius-sm);
-  border: 1.5px solid var(--border);
-  background: var(--surface2);
-  color: var(--accent);
-  font-size: 22px;
-  font-weight: 600;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.step-btn:active { background: var(--accent-light); }
-input.ing-qty {
-  width: 64px;
-  font-size: 18px;
-  min-height: 42px;
-  padding: 8px 6px;
-}
+input.ing-qty,
 input.ing-stock {
-  width: 84px;
+  width: 96px;
+  min-width: 0;
   font-size: 18px;
   min-height: 42px;
-  padding: 8px 6px;
+  padding: 8px 10px;
 }
+.ing-suggestion:empty { display: none; }
 .ing-suggestion { margin-top: 8px; font-size: 12px; font-family: 'DM Mono', monospace; }
 .ing-suggestion.active { color: var(--accent); }
-.ing-suggestion.pending { color: var(--text3); }
+
+/* Empty state inside a supplier with no ingredients (was the stuck "Loading…"). */
+.ing-empty { font-size: 13px; color: var(--text3); font-family: 'DM Mono', monospace; padding: 4px 0; }
 
 /* ── Buttons ──────────────────────────────────────────────────────────────── */
 .btn-primary {
@@ -197,7 +196,7 @@ input.ing-stock {
   background: var(--accent);
   border: none;
   border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 16px;
   font-weight: 600;
   color: #fff;
@@ -211,13 +210,13 @@ input.ing-stock {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 15px;
   color: var(--text2);
   cursor: pointer;
 }
 
-/* ── Order preview overlay ────────────────────────────────────────────────── */
+/* ── Send-order overlay (WhatsApp supplier selection) ─────────────────────── */
 .preview-overlay {
   position: fixed;
   inset: 0;
@@ -234,51 +233,37 @@ input.ing-stock {
 }
 .preview-empty { text-align: center; color: var(--text3); font-size: 14px; padding: 40px 20px; }
 
-.preview-supplier {
+/* "Select all" master row, set apart above the per-supplier list. */
+.send-select-all {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text2);
+  cursor: pointer;
+}
+.send-supplier-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 8px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 14px;
-  margin-bottom: 12px;
-}
-.preview-supplier-name {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--accent);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding-bottom: 8px;
-  margin-bottom: 8px;
-  border-bottom: 2px solid var(--accent-light);
-}
-.preview-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 7px 0;
-  border-bottom: 1px solid var(--border);
-}
-.preview-item:last-child { border-bottom: none; }
-.preview-item-name { font-size: 15px; color: var(--text); }
-.preview-item-qty { font-size: 15px; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--text); }
-
-.preview-actions-row { display: flex; gap: 8px; margin-top: 12px; }
-.send-btn {
-  flex: 1;
-  padding: 11px;
-  border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 14px;
-  font-weight: 600;
-  text-align: center;
-  text-decoration: none;
   cursor: pointer;
 }
-.send-btn.wa { background: #25D366; color: #fff; }
-.send-btn.wa:active { background: #1da851; }
-.send-btn.email { background: var(--surface); color: var(--accent); border: 1px solid var(--accent); }
-.send-btn.email:active { background: var(--accent-light); }
-.send-missing { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; }
+.send-select-all input,
+.send-supplier-row input { width: 22px; height: 22px; accent-color: var(--accent); flex-shrink: 0; }
+.send-supplier-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.send-supplier-name { font-size: 16px; font-weight: 600; color: var(--text); }
+.send-supplier-count { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; }
 
 .preview-footer {
   flex-shrink: 0;
@@ -329,7 +314,7 @@ input.ing-stock {
   border: 1px dashed var(--accent);
   border-radius: var(--radius-sm);
   color: var(--accent);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -353,12 +338,15 @@ input.ing-stock {
   background: none;
   border: none;
   color: var(--accent);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   padding: 2px 0;
 }
+/* Permanent delete: low-key text link in danger red so it never competes with
+   Edit/Deactivate (P20 — de-emphasise destructive actions). */
+.mgmt-link.danger { color: #C0392B; }
 
 /* ── Management forms ─────────────────────────────────────────────────────── */
 .mgmt-form { display: flex; flex-direction: column; gap: 14px; }
@@ -372,7 +360,7 @@ input.ing-stock {
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--text);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 15px;
   min-height: 44px;
   text-align: left;
@@ -423,7 +411,7 @@ input.ing-stock {
   background: #C0392B;
   border: none;
   border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 15px;
   font-weight: 600;
   color: #fff;
@@ -441,11 +429,19 @@ input.ing-stock {
   border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
   color: var(--accent);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
 }
+/* Notifications settings section (inside the management panel — Alerts tab). */
+.mgmt-notif { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.notif-desc { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text2); }
+.notif-note { margin: 0; font-size: 13px; color: var(--text3); }
+.notif-status { margin: 0; padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; line-height: 1.4; }
+.notif-status.on { background: var(--accent-light); color: var(--accent); }
+.notif-status.off { background: #FBE9E7; color: #8B3A0F; }
+
 .alert-banner {
   padding: 10px 12px;
   border-radius: var(--radius-sm);
@@ -453,9 +449,13 @@ input.ing-stock {
   line-height: 1.4;
   border: 1px solid transparent;
 }
-.alert-banner.due { background: var(--accent-light); color: var(--accent); border-color: var(--accent-light); }
+.alert-banner.order { background: var(--accent-light); color: var(--accent); border-color: var(--accent-light); }
 .alert-banner.holiday { background: #FBF3DE; color: #7A5200; border-color: #EAD9A8; }
 .alert-banner.conflict { background: #FBE9E7; color: #8B3A0F; border-color: #E6B7AE; }
+/* Grouped alert (place-order): a bold title over a numbered list of suppliers. */
+.alert-title { font-weight: 700; margin-bottom: 4px; }
+.alert-list { margin: 0; padding-left: 20px; }
+.alert-list li { margin: 2px 0; }
 
 /* ── Install helper (Home screen) ─────────────────────────────────────────── */
 .install-host { padding: 0 16px 18px; }
@@ -467,7 +467,7 @@ input.ing-stock {
   border: none;
   border-radius: var(--radius-sm);
   color: #fff;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Manrope', sans-serif;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;

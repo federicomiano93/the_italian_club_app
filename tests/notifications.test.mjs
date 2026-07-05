@@ -19,42 +19,55 @@ import { computeAlerts } from '../js/orders/notifications.js';
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const weekdayOf = (date) => WEEKDAYS[date.getDay()];
 
-// A quiet week well away from any fallback bank holiday, so only the delivery-day
+// A quiet week well away from any fallback bank holiday, so only the order-day
 // logic fires (mid-June 2026: nearest holidays are 25 May and 31 Aug).
 const QUIET_NOW = new Date(2026, 5, 17); // Wednesday 17 June 2026
 
-test('flags an order due when a supplier delivers today', () => {
+test('flags a place-order alert when a supplier’s order day is today', () => {
+  const today = weekdayOf(QUIET_NOW);
+  const suppliers = [{ id: 's1', name: 'ACME', active: true, orderDays: [today], deliveryDays: ['Friday'] }];
+  const alerts = computeAlerts(suppliers, QUIET_NOW);
+  assert.equal(alerts.length, 1);
+  assert.equal(alerts[0].kind, 'order');
+  assert.equal(alerts[0].items.length, 1);
+  assert.match(alerts[0].items[0], /ACME/);
+  assert.match(alerts[0].items[0], /delivers Friday/);
+});
+
+test('groups every supplier due today into ONE numbered banner', () => {
+  const today = weekdayOf(QUIET_NOW);
+  const suppliers = [
+    { id: 's1', name: 'Flour Co', active: true, orderDays: [today], deliveryDays: ['Wednesday'] },
+    { id: 's2', name: 'Dairy Ltd', active: true, orderDays: [today], deliveryDays: ['Thursday'] },
+  ];
+  const alerts = computeAlerts(suppliers, QUIET_NOW);
+  assert.equal(alerts.length, 1);              // a single grouped banner, not one per supplier
+  assert.equal(alerts[0].kind, 'order');
+  assert.equal(alerts[0].items.length, 2);
+  assert.match(alerts[0].text, /Flour Co/);
+  assert.match(alerts[0].text, /Dairy Ltd/);
+});
+
+test('no place-order alert when no supplier orders today', () => {
+  // Order day two days ahead — not today.
+  const otherDay = weekdayOf(new Date(2026, 5, 19));
+  const suppliers = [{ id: 's1', name: 'ACME', active: true, orderDays: [otherDay], deliveryDays: ['Friday'] }];
+  assert.deepEqual(computeAlerts(suppliers, QUIET_NOW), []);
+});
+
+test('a supplier with delivery days but no order days raises no place-order alert', () => {
   const today = weekdayOf(QUIET_NOW);
   const suppliers = [{ id: 's1', name: 'ACME', active: true, deliveryDays: [today] }];
-  const alerts = computeAlerts(suppliers, QUIET_NOW);
-  assert.equal(alerts.length, 1);
-  assert.equal(alerts[0].kind, 'due');
-  assert.match(alerts[0].text, /ACME delivers today/);
-});
-
-test('flags an order soon when a supplier delivers tomorrow', () => {
-  const tomorrow = weekdayOf(new Date(2026, 5, 18)); // day after QUIET_NOW
-  const suppliers = [{ id: 's1', name: 'ACME', active: true, deliveryDays: [tomorrow] }];
-  const alerts = computeAlerts(suppliers, QUIET_NOW);
-  assert.equal(alerts.length, 1);
-  assert.equal(alerts[0].kind, 'due');
-  assert.match(alerts[0].text, /ACME delivers tomorrow/);
-});
-
-test('no due alert when the supplier does not deliver today or tomorrow', () => {
-  // Pick a weekday two days ahead, which is neither today nor tomorrow.
-  const otherDay = weekdayOf(new Date(2026, 5, 19));
-  const suppliers = [{ id: 's1', name: 'ACME', active: true, deliveryDays: [otherDay] }];
   assert.deepEqual(computeAlerts(suppliers, QUIET_NOW), []);
 });
 
 test('inactive suppliers are ignored', () => {
   const today = weekdayOf(QUIET_NOW);
-  const suppliers = [{ id: 's1', name: 'ACME', active: false, deliveryDays: [today] }];
+  const suppliers = [{ id: 's1', name: 'ACME', active: false, orderDays: [today], deliveryDays: [today] }];
   assert.deepEqual(computeAlerts(suppliers, QUIET_NOW), []);
 });
 
-test('warns about a bank holiday in the coming week', () => {
+test('warns about a bank holiday in the coming week, with a day countdown', () => {
   // Monday 21 Dec 2026: Christmas Day (25 Dec, in the fallback list) is 4 days away.
   // No suppliers, so the holiday notice is the only alert.
   const now = new Date(2026, 11, 21);
@@ -62,6 +75,7 @@ test('warns about a bank holiday in the coming week', () => {
   assert.equal(alerts.length, 1);
   assert.equal(alerts[0].kind, 'holiday');
   assert.match(alerts[0].text, /2026-12-25/);
+  assert.match(alerts[0].text, /in 4 days/);
 });
 
 test('warns about a delivery day that clashes with an upcoming bank holiday', () => {
