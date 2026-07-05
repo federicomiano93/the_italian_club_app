@@ -7,8 +7,7 @@
 // js/firebase.js is never modified.
 //
 // Collection: recipes/{id} — one document per recipe (scales to 500+). Every
-// document carries bakery: "main" (rules enforce it), forward-compatible with a
-// future per-bakery split.
+// document carries bakery: "main" (rules enforce it).
 
 import { firebaseConfig } from '../firebase.js';
 import {
@@ -24,9 +23,7 @@ import {
   getFirestore,
   collection,
   doc,
-  getDocs,
   setDoc,
-  addDoc,
   deleteDoc,
   onSnapshot,
   runTransaction,
@@ -41,15 +38,25 @@ export const BAKERY = 'main';
 const RECIPES = 'recipes';
 
 // Resolves once anonymous auth is ready. Firestore rules require
-// request.auth != null, so every read/write awaits this first.
-export const authReady = new Promise(resolve => {
+// request.auth != null, so every read/write awaits this first. It REJECTS after a
+// timeout so a sign-in that never completes surfaces an error instead of hanging
+// every call forever (the caller shows "can't connect" rather than a silent stall).
+const AUTH_TIMEOUT_MS = 20000;
+export const authReady = new Promise((resolve, reject) => {
+  let settled = false;
   const unsub = onAuthStateChanged(auth, user => {
-    if (user) {
-      unsub();
-      resolve(user);
-    }
+    if (user && !settled) { settled = true; clearTimeout(timer); unsub(); resolve(user); }
   });
+  const timer = setTimeout(() => {
+    if (!settled) { settled = true; unsub(); reject(new Error('Firebase auth not ready (timed out)')); }
+  }, AUTH_TIMEOUT_MS);
 });
+
+// A new client-side document id (no write). Lets a brand-new recipe be shown
+// locally BEFORE the network write, so saving works instantly and offline.
+export function newRecipeId() {
+  return doc(collection(db, RECIPES)).id;
+}
 
 // Stamp the bakery id on a document payload (usageCount is local-only and never
 // written here — it lives in localStorage per device).
@@ -58,35 +65,23 @@ function withBakery(data) {
 }
 
 // Subscribe to the whole recipes collection in real time. onChange receives an
-// array of { id, ...data }. Returns the unsubscribe function. Attach this only
+// array of { id, ...data }. onError (optional) is called if the stream errors —
+// note onSnapshot does NOT auto-resubscribe after an error, so the caller decides
+// whether to warn the user. Returns the unsubscribe function. Attach this only
 // when the catalogue page is open (not at app boot) to avoid an unbounded read.
-export async function watchRecipes(onChange) {
+export async function watchRecipes(onChange, onError) {
   await authReady;
   return onSnapshot(
     collection(db, RECIPES),
     snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-    err => console.error('watchRecipes failed:', err),
+    err => { console.error('watchRecipes failed:', err); if (onError) onError(err); },
   );
 }
 
-// One-off read of the recipes collection. Returns an array of { id, ...data }.
-export async function getRecipesOnce() {
-  await authReady;
-  const snap = await getDocs(collection(db, RECIPES));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-
-// Create or merge a recipe document.
+// Create or merge a recipe document at a known id (id is generated client-side).
 export async function saveRecipeDoc(id, data) {
   await authReady;
   return setDoc(doc(db, RECIPES, id), withBakery(data), { merge: true });
-}
-
-// Create a recipe with an auto-generated id. Returns the new id.
-export async function createRecipeDoc(data) {
-  await authReady;
-  const ref = await addDoc(collection(db, RECIPES), withBakery(data));
-  return ref.id;
 }
 
 // Delete a recipe document.

@@ -45,10 +45,13 @@ export function renderDetail({ recipe, app }) {
         el('span', { class: 'cat-ing-amt', text: fmtG(amounts[i]) }),
       ]));
     });
+    // Total matches the rows exactly: the scaled rows are integers summing to the
+    // target; the base rows keep their (possibly fractional) amounts, so the total
+    // is their true sum — not a rounded value that wouldn't add up.
     const total = amounts.reduce((a, b) => a + b, 0);
     ingList.appendChild(el('div', { class: 'cat-ing-row cat-ing-total' }, [
       el('span', { class: 'cat-ing-name', text: 'Total' }),
-      el('span', { class: 'cat-ing-amt', text: fmtG(Math.round(total)) }),
+      el('span', { class: 'cat-ing-amt', text: fmtG(total) }),
     ]));
     scaledNote.hidden = !scaled;
     clearBtn.hidden = !scaled;

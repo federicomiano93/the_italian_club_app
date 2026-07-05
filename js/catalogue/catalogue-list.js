@@ -13,6 +13,7 @@ export function renderList({ recipes, usageMap, initialQuery = '', onQueryChange
   let query = initialQuery;
   let currentRecipes = recipes;
   let currentUsage = usageMap;
+  let debounceTimer = null;
 
   const listContainer = el('div', { class: 'cat-list' });
 
@@ -25,7 +26,9 @@ export function renderList({ recipes, usageMap, initialQuery = '', onQueryChange
     oninput: (e) => {
       query = e.target.value;
       if (onQueryChange) onQueryChange(query);
-      paint();
+      // Debounce so a large catalogue isn't re-rendered on every keystroke.
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(paint, 140);
     },
   });
 

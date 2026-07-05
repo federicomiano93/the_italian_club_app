@@ -106,13 +106,16 @@ export function baseAmounts(recipe) {
 
 // ── Editor validation ─────────────────────────────────────────────────────────
 
-// The first problem with a recipe, or null if it is valid: 'name' (blank name) or
-// 'ingredients' (no ingredient with a non-empty label). Used to block Save.
+// The first problem with a recipe, or null if it is valid: 'name' (blank name),
+// 'ingredients' (no ingredient with a non-empty label), or 'weight' (every named
+// ingredient is 0 g, so the recipe can never be scaled). Used to block Save.
 export function findInvalidRecipe(recipe) {
   if (!recipe || !String(recipe.name || '').trim()) return 'name';
   const ings = Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
   const named = ings.filter(i => i && String(i.label || '').trim());
   if (!named.length) return 'ingredients';
+  const totalGrams = named.reduce((s, i) => { const g = Number(i.grams); return s + (g > 0 ? g : 0); }, 0);
+  if (totalGrams <= 0) return 'weight';
   return null;
 }
 

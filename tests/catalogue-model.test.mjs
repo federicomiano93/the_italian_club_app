@@ -133,6 +133,12 @@ test('findInvalidRecipe flags blank name and no-named-ingredient, passes valid',
   assert.equal(findInvalidRecipe(FOCACCIA), null);
 });
 
+test('findInvalidRecipe flags an all-zero-weight recipe (cannot be scaled)', () => {
+  assert.equal(findInvalidRecipe({ name: 'X', ingredients: [{ label: 'Flour', grams: 0 }] }), 'weight');
+  assert.equal(findInvalidRecipe({ name: 'X', ingredients: [{ label: 'Flour', grams: 0 }, { label: 'Salt', grams: 0 }] }), 'weight');
+  assert.equal(findInvalidRecipe({ name: 'X', ingredients: [{ label: 'Flour', grams: 5 }] }), null);
+});
+
 // ── toCalculatorRecipe / mergeImportedRecipe (the import mapping) ────────────────
 
 test('toCalculatorRecipe maps to a hidden pro-rata Calculator recipe', () => {

@@ -20,6 +20,7 @@ export function renderEditor({ recipe, allRecipes, app }) {
 
   let dirty = false;
   let showErrors = false;
+  let busy = false; // guards against re-entrant Save/Delete while a confirm is open
   const markDirty = () => { dirty = true; };
 
   // Autocomplete pool: distinct ingredient names across the catalogue.
@@ -80,18 +81,19 @@ export function renderEditor({ recipe, allRecipes, app }) {
     });
   }
 
-  // Trim labels, coerce grams to numbers, drop rows with no name.
+  // Trim labels, coerce grams to non-negative numbers, drop rows with no name.
   function cleanWorking() {
     return {
       id: working.id,
       name: String(working.name || '').trim(),
       ingredients: working.ingredients
-        .map(i => ({ label: String(i.label || '').trim(), grams: Number(i.grams) || 0 }))
+        .map(i => ({ label: String(i.label || '').trim(), grams: Math.max(0, Number(i.grams) || 0) }))
         .filter(i => i.label),
     };
   }
 
   async function onSave() {
+    if (busy) return;
     const clean = cleanWorking();
     const problem = findInvalidRecipe(clean);
     if (problem) {
@@ -99,40 +101,37 @@ export function renderEditor({ recipe, allRecipes, app }) {
       renderIngredientRows();
       validateUI();
       if (problem === 'name') nameInput.focus();
-      app.toast(problem === 'name' ? 'Please enter a recipe name.' : 'Add at least one ingredient with a name.');
+      app.toast(
+        problem === 'name' ? 'Please enter a recipe name.'
+          : problem === 'weight' ? 'Enter a weight (grams) for at least one ingredient.'
+            : 'Add at least one ingredient with a name.',
+      );
       return;
     }
+    busy = true;
     const ok = await app.confirm({ title: 'Save recipe?', message: 'Save these changes?', okLabel: 'Save' });
-    if (!ok) return;
+    if (!ok) { busy = false; return; }
     dirty = false;
-    try {
-      await app.saveRecipe(clean);
-      app.toast(recipe ? 'Recipe saved.' : 'Recipe added.');
-      app.showList();
-    } catch (err) {
-      console.error('Save recipe failed:', err);
-      dirty = true;
-      app.toast('Save failed — check your connection and try again.');
-    }
+    // Local-first: the store updates the list instantly and syncs in the background;
+    // a rejected write is rolled back and surfaced by the store (no freeze here).
+    app.saveRecipe(clean);
+    app.toast(recipe ? 'Recipe saved.' : 'Recipe added.');
+    app.showList();
   }
 
   async function onDelete() {
+    if (busy) return;
+    busy = true;
     const ok = await app.confirm({
       title: 'Delete recipe?',
       message: `Delete "${working.name || 'this recipe'}"? This cannot be undone.`,
       okLabel: 'Delete',
     });
-    if (!ok) return;
+    if (!ok) { busy = false; return; }
     dirty = false;
-    try {
-      await app.deleteRecipe(working.id);
-      app.toast('Recipe deleted.');
-      app.showList();
-    } catch (err) {
-      console.error('Delete recipe failed:', err);
-      dirty = true;
-      app.toast('Delete failed — check your connection and try again.');
-    }
+    app.deleteRecipe(working.id); // local-first
+    app.toast('Recipe deleted.');
+    app.showList();
   }
 
   // Discard protection: Back with unsaved edits asks first.
