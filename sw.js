@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v148';
+const CACHE_NAME = 'theitalianclub-v149';
 const ASSETS = [
   './',
   './index.html',
@@ -49,6 +49,18 @@ const ASSETS = [
   './js/orders/bank-holidays.js',
   './js/orders/suggestions.js',
   './js/orders/notifications.js',
+  './catalogue.html',
+  './catalogue.css',
+  './js/catalogue/dom.js',
+  './js/catalogue/boot.js',
+  './js/catalogue/catalogue-model.js',
+  './js/catalogue/firebase-catalogue.js',
+  './js/catalogue/catalogue-store.js',
+  './js/catalogue/catalogue-main.js',
+  './js/catalogue/catalogue-list.js',
+  './js/catalogue/catalogue-detail.js',
+  './js/catalogue/catalogue-editor.js',
+  './js/catalogue/import-to-calculator.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png'

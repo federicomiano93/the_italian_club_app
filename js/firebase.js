@@ -32,12 +32,14 @@ import {
   deleteDoc,
   onSnapshot,
   getDocs,
+  runTransaction,
   connectFirestoreEmulator,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import {
   initializeAppCheck,
   ReCaptchaV3Provider,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js';
+import { reconcileConfigWrite } from './calculator-config.js';
 
 // ── Configuration (placeholders only — fill these in js/firebase.js) ──────────
 export const firebaseConfig = {
@@ -195,10 +197,21 @@ export function watchCalculatorConfig(onChange) {
   });
 }
 
-// Persist the whole config document (overwrite). bakery is stamped for
-// forward-compatibility with a future per-bakery split, like the orders system.
+// Persist the whole config document. Written in a transaction with an optimistic
+// revision counter (configRev): it always writes the caller's config, but if the
+// server document changed since this config was loaded (a different writer — e.g.
+// a Recipe-catalogue import that added a recipe), the imported (cat-*) recipes we
+// don't already have are preserved, so a blind overwrite can't silently drop them.
+// Normal edits (including deleting a recipe) are unaffected: with no concurrent
+// writer the rev matches and nothing extra is merged. bakery is stamped as before.
 export function saveCalculatorConfig(config) {
+  const ref = doc(db, 'config', 'calculator');
   return authReady
-    .then(() => setDoc(doc(db, 'config', 'calculator'), { ...config, bakery: 'main' }))
+    .then(() => runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      const server = snap.exists() ? snap.data() : null;
+      const { recipes, configRev } = reconcileConfigWrite(config, server);
+      tx.set(ref, { ...config, recipes, configRev, bakery: 'main' });
+    }))
     .catch(err => { console.error('saveCalculatorConfig failed:', err); throw err; });
 }
