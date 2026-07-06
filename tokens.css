@@ -1,0 +1,103 @@
+/* tokens.css — the ONE shared design system for the whole app.
+   Loaded first on every page (before style.css / orders.css / catalogue.css),
+   so every screen draws its colours, type, radius and elevation from here.
+
+   The palette is the Recipe catalogue's, adopted as the app-wide reference.
+   Light theme only. Self-hosted fonts (Manrope + DM Mono, SIL Open Font License)
+   are declared ONCE here — they used to be duplicated in style.css and
+   catalogue.css. The files live in ./fonts/ and are precached by the service
+   worker. */
+
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url(fonts/manrope-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url(fonts/manrope-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/dm-mono-400-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(fonts/dm-mono-400-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(fonts/dm-mono-500-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(fonts/dm-mono-500-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+:root {
+  /* ── Ground & surfaces ───────────────────────────────────────────────── */
+  --bg:        #EFEBE1;   /* page background (warm neutral ground) */
+  --surface:   #FFFFFF;   /* raised surfaces: cards, inputs, modals */
+  --surface-2: #F7F4EC;   /* recessed / tinted surfaces */
+  --border:    #E2DDD0;   /* hairline borders & dividers */
+
+  /* ── Text (three levels) ─────────────────────────────────────────────── */
+  --text:   #1B2114;      /* primary text */
+  --text-2: #626955;      /* secondary / muted text */
+  --text-3: #78736B;      /* third level: units, timestamps, fine print */
+
+  /* ── Greens (two, distinct) ──────────────────────────────────────────── */
+  --brand:    #2D5016;    /* primary: headers, buttons, primary actions */
+  --brand-2:  #3E6B1F;    /* hover / lighter brand */
+  --on-brand: #F3F5EE;    /* text & icons on a brand-green surface */
+  --accent-2: #4C7A26;    /* interaction accent: focus rings, links, highlights */
+
+  /* Pale brand tint — result cards, chips, badges, active-row backgrounds. */
+  --accent-light: #E8F0E0;
+
+  /* ── Semantic status colours ─────────────────────────────────────────── */
+  --danger:       #a23b2f;   /* the one destructive red (delete, invalid) */
+
+  --warn:         #7A5200;   /* warning / amber text (holidays, yeast) */
+  --warn-bg:      #FBF3DE;   /* warning background */
+  --warn-border:  #EAD9A8;   /* warning border */
+
+  --error:        #8B3A0F;   /* error / conflict text (alerts, offline) */
+  --error-bg:     #FBE9E7;   /* error / conflict background */
+  --error-border: #E6B7AE;   /* error / conflict border */
+
+  /* ── Elevation ───────────────────────────────────────────────────────── */
+  --shadow: 0 1px 2px rgba(27,33,20,.06), 0 8px 24px rgba(27,33,20,.07);
+
+  /* ── Radius ──────────────────────────────────────────────────────────── */
+  --radius:    16px;   /* base: cards, panels, modals */
+  --radius-sm: 10px;   /* smaller: buttons, fields, chips */
+
+  /* ── Type ────────────────────────────────────────────────────────────── */
+  --font:       'Manrope', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-round: 'Manrope', system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:  'DM Mono', ui-monospace, "Cascadia Mono", Menlo, monospace;
+}

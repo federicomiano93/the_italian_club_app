@@ -1,51 +1,29 @@
 /* catalogue.css — Recipe catalogue feature styles (self-contained, so the feature
    folder stays extractable). Palette + layout match the approved mockup: green
    header on a warm-neutral ground, clean name-only list, column-aligned amounts,
-   bottom weight input with confirm, low-key editor. Light + dark themes. */
+   bottom weight input with confirm, low-key editor. Uses the shared app-wide
+   design tokens (tokens.css); light theme only. */
 
-/* Self-hosted fonts, shared with the rest of the app (Manrope for text, DM Mono for
-   numbers). This feature loads only catalogue.css, so it declares its own @font-face
-   pointing at the same ./fonts/ files precached by the service worker (SIL OFL). */
-@font-face { font-family: 'Manrope'; font-style: normal; font-weight: 400 800; font-display: swap; src: url(fonts/manrope-latin.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
-@font-face { font-family: 'Manrope'; font-style: normal; font-weight: 400 800; font-display: swap; src: url(fonts/manrope-latin-ext.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
-@font-face { font-family: 'DM Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/dm-mono-400-latin.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
-@font-face { font-family: 'DM Mono'; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/dm-mono-400-latin-ext.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
-@font-face { font-family: 'DM Mono'; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/dm-mono-500-latin.woff2) format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
-@font-face { font-family: 'DM Mono'; font-style: normal; font-weight: 500; font-display: swap; src: url(fonts/dm-mono-500-latin-ext.woff2) format('woff2'); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
-
+/* Colours, type, radius, shadow and the @font-face declarations now come from the
+   shared tokens.css (loaded before this file). These aliases keep every existing
+   var(--cat-*) reference working while the values come from the one shared source. */
 :root {
-  --cat-ground:    #EFEBE1;
-  --cat-surface:   #FFFFFF;
-  --cat-surface-2: #F7F4EC;
-  --cat-brand:     #2D5016;
-  --cat-brand-2:   #3E6B1F;
-  --cat-brand-ink: #F3F5EE;
-  --cat-accent:    #4C7A26;
-  --cat-text:      #1B2114;
-  --cat-text-2:    #626955;
-  --cat-border:    #E2DDD0;
-  --cat-danger:    #a23b2f;
-  --cat-shadow:    0 1px 2px rgba(27,33,20,.06), 0 8px 24px rgba(27,33,20,.07);
-  --cat-radius:    16px;
-  --cat-font: 'Manrope', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --cat-font-round: 'Manrope', system-ui, -apple-system, "Segoe UI", sans-serif;
-  --cat-font-mono: 'DM Mono', ui-monospace, "Cascadia Mono", Menlo, monospace;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --cat-ground:    #12160D;
-    --cat-surface:   #1C2216;
-    --cat-surface-2: #232A1B;
-    --cat-brand:     #244011;
-    --cat-brand-2:   #3E6B1F;
-    --cat-brand-ink: #EAF0E1;
-    --cat-accent:    #8FB86A;
-    --cat-text:      #ECEFE4;
-    --cat-text-2:    #9BA389;
-    --cat-border:    #313A26;
-    --cat-danger:    #e8897b;
-    --cat-shadow:    0 1px 2px rgba(0,0,0,.3), 0 10px 28px rgba(0,0,0,.35);
-  }
+  --cat-ground:     var(--bg);
+  --cat-surface:    var(--surface);
+  --cat-surface-2:  var(--surface-2);
+  --cat-brand:      var(--brand);
+  --cat-brand-2:    var(--brand-2);
+  --cat-brand-ink:  var(--on-brand);
+  --cat-accent:     var(--accent-2);
+  --cat-text:       var(--text);
+  --cat-text-2:     var(--text-2);
+  --cat-border:     var(--border);
+  --cat-danger:     var(--danger);
+  --cat-shadow:     var(--shadow);
+  --cat-radius:     var(--radius);
+  --cat-font:       var(--font);
+  --cat-font-round: var(--font-round);
+  --cat-font-mono:  var(--font-mono);
 }
 
 * { box-sizing: border-box; }
