@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v154';
+const CACHE_NAME = 'theitalianclub-v155';
 // Firebase SDK modules (loaded from gstatic) are cached SEPARATELY from CACHE_NAME
 // so they survive the cache-version bump that happens on every deploy — otherwise
 // the offline SDK would be wiped each release until the next online load. The name
@@ -23,6 +23,7 @@ const ASSETS = [
   './fonts/dm-mono-500-latin.woff2',
   './fonts/dm-mono-500-latin-ext.woff2',
   './js/app.js',
+  './js/sw-update.js',
   './js/idle-reset.js',
   './js/install.js',
   './js/home-orders-badge.js',
@@ -65,7 +66,6 @@ const ASSETS = [
   './catalogue.html',
   './catalogue.css',
   './js/catalogue/dom.js',
-  './js/catalogue/boot.js',
   './js/catalogue/catalogue-model.js',
   './js/catalogue/firebase-catalogue.js',
   './js/catalogue/catalogue-store.js',
@@ -80,13 +80,19 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', e => {
-  // Cache assets one-by-one — if one fails, installation still succeeds
+  // Cache assets one-by-one — if one fails, installation still succeeds.
+  // cache: 'reload' bypasses the browser's HTTP cache (GitHub Pages serves
+  // ~10-minute max-age), so a brand-new worker can never precache stale copies.
+  // NO skipWaiting() here: the new worker must WAIT so js/sw-update.js can show
+  // the update banner; it activates when the user taps it (skipWaiting message
+  // below) or when the app is next opened with no pages left from the old one.
   e.waitUntil(
     caches.open(CACHE_NAME).then(cache =>
-      Promise.allSettled(ASSETS.map(url => cache.add(url)))
+      Promise.allSettled(ASSETS.map(url =>
+        cache.add(new Request(url, { cache: 'reload' }))
+      ))
     )
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {
@@ -149,9 +155,13 @@ self.addEventListener('fetch', e => {
   // Cache-first with background update: serve cached version immediately,
   // fetch from network in background to keep cache fresh.
   // This prevents white screens on poor connections.
+  // cache: 'no-cache' forces the background fetch to revalidate with the server
+  // (a cheap 304 when unchanged) instead of trusting the browser's HTTP cache,
+  // which could hand back the same stale copy we are trying to refresh.
+  if (e.request.method !== 'GET') return;
   e.respondWith(
     caches.match(e.request).then(cached => {
-      const networkFetch = fetch(e.request).then(res => {
+      const networkFetch = fetch(e.request.url, { cache: 'no-cache' }).then(res => {
         if (res.ok) {
           const clone = res.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));

@@ -101,3 +101,38 @@
   --font-round: 'Manrope', system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono:  'DM Mono', ui-monospace, "Cascadia Mono", Menlo, monospace;
 }
+
+/* ── Update banner (js/sw-update.js) ─────────────────────────────────────
+   The one shared component in this file: the "new version — tap to update"
+   banner is created from JS on EVERY page, and the CSP (style-src 'self')
+   forbids injected styles, so its look must live in a stylesheet loaded by
+   every page — which is only this one. */
+#sw-update-host {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+  pointer-events: none; /* the host never blocks taps around the button */
+}
+#sw-update-banner {
+  pointer-events: auto;
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--brand);
+  color: var(--on-brand);
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+}
+#sw-update-banner:disabled { opacity: .7; cursor: default; }
