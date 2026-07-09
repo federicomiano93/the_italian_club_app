@@ -1,15 +1,5 @@
-// boot.js — service worker registration for the Home and Orders pages.
-//
-// index.html registers the service worker via js/app.js (which we never modify);
-// the new pages need their own CSP-safe external registration so the PWA works
-// when launched from index.html (the Home start_url) or orders.html.
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(err =>
-      console.error('Service worker registration failed:', err));
-  });
-}
+// boot.js — splash overlay for the Home page. (Service-worker registration,
+// which used to live here too, moved to js/sw-update.js, shared by every page.)
 
 // Splash overlay (index.html only): fade it out once the page is ready, then
 // remove it from the DOM. A minimum visible time avoids an ugly flash on fast

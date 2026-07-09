@@ -13,29 +13,8 @@ import { initLogs } from './log-store.js';
 import { renderTab, buildRecipePanel, el } from './calculator-render.js';
 import { getVisibleRecipes, getRecipeById, getTabProducts, isExtraDoughEnabled } from './calculator-config.js';
 
-// ── Service Worker ────────────────────────────────────────────────────────────
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').then(reg => {
-    if (!reg) return;
-    setInterval(() => reg.update(), 30000);
-    const showBanner = () => document.getElementById('update-banner').classList.add('visible');
-    if (reg.waiting) showBanner();
-    reg.addEventListener('updatefound', () => {
-      const newWorker = reg.installing;
-      newWorker.addEventListener('statechange', () => {
-        if (newWorker.state === 'installed') showBanner();
-      });
-    });
-  });
-  navigator.serviceWorker.addEventListener('controllerchange', () => { window.location.reload(); });
-}
-
-function applyUpdate() {
-  navigator.serviceWorker.getRegistration().then(reg => {
-    if (reg && reg.waiting) reg.waiting.postMessage({ action: 'skipWaiting' });
-    else window.location.reload();
-  });
-}
+// Service-worker registration and the update banner live in js/sw-update.js,
+// shared by every page — nothing to do here.
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
 // The tab-bar holds the visible recipes (built from config); the Log lives in the
@@ -245,7 +224,6 @@ if (dayModal) {
 }
 
 // ── Static header / footer / modal wiring (elements exist in calculator.html) ──
-document.getElementById('update-banner').addEventListener('click', applyUpdate);
 document.getElementById('yeast-banner').addEventListener('click', () => {
   document.getElementById('yeast-banner').classList.add('hidden');
 });

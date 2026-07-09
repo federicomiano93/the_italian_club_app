@@ -31,10 +31,11 @@
     Salt               124g
     2° Water           200g
 
-  ── NOTE ──────────────────────────────────────────────────
-  Service worker: network-first, controlla aggiornamenti ogni 30s
-  Cache: theitalianclub-v104
-  Icona: pagnotta su sfondo verde scuro, aggiornabile solo reinstallando
+  ── NOTES ─────────────────────────────────────────────────
+  Service worker: cache-first + background revalidate; updates surface as a
+  tap-to-update banner via js/sw-update.js (shared by every page).
+  Cache version lives in sw.js (CACHE_NAME) — bump it on every deploy.
+  Icon: loaf on dark-green background, only updatable by reinstalling the PWA.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -256,10 +257,6 @@
   </div>
 </div>
 
-<div id="update-banner">
-  New version available — tap to update
-</div>
-
 <div class="tab-bar" id="tab-bar"></div>
 
 <div id="yeast-banner">
@@ -361,6 +358,7 @@
   <div class="recipe-scroll"><div id="loghistory-content"></div></div>
 </div>
 
+<script type="module" src="js/sw-update.js"></script>
 <script type="module" src="js/idle-reset.js"></script>
 <script type="module" src="js/app.js"></script>
 </body>

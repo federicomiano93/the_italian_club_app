@@ -62,19 +62,6 @@ header p { font-size: 11px; color: rgba(255,255,255,0.72); margin-top: 1px; font
   padding: 0;
 }
 
-/* Update banner */
-#update-banner {
-  display: none;
-  background: var(--error);
-  color: #fff;
-  font-size: 13px;
-  padding: 10px 16px;
-  text-align: center;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-#update-banner.visible { display: block; }
-
 /* Yeast reminder banner */
 #yeast-banner {
   background: var(--warn);
