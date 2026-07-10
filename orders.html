@@ -76,7 +76,9 @@
 
   <!-- ORDER -->
   <section class="content active" id="tab-order">
-    <p class="orders-status" id="orders-status">Connecting…</p>
+    <!-- Action feedback only (e.g. "Order saved ✓"): starts empty/hidden. The
+         connection state is NOT shown here anymore — see #orders-offline below. -->
+    <p class="orders-status" id="orders-status" hidden></p>
     <div id="orders-alerts"></div>
     <div id="suppliers-list"></div>
     <button class="btn-primary" id="orders-placed-btn" hidden>Orders placed</button>
@@ -93,6 +95,11 @@
   </div>
 
 </div>
+
+<!-- Offline bar: shown ONLY while the device has no network connection
+     (js/orders/orders-main.js toggles [hidden] on the browser online/offline
+     events). Fixed to the bottom so it stays visible whatever the scroll. -->
+<p class="orders-offline" id="orders-offline" role="status" hidden>You're offline — reconnect to load and save orders.</p>
 
 <script type="module" src="js/sw-update.js"></script>
 <script type="module" src="js/idle-reset.js"></script>

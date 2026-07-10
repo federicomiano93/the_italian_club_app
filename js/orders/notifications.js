@@ -54,6 +54,22 @@ function nextHolidayWithin(from, days) {
   return null;
 }
 
+// The supplier's NEXT delivery relative to `now`, as a friendly label:
+// 'tomorrow' when it lands on the very next day, otherwise the weekday name
+// (e.g. 'Thursday'). Empty string when the supplier has no delivery days. Only
+// the next delivery is returned — never the full list of delivery weekdays.
+function nextDeliveryLabel(supplier, now) {
+  const days = supplier.deliveryDays || [];
+  if (!days.length) return '';
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + i);
+    const wd = WEEKDAYS[d.getDay()];
+    if (days.includes(wd)) return i === 1 ? 'tomorrow' : wd;
+  }
+  return '';
+}
+
 export function computeAlerts(suppliers, now = new Date()) {
   const alerts = [];
   const active = (suppliers || []).filter(s => s.active !== false);
@@ -64,8 +80,8 @@ export function computeAlerts(suppliers, now = new Date()) {
   const toOrder = active.filter(s => (s.orderDays || []).includes(todayWd));
   if (toOrder.length) {
     const items = toOrder.map(s => {
-      const deliver = (s.deliveryDays || []).join(', ');
-      return deliver ? `${s.name} (delivers ${deliver})` : s.name;
+      const when = nextDeliveryLabel(s, now);
+      return when ? `${s.name} — ${when}` : s.name;
     });
     alerts.push({
       kind: 'order',
