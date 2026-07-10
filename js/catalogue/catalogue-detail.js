@@ -22,9 +22,14 @@ const CLOSE_SVG =
 // is a belt-and-suspenders guard so nothing ever shows a decimal. useGrouping:false
 // drops the thousands separator (e.g. 1000 g, not 1,000 g) — Federico's preference.
 const nf = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0, useGrouping: false });
-const fmtG = (g) => nf.format(g) + ' g';
-// One ingredient amount in its own unit; a 'to taste' row (value null) shows no number.
-const fmtAmount = (value, unit) => value === null ? 'to taste' : `${nf.format(value)} ${unit}`;
+// Split each amount into number + unit so they line up in two straight columns
+// (numbers right-aligned, units left-aligned) no matter how long the name is. A
+// 'to taste' row (value null) has no number and shows the phrase in the unit slot.
+const amountParts = (value, unit) => value === null ? { num: '', unit: 'to taste' } : { num: nf.format(value), unit };
+const amountEl = ({ num, unit }) => el('span', { class: 'cat-ing-amt' }, [
+  el('span', { class: 'cat-ing-num', text: num }),
+  el('span', { class: 'cat-ing-unit', text: unit }),
+]);
 
 export function renderDetail({ recipe, app }) {
   // Restore a recently calculated batch (kept per device until Clear or 12h), so
@@ -36,17 +41,27 @@ export function renderDetail({ recipe, app }) {
   const ingRows = el('div', { class: 'cat-ing-rows' });
 
   // Tap-to-zoom: a tap on the recipe expands it into a full-screen overlay (bigger
-  // figures, readable across the room); tapping again — or the corner button, or
-  // Escape — returns to normal. A CSS fixed overlay is used, NOT the Fullscreen
-  // API, because iOS Safari blocks that API for non-video elements.
+  // figures, readable across the room); tapping again — the × button, or Escape —
+  // returns to normal. A CSS fixed overlay is used, NOT the Fullscreen API, because
+  // iOS Safari blocks that API for non-video elements.
   let zoomed = false;
-  const zoomBtn = el('button', {
-    class: 'cat-zoom-btn', type: 'button', 'aria-label': 'View recipe full screen',
-    onclick: (e) => { e.stopPropagation(); setZoom(!zoomed); },
+  // "Enlarge" control sits in a slim bar ABOVE the list (not floating over a row,
+  // which would collide with the right-aligned amounts).
+  const expandBtn = el('button', {
+    class: 'cat-zoom-open', type: 'button', 'aria-label': 'View recipe full screen',
+    onclick: () => setZoom(true),
   }, [
-    el('span', { class: 'cat-zoom-ic cat-zoom-ic-expand', icon: EXPAND_SVG, 'aria-hidden': 'true' }),
-    el('span', { class: 'cat-zoom-ic cat-zoom-ic-close', icon: CLOSE_SVG, 'aria-hidden': 'true' }),
+    el('span', { icon: EXPAND_SVG, 'aria-hidden': 'true' }),
+    'Enlarge',
   ]);
+  const toolbar = el('div', { class: 'cat-ing-toolbar' }, [expandBtn]);
+
+  // Close (×) lives inside the overlay and only shows while zoomed.
+  const closeBtn = el('button', {
+    class: 'cat-zoom-close', type: 'button', 'aria-label': 'Exit full screen',
+    onclick: (e) => { e.stopPropagation(); setZoom(false); },
+    icon: CLOSE_SVG,
+  });
 
   const ingList = el('div', {
     class: 'cat-ing-list', role: 'button', tabindex: '0', 'aria-pressed': 'false',
@@ -56,15 +71,13 @@ export function renderDetail({ recipe, app }) {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setZoom(!zoomed); }
       else if (e.key === 'Escape' && zoomed) { e.preventDefault(); setZoom(false); }
     },
-  }, [ingRows, zoomBtn]);
+  }, [ingRows, closeBtn]);
 
   function setZoom(on) {
     zoomed = on;
     ingList.classList.toggle('cat-ing-list--zoom', on);
     ingList.setAttribute('aria-pressed', on ? 'true' : 'false');
-    const label = on ? 'Exit full screen' : 'View recipe full screen';
-    ingList.setAttribute('aria-label', label);
-    zoomBtn.setAttribute('aria-label', label);
+    ingList.setAttribute('aria-label', on ? 'Exit full screen' : 'View recipe full screen');
     // Lock the page behind the overlay so it can't scroll under it.
     document.body.classList.toggle('cat-zoom-lock', on);
     if (on) { try { ingList.focus({ preventScroll: true }); } catch (e) { /* best-effort */ } }
@@ -93,7 +106,7 @@ export function renderDetail({ recipe, app }) {
     recipe.ingredients.forEach((ing, i) => {
       ingRows.appendChild(el('div', { class: 'cat-ing-row' }, [
         el('span', { class: 'cat-ing-name', text: ing.label }),
-        el('span', { class: 'cat-ing-amt', text: fmtAmount(amounts[i], unitOf(ing)) }),
+        amountEl(amountParts(amounts[i], unitOf(ing))),
       ]));
     });
     // Total = the WEIGHABLE mass in grams (weight + volume rows): when scaled it is
@@ -102,7 +115,7 @@ export function renderDetail({ recipe, app }) {
     const total = scaled ? displayTarget : weighableTotalGrams(recipe);
     ingRows.appendChild(el('div', { class: 'cat-ing-row cat-ing-total' }, [
       el('span', { class: 'cat-ing-name', text: 'Total' }),
-      el('span', { class: 'cat-ing-amt', text: fmtG(total) }),
+      amountEl({ num: nf.format(total), unit: 'g' }),
     ]));
     clearBtn.hidden = !scaled;
   }
@@ -164,6 +177,7 @@ export function renderDetail({ recipe, app }) {
   // Import/Delete are pushed to the bottom (.cat-detail-bottom → margin-top:auto)
   // so they're reached by scrolling and never compete with the recipe.
   return el('div', { class: 'cat-view' }, [
+    toolbar,
     ingList,
     weightPanel,
     el('div', { class: 'cat-detail-bottom' }, [
