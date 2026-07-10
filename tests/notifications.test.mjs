@@ -32,6 +32,9 @@ test('flags a place-order alert when a supplier’s order day is today', () => {
   assert.equal(alerts[0].kind, 'order');
   assert.equal(alerts[0].items.length, 1);
   assert.equal(alerts[0].items[0], 'ACME — Friday');
+  // Notification: title carries the action, body is the supplier names only.
+  assert.equal(alerts[0].title, 'Order to place today');
+  assert.equal(alerts[0].text, 'ACME');
 });
 
 test('place-order line says "tomorrow" when the next delivery is the next day', () => {
@@ -69,8 +72,8 @@ test('groups every supplier due today into ONE numbered banner', () => {
   assert.equal(alerts.length, 1);              // a single grouped banner, not one per supplier
   assert.equal(alerts[0].kind, 'order');
   assert.equal(alerts[0].items.length, 2);
-  assert.match(alerts[0].text, /Flour Co/);
-  assert.match(alerts[0].text, /Dairy Ltd/);
+  assert.equal(alerts[0].title, 'Orders to place today');  // plural for more than one
+  assert.equal(alerts[0].text, 'Flour Co, Dairy Ltd');     // notification body: names only
 });
 
 test('no place-order alert when no supplier orders today', () => {
