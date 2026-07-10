@@ -14,7 +14,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeAlerts } from '../js/orders/notifications.js';
+import { computeAlerts, isReminderDue } from '../js/orders/notifications.js';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const weekdayOf = (date) => WEEKDAYS[date.getDay()];
@@ -121,4 +121,20 @@ test('warns about a delivery day that clashes with an upcoming bank holiday', ()
 test('a missing supplier list produces no alerts (and never throws)', () => {
   assert.deepEqual(computeAlerts(undefined, QUIET_NOW), []);
   assert.deepEqual(computeAlerts(null, QUIET_NOW), []);
+});
+
+// ── Daily Home reminder gate (isReminderDue) ──────────────────────────────────
+test('reminder is due when it has never been shown', () => {
+  assert.equal(isReminderDue(null, QUIET_NOW), true);
+  assert.equal(isReminderDue(undefined, QUIET_NOW), true);
+});
+
+test('reminder is NOT due again on the same day it was last shown', () => {
+  const today = '2026-06-17'; // matches QUIET_NOW (17 June 2026)
+  assert.equal(isReminderDue(today, QUIET_NOW), false);
+});
+
+test('reminder is due again once the day has changed', () => {
+  const yesterday = '2026-06-16';
+  assert.equal(isReminderDue(yesterday, QUIET_NOW), true);
 });
