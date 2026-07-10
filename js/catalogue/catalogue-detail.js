@@ -161,12 +161,14 @@ export function renderDetail({ recipe, app }) {
   renderRows();
 
   // The recipe name already lives in the green header (setHeader), so no title
-  // here. The recipe list is the focus, with the small weight panel right below;
-  // Import/Delete are pushed to the bottom (.cat-detail-bottom → margin-top:auto)
-  // so they're reached by scrolling and never compete with the recipe.
+  // here. The recipe + weight panel are wrapped in .cat-detail-top, which is made
+  // at least a screenful tall (CSS min-height), so Import/Delete always land BELOW
+  // the fold and are reached only by scrolling — never competing with the recipe.
   return el('div', { class: 'cat-view' }, [
-    ingList,
-    weightPanel,
+    el('div', { class: 'cat-detail-top' }, [
+      ingList,
+      weightPanel,
+    ]),
     el('div', { class: 'cat-detail-bottom' }, [
       importBtn,
       el('p', {
