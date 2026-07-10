@@ -113,6 +113,28 @@
 .orders-status.warn { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-border); }
 .orders-status.error { color: var(--error); background: var(--error-bg); border-color: var(--error-border); }
 
+/* ── Offline bar ───────────────────────────────────────────────────────────────
+   Shown ONLY while the device is offline (js/orders/orders-main.js toggles the
+   [hidden] attribute on the browser online/offline events). Fixed to the bottom
+   edge so it stays visible whatever the scroll position; safe-area padding keeps
+   it clear of the iPhone home indicator. */
+.orders-offline {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 400;
+  margin: 0;
+  padding: 10px 14px;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  text-align: center;
+  font-size: 13px;
+  font-family: 'DM Mono', monospace;
+  color: var(--error);
+  background: var(--error-bg);
+  border-top: 1px solid var(--error-border);
+}
+
 /* ── Empty state / seed (test scaffolding) ────────────────────────────────── */
 .empty-state { text-align: center; padding: 40px 20px; }
 .empty-title { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 6px; }

@@ -5,7 +5,7 @@
 // Phase 3: persistent autosaving draft, real-time sync, preview + send/archive.
 // Phase 4: order history view + management panel (suppliers & ingredients).
 
-import { authReady, watchCollection, saveDoc, createDoc, removeDoc, COLLECTIONS } from './firebase-orders.js';
+import { watchCollection, saveDoc, createDoc, removeDoc, COLLECTIONS } from './firebase-orders.js';
 import { el, groupBy } from './dom.js';
 import { renderSuppliers, refreshSupplierDerived } from './suppliers.js';
 import { scheduleDraftSave, watchDraft, archiveOrder, clearDraft } from './draft.js';
@@ -219,6 +219,19 @@ function setStatus(text, kind, autoHideMs) {
   }
 }
 
+// Bottom bar shown ONLY while the device is offline. There is no
+// "connecting/connected" message anymore: the page fills in when data streams in,
+// and this is the single, quiet signal that there is no connection. Uses the
+// browser's own network state (navigator.onLine + the online/offline events).
+function setupOfflineIndicator() {
+  const bar = document.getElementById('orders-offline');
+  if (!bar) return;
+  const sync = () => { bar.hidden = navigator.onLine; };
+  sync();
+  window.addEventListener('online', sync);
+  window.addEventListener('offline', sync);
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
   setupTabs();
@@ -231,14 +244,11 @@ async function init() {
     else settingsBtn.hidden = true;
   }
 
-  try {
-    await authReady;
-    setStatus('Connected ✓', 'ok', 2000);
-  } catch (err) {
-    console.error('Auth failed:', err);
-    setStatus('Connection problem — check your network and reload.', 'error');
-    return;
-  }
+  setupOfflineIndicator();
+
+  // No "connecting/connected" status: the data watchers below each await auth
+  // internally, so they attach as soon as the (persisted) anonymous session is
+  // ready and then stream live. init never blocks, so the page never sits waiting.
 
   // Refresh the official UK bank-holiday calendar (cached for offline; used by
   // the Phase 6 alerts). Fire-and-forget — failure falls back to the cached list.
