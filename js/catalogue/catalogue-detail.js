@@ -14,8 +14,9 @@ const TRASH_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
 
 // Whole grams only: values are already rounded in the model, and maximumFractionDigits:0
-// is a belt-and-suspenders guard so nothing ever shows a decimal.
-const nf = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
+// is a belt-and-suspenders guard so nothing ever shows a decimal. useGrouping:false
+// drops the thousands separator (e.g. 1000 g, not 1,000 g) — Federico's preference.
+const nf = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0, useGrouping: false });
 const fmtG = (g) => nf.format(g) + ' g';
 
 export function renderDetail({ recipe, app }) {
