@@ -136,3 +136,10 @@
   box-shadow: var(--shadow);
 }
 #sw-update-banner:disabled { opacity: .7; cursor: default; }
+
+/* Hold-to-magnify areas (js/hold-to-zoom.js) — shared across every page, so it
+   lives here in the one stylesheet all pages load (catalogue.html does not load
+   style.css). pan-y lets a one-finger scroll pass through while the browser never
+   starts its own pinch-zoom on this content; the transform + origin are set
+   per-gesture in JS and spring back on release. */
+.zoom-area { touch-action: pan-y; transform-origin: 0 0; }

@@ -111,11 +111,6 @@ header p { font-size: 11px; color: rgba(255,255,255,0.72); margin-top: 1px; font
 .content { padding: 14px 16px; display: none; }
 .content.active { display: block; }
 
-/* Hold-to-magnify wrapper (js/calculator-zoom.js): pan-y lets a one-finger scroll
-   pass through while the browser never starts its own pinch-zoom on this content;
-   the transform + origin are set per-gesture in JS and spring back on release. */
-#zoom-wrap { touch-action: pan-y; transform-origin: 0 0; }
-
 /* Labels */
 .section-label {
   font-size: 10px;

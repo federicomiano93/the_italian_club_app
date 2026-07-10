@@ -71,7 +71,8 @@
   </button>
 </header>
 
-<main class="cat-screen" id="catScreen"></main>
+<!-- Hold-to-magnify area (js/hold-to-zoom.js): pinch to zoom recipes, release to spring back. -->
+<main class="cat-screen zoom-area" id="catScreen"></main>
 
 <!-- Confirm dialog (used before applying a typed weight, and before deleting). -->
 <div class="cat-modal-backdrop" id="catConfirm" hidden>
@@ -90,5 +91,6 @@
 <script type="module" src="js/sw-update.js"></script>
 <script type="module" src="js/idle-reset.js"></script>
 <script type="module" src="js/catalogue/catalogue-main.js"></script>
+<script type="module" src="js/hold-to-zoom.js"></script>
 </body>
 </html>
