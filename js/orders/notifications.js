@@ -115,11 +115,18 @@ export function computeAlerts(suppliers, now = new Date()) {
   return alerts;
 }
 
+// True when the daily "place the order" reminder has not yet been shown today.
+// `lastShownIso` is the last date it was shown on this device ('YYYY-MM-DD') or
+// null/undefined if never. Pure and date-based so it is unit-testable.
+export function isReminderDue(lastShownIso, now = new Date()) {
+  return lastShownIso !== toISODate(now);
+}
+
 // Raise a browser notification for each new alert (only when permission granted).
 // The title is the alert's own heading (e.g. "Order to place today"); the phone
 // already labels the popup "from The Italian Club", so we never repeat the app
 // name here. Alerts without a heading fall back to the app name.
-function maybeNotify(alerts) {
+export function maybeNotify(alerts) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   alerts.forEach(a => {
     if (notified.has(a.key)) return;
@@ -148,7 +155,10 @@ export function renderAlerts(container, suppliers, now = new Date()) {
   if (!container) return;
   container.textContent = '';
 
-  const alerts = computeAlerts(suppliers, now);
+  // The "place the order" reminder now lives on the Home (shown once a day, see
+  // js/home-orders-badge.js). The Orders page shows only the informational
+  // holiday / delivery-clash alerts, so it never re-nags on every open.
+  const alerts = computeAlerts(suppliers, now).filter(a => a.kind !== 'order');
   alerts.forEach(a => container.appendChild(renderAlert(a)));
   maybeNotify(alerts);
 }

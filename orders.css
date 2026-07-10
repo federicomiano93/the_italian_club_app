@@ -481,6 +481,18 @@ input.ing-stock {
 .alert-list { margin: 0; padding-left: 20px; }
 .alert-list li { margin: 2px 0; }
 
+/* Home once-a-day order reminder (js/home-orders-badge.js): a tappable banner
+   that opens Orders, reusing the .alert-banner.order colours. The host is hidden
+   when empty so it leaves no gap on days with nothing to place. */
+#home-reminder:empty { display: none; }
+a.home-reminder {
+  display: block;
+  text-decoration: none;
+  /* Align with the cards (home-grid insets 16px) and clear the header; the grid's
+     own top padding provides the gap down to the first card. */
+  margin: 16px 16px 0;
+}
+
 /* ── Install helper (Home screen) ─────────────────────────────────────────── */
 .install-host { padding: 0 16px 18px; }
 .install-host:empty { display: none; }
