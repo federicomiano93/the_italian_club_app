@@ -8,6 +8,13 @@
   const splash = document.getElementById('splash');
   if (!splash) return; // pages without a splash (e.g. orders.html)
 
+  // Splash already spent this session (returning to Home): it was never painted
+  // (CSS .no-splash), so just drop it from the DOM instantly — no delay, no fade.
+  if (document.documentElement.classList.contains('no-splash')) {
+    splash.remove();
+    return;
+  }
+
   const MIN_VISIBLE_MS = 600;  // keep it on screen at least this long
   const SAFETY_MS = 4000;      // hard cap: always remove the splash by now
   const start = performance.now();

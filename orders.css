@@ -490,6 +490,10 @@ input.ing-stock {
    home is ready. boot.js adds .splash--hide to fade it out, then removes it from
    the DOM. The safety timeout in boot.js guarantees it never stays stuck on top.
    prefers-reduced-motion: skip the fade for users who ask for less animation. */
+/* Returning to Home within a session (js/splash-init.js): never paint the splash. */
+.no-splash .splash {
+  display: none;
+}
 .splash {
   position: fixed;
   inset: 0;
