@@ -88,7 +88,10 @@ export function computeAlerts(suppliers, now = new Date()) {
       key: `order-${toISODate(now)}`,
       title: toOrder.length === 1 ? 'Order to place today' : 'Orders to place today',
       items,
-      text: `Place today's order: ${toOrder.map(s => s.name).join(', ')}.`,
+      // Notification body: supplier names only. The title carries the action and
+      // the phone already shows "from The Italian Club", so the app name is never
+      // repeated here.
+      text: toOrder.map(s => s.name).join(', '),
     });
   }
 
@@ -113,12 +116,15 @@ export function computeAlerts(suppliers, now = new Date()) {
 }
 
 // Raise a browser notification for each new alert (only when permission granted).
+// The title is the alert's own heading (e.g. "Order to place today"); the phone
+// already labels the popup "from The Italian Club", so we never repeat the app
+// name here. Alerts without a heading fall back to the app name.
 function maybeNotify(alerts) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   alerts.forEach(a => {
     if (notified.has(a.key)) return;
     notified.add(a.key);
-    try { new Notification('The Italian Club', { body: a.text, tag: a.key }); }
+    try { new Notification(a.title || 'The Italian Club', { body: a.text, tag: a.key }); }
     catch (err) { console.warn('Notification failed:', err); }
   });
 }
