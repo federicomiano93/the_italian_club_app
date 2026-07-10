@@ -5,7 +5,7 @@
 // Calculator.
 
 import { el } from './dom.js';
-import { scaleCatalogue, baseAmounts } from './catalogue-model.js';
+import { scaleCatalogue, baseAmounts, weighableTotalGrams, unitOf } from './catalogue-model.js';
 import { getScaledTarget, setScaledTarget, clearScaledTarget } from './catalogue-store.js';
 
 const IMPORT_SVG =
@@ -18,6 +18,8 @@ const TRASH_SVG =
 // drops the thousands separator (e.g. 1000 g, not 1,000 g) — Federico's preference.
 const nf = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0, useGrouping: false });
 const fmtG = (g) => nf.format(g) + ' g';
+// One ingredient amount in its own unit; a 'to taste' row (value null) shows no number.
+const fmtAmount = (value, unit) => value === null ? 'to taste' : `${nf.format(value)} ${unit}`;
 
 export function renderDetail({ recipe, app }) {
   // Restore a recently calculated batch (kept per device until Clear or 12h), so
@@ -49,13 +51,13 @@ export function renderDetail({ recipe, app }) {
     recipe.ingredients.forEach((ing, i) => {
       ingList.appendChild(el('div', { class: 'cat-ing-row' }, [
         el('span', { class: 'cat-ing-name', text: ing.label }),
-        el('span', { class: 'cat-ing-amt', text: fmtG(amounts[i]) }),
+        el('span', { class: 'cat-ing-amt', text: fmtAmount(amounts[i], unitOf(ing)) }),
       ]));
     });
-    // Total matches the rows exactly: the scaled rows are integers summing to the
-    // target; the base rows keep their (possibly fractional) amounts, so the total
-    // is their true sum — not a rounded value that wouldn't add up.
-    const total = amounts.reduce((a, b) => a + b, 0);
+    // Total = the WEIGHABLE mass in grams (weight + volume rows): when scaled it is
+    // the target, at base the recipe's own weighable total. Non-weight rows (pieces /
+    // to-taste) are shown above but never enter this total.
+    const total = scaled ? displayTarget : weighableTotalGrams(recipe);
     ingList.appendChild(el('div', { class: 'cat-ing-row cat-ing-total' }, [
       el('span', { class: 'cat-ing-name', text: 'Total' }),
       el('span', { class: 'cat-ing-amt', text: fmtG(total) }),
@@ -90,6 +92,9 @@ export function renderDetail({ recipe, app }) {
     ]),
     clearBtn,
   ]);
+  // No weighable ingredients (all pieces / to-taste) → nothing to scale by weight,
+  // so hide the whole panel. getScaledTarget stays 0 in that case too.
+  if (weighableTotalGrams(recipe) <= 0) weightPanel.hidden = true;
 
   const importBtn = el('button', {
     class: 'cat-import-btn', type: 'button',

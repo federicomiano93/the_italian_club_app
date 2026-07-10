@@ -159,11 +159,14 @@ body {
 .cat-editor label { display: block; font-size: .78rem; color: var(--cat-text-2); text-transform: uppercase; letter-spacing: .06em; margin: 0 2px 6px; }
 .cat-editor .cat-name-input { width: 100%; padding: 12px 14px; font-size: 1.05rem; font-family: var(--cat-font-round); font-weight: 600; color: var(--cat-text); background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: 12px; outline: none; margin-bottom: 18px; }
 .cat-editor .cat-name-input:focus { border-color: var(--cat-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cat-accent) 22%, transparent); }
-.cat-ing-editrows { display: flex; flex-direction: column; gap: 8px; }
-.cat-ing-editrow { display: flex; align-items: center; gap: 8px; }
-.cat-ing-editrow .cat-lbl { flex: 1 1 auto; min-width: 0; padding: 10px 12px; font-size: .98rem; font-family: var(--cat-font); color: var(--cat-text); background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: 10px; outline: none; }
-.cat-ing-editrow .cat-grm { flex: 0 0 66px; min-width: 0; padding: 10px 8px; font-size: .98rem; font-family: var(--cat-font-mono); text-align: right; font-variant-numeric: tabular-nums; color: var(--cat-text); background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: 10px; outline: none; }
-.cat-ing-editrow input:focus { border-color: var(--cat-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cat-accent) 22%, transparent); }
+/* Each ingredient is a two-line block so the NAME gets the full width (long names
+   like "Candied orange paste" fit) and the amount + unit + delete sit on line two. */
+.cat-ing-editrows { display: flex; flex-direction: column; gap: 14px; }
+.cat-ing-editrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cat-ing-editrow .cat-lbl { flex: 1 1 100%; min-width: 0; padding: 10px 12px; font-size: .98rem; font-family: var(--cat-font); color: var(--cat-text); background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: 10px; outline: none; }
+.cat-ing-editrow .cat-grm { flex: 1 1 70px; min-width: 0; padding: 10px 10px; font-size: .98rem; font-family: var(--cat-font-mono); text-align: right; font-variant-numeric: tabular-nums; color: var(--cat-text); background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: 10px; outline: none; }
+.cat-ing-editrow .cat-unit { flex: 0 0 108px; min-width: 0; padding: 10px 8px; font-size: .95rem; font-family: var(--cat-font); color: var(--cat-text); background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: 10px; outline: none; cursor: pointer; }
+.cat-ing-editrow input:focus, .cat-ing-editrow .cat-unit:focus { border-color: var(--cat-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cat-accent) 22%, transparent); }
 .cat-ing-editrow input.cat-invalid { border-color: var(--cat-danger); }
 .cat-name-input.cat-invalid { border-color: var(--cat-danger); }
 .cat-del-icon { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--cat-border); background: var(--cat-surface); color: var(--cat-text-2); cursor: pointer; display: flex; align-items: center; justify-content: center; }

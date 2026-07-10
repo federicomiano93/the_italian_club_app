@@ -7,7 +7,7 @@
 // to recipes/{id} via the store (not into config).
 
 import { el } from './dom.js';
-import { findInvalidRecipe } from './catalogue-model.js';
+import { findInvalidRecipe, unitOf, CATALOGUE_UNITS } from './catalogue-model.js';
 
 const TRASH_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
@@ -15,8 +15,8 @@ const TRASH_SVG =
 export function renderEditor({ recipe, allRecipes, app }) {
   // Working copy — nothing touches the stored recipe until Save.
   const working = recipe
-    ? { id: recipe.id, name: recipe.name, ingredients: recipe.ingredients.map(i => ({ label: i.label, grams: i.grams })) }
-    : { id: null, name: '', ingredients: [{ label: '', grams: '' }] };
+    ? { id: recipe.id, name: recipe.name, ingredients: recipe.ingredients.map(i => ({ label: i.label, grams: i.grams, unit: unitOf(i) })) }
+    : { id: null, name: '', ingredients: [{ label: '', grams: '', unit: 'g' }] };
 
   let dirty = false;
   let showErrors = false;
@@ -52,21 +52,28 @@ export function renderEditor({ recipe, allRecipes, app }) {
       });
       const gramsInput = el('input', {
         class: 'cat-grm', type: 'number', min: '0', step: 'any', inputmode: 'decimal',
-        placeholder: 'g', value: ing.grams === '' || ing.grams === undefined ? '' : ing.grams,
-        'aria-label': 'Grams',
+        placeholder: '0', value: ing.grams === '' || ing.grams === undefined ? '' : ing.grams,
+        'aria-label': 'Amount',
         oninput: (e) => { ing.grams = e.target.value; markDirty(); },
       });
+      // Per-ingredient unit (g by default). Reuses the model's whitelist so the
+      // editor and the scaling/import logic can never drift apart.
+      const unitSelect = el('select', {
+        class: 'cat-unit', 'aria-label': 'Unit',
+        onchange: (e) => { ing.unit = e.target.value; markDirty(); },
+      }, CATALOGUE_UNITS.map(u => el('option', { value: u }, u)));
+      unitSelect.value = unitOf(ing);
       const delIcon = el('button', {
         class: 'cat-del-icon', type: 'button', 'aria-label': 'Remove ingredient', icon: TRASH_SVG,
         onclick: () => {
           working.ingredients.splice(idx, 1);
-          if (!working.ingredients.length) working.ingredients.push({ label: '', grams: '' });
+          if (!working.ingredients.length) working.ingredients.push({ label: '', grams: '', unit: 'g' });
           markDirty();
           renderIngredientRows();
           if (showErrors) validateUI();
         },
       });
-      rowsContainer.appendChild(el('div', { class: 'cat-ing-editrow' }, [labelInput, gramsInput, delIcon]));
+      rowsContainer.appendChild(el('div', { class: 'cat-ing-editrow' }, [labelInput, gramsInput, unitSelect, delIcon]));
     });
   }
 
@@ -87,7 +94,7 @@ export function renderEditor({ recipe, allRecipes, app }) {
       id: working.id,
       name: String(working.name || '').trim(),
       ingredients: working.ingredients
-        .map(i => ({ label: String(i.label || '').trim(), grams: Math.max(0, Number(i.grams) || 0) }))
+        .map(i => ({ label: String(i.label || '').trim(), grams: Math.max(0, Number(i.grams) || 0), unit: unitOf(i) }))
         .filter(i => i.label),
     };
   }
@@ -103,7 +110,7 @@ export function renderEditor({ recipe, allRecipes, app }) {
       if (problem === 'name') nameInput.focus();
       app.toast(
         problem === 'name' ? 'Please enter a recipe name.'
-          : problem === 'weight' ? 'Enter a weight (grams) for at least one ingredient.'
+          : problem === 'weight' ? 'Enter an amount for at least one ingredient.'
             : 'Add at least one ingredient with a name.',
       );
       return;
@@ -137,7 +144,7 @@ export function renderEditor({ recipe, allRecipes, app }) {
 
   const addRowBtn = el('button', {
     class: 'cat-add-row', type: 'button', text: '+ Add ingredient',
-    onclick: () => { working.ingredients.push({ label: '', grams: '' }); markDirty(); renderIngredientRows(); if (showErrors) validateUI(); },
+    onclick: () => { working.ingredients.push({ label: '', grams: '', unit: 'g' }); markDirty(); renderIngredientRows(); if (showErrors) validateUI(); },
   });
 
   const actions = el('div', { class: 'cat-editor-actions' }, [
