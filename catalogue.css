@@ -115,15 +115,18 @@ body {
 .cat-ing-list { position: relative; background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: var(--cat-radius); overflow: hidden; cursor: zoom-in; }
 .cat-ing-list:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
 
-/* Corner button signalling the recipe is tappable to enlarge; becomes the close (×)
-   button while zoomed. The whole list is also tappable to toggle. */
-.cat-zoom-btn { position: absolute; top: 8px; right: 8px; z-index: 2; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--cat-border); background: var(--cat-surface-2); color: var(--cat-text-2); display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.cat-zoom-btn:hover { color: var(--cat-text); border-color: var(--cat-accent); }
-.cat-zoom-btn:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
-.cat-zoom-ic { display: flex; }
-.cat-zoom-ic-close { display: none; }
-.cat-ing-list--zoom .cat-zoom-ic-expand { display: none; }
-.cat-ing-list--zoom .cat-zoom-ic-close { display: flex; }
+/* Slim bar above the list holding the "Enlarge" control — kept OUT of the list so it
+   never floats over the right-aligned amounts. */
+.cat-ing-toolbar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.cat-zoom-open { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--cat-border); border-radius: 999px; background: var(--cat-surface-2); color: var(--cat-text-2); font-size: .84rem; font-weight: 600; font-family: var(--cat-font-round); cursor: pointer; }
+.cat-zoom-open:hover { color: var(--cat-text); border-color: var(--cat-accent); }
+.cat-zoom-open:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
+
+/* Close (×) button, shown only while zoomed (fixed to the screen corner). */
+.cat-zoom-close { display: none; }
+.cat-ing-list--zoom .cat-zoom-close { position: fixed; top: 14px; right: 14px; z-index: 2; width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--cat-border); background: var(--cat-surface-2); color: var(--cat-text-2); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.cat-ing-list--zoom .cat-zoom-close:hover { color: var(--cat-text); border-color: var(--cat-accent); }
+.cat-ing-list--zoom .cat-zoom-close:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
 
 /* Full-screen mode: a fixed overlay (works on iOS, unlike the Fullscreen API for
    non-video elements). The rows are vertically centred with AUTO margins — not
@@ -131,20 +134,25 @@ body {
    screen — so long recipes still scroll from the top. */
 .cat-ing-list--zoom { position: fixed; inset: 0; z-index: 50; margin: 0; border: 0; border-radius: 0; overflow-y: auto; cursor: zoom-out; display: flex; flex-direction: column; padding: 20px clamp(16px, 6vw, 56px); }
 .cat-ing-list--zoom .cat-ing-rows { margin: auto 0; width: 100%; }
-.cat-ing-list--zoom .cat-zoom-btn { position: fixed; top: 14px; right: 14px; width: 42px; height: 42px; }
 .cat-ing-list--zoom .cat-ing-row { padding: clamp(14px, 3.2vh, 30px) 6px; }
 .cat-ing-list--zoom .cat-ing-name,
 .cat-ing-list--zoom .cat-ing-amt { font-size: clamp(1.4rem, 6.4vw, 2.2rem); }
-.cat-ing-list--zoom .cat-ing-name { min-width: 44%; }
 /* Freeze the page behind the overlay so it can't scroll underneath. */
 body.cat-zoom-lock { overflow: hidden; }
 
 /* The recipe is the hero of this screen: tall, roomy rows with large, readable
    figures so it fills the view rather than sitting as a small card at the top. */
-.cat-ing-row { display: flex; align-items: baseline; padding: 17px 18px; border-top: 1px solid var(--cat-border); }
+.cat-ing-row { display: flex; align-items: baseline; gap: 12px; padding: 17px 18px; border-top: 1px solid var(--cat-border); }
 .cat-ing-row:first-child { border-top: 0; }
-.cat-ing-name { flex: 0 0 auto; min-width: 172px; padding-right: 14px; font-weight: 500; font-size: 1.12rem; }
-.cat-ing-amt { flex: 1 1 auto; text-align: left; font-weight: 600; font-size: 1.12rem; font-family: var(--cat-font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Name takes the left space and WRAPS when long (min-width:0 lets it shrink instead
+   of pushing the amount off-screen); the amount is pinned right so the grams are
+   always visible. */
+.cat-ing-name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-weight: 500; font-size: 1.12rem; }
+/* Amount = number (right-aligned) + unit (left-aligned, fixed slot) so every figure
+   and every unit line up in two straight vertical columns across all rows. */
+.cat-ing-amt { flex: 0 0 auto; display: flex; align-items: baseline; gap: 5px; font-weight: 600; font-size: 1.12rem; font-family: var(--cat-font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cat-ing-num { text-align: right; }
+.cat-ing-unit { flex: none; min-width: 3ch; text-align: left; }
 .cat-ing-row.cat-ing-total { background: var(--cat-surface-2); border-top: 2px solid var(--cat-border); }
 .cat-ing-total .cat-ing-name { font-weight: 700; }
 .cat-ing-total .cat-ing-amt { font-weight: 700; color: var(--cat-brand-2); }
