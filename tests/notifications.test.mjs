@@ -25,13 +25,38 @@ const QUIET_NOW = new Date(2026, 5, 17); // Wednesday 17 June 2026
 
 test('flags a place-order alert when a supplier’s order day is today', () => {
   const today = weekdayOf(QUIET_NOW);
+  // QUIET_NOW is Wednesday 17 June 2026, so the next Friday is 2 days away.
   const suppliers = [{ id: 's1', name: 'ACME', active: true, orderDays: [today], deliveryDays: ['Friday'] }];
   const alerts = computeAlerts(suppliers, QUIET_NOW);
   assert.equal(alerts.length, 1);
   assert.equal(alerts[0].kind, 'order');
   assert.equal(alerts[0].items.length, 1);
-  assert.match(alerts[0].items[0], /ACME/);
-  assert.match(alerts[0].items[0], /delivers Friday/);
+  assert.equal(alerts[0].items[0], 'ACME — Friday');
+});
+
+test('place-order line says "tomorrow" when the next delivery is the next day', () => {
+  const today = weekdayOf(QUIET_NOW);                    // Wednesday
+  const tomorrow = weekdayOf(new Date(2026, 5, 18));     // Thursday 18 June
+  const suppliers = [{ id: 's1', name: 'ACME', active: true, orderDays: [today], deliveryDays: [tomorrow] }];
+  const alerts = computeAlerts(suppliers, QUIET_NOW);
+  assert.equal(alerts[0].items[0], 'ACME — tomorrow');
+});
+
+test('place-order line shows ONLY the next delivery day, never the full list', () => {
+  const today = weekdayOf(QUIET_NOW);                    // Wednesday
+  const tomorrow = weekdayOf(new Date(2026, 5, 18));     // Thursday (next delivery)
+  const later = weekdayOf(new Date(2026, 5, 20));        // Saturday (a further delivery day)
+  const suppliers = [{ id: 's1', name: 'ACME', active: true, orderDays: [today], deliveryDays: [tomorrow, later] }];
+  const alerts = computeAlerts(suppliers, QUIET_NOW);
+  assert.equal(alerts[0].items[0], 'ACME — tomorrow');   // the soonest one only
+  assert.doesNotMatch(alerts[0].items[0], new RegExp(later)); // the later day is not shown
+});
+
+test('place-order line shows just the name when the supplier has no delivery days', () => {
+  const today = weekdayOf(QUIET_NOW);
+  const suppliers = [{ id: 's1', name: 'ACME', active: true, orderDays: [today] }];
+  const alerts = computeAlerts(suppliers, QUIET_NOW);
+  assert.equal(alerts[0].items[0], 'ACME');
 });
 
 test('groups every supplier due today into ONE numbered banner', () => {
