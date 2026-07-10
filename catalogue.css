@@ -112,7 +112,33 @@ body {
 
 /* Detail — the ingredient list is the focus of the screen (no title above it;
    the recipe name already sits in the green header). */
-.cat-ing-list { background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: var(--cat-radius); overflow: hidden; }
+.cat-ing-list { position: relative; background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: var(--cat-radius); overflow: hidden; cursor: zoom-in; }
+.cat-ing-list:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
+
+/* Corner button signalling the recipe is tappable to enlarge; becomes the close (×)
+   button while zoomed. The whole list is also tappable to toggle. */
+.cat-zoom-btn { position: absolute; top: 8px; right: 8px; z-index: 2; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--cat-border); background: var(--cat-surface-2); color: var(--cat-text-2); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.cat-zoom-btn:hover { color: var(--cat-text); border-color: var(--cat-accent); }
+.cat-zoom-btn:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
+.cat-zoom-ic { display: flex; }
+.cat-zoom-ic-close { display: none; }
+.cat-ing-list--zoom .cat-zoom-ic-expand { display: none; }
+.cat-ing-list--zoom .cat-zoom-ic-close { display: flex; }
+
+/* Full-screen mode: a fixed overlay (works on iOS, unlike the Fullscreen API for
+   non-video elements). The rows are vertically centred with AUTO margins — not
+   justify-content:center, which would clip the top of a recipe taller than the
+   screen — so long recipes still scroll from the top. */
+.cat-ing-list--zoom { position: fixed; inset: 0; z-index: 50; margin: 0; border: 0; border-radius: 0; overflow-y: auto; cursor: zoom-out; display: flex; flex-direction: column; padding: 20px clamp(16px, 6vw, 56px); }
+.cat-ing-list--zoom .cat-ing-rows { margin: auto 0; width: 100%; }
+.cat-ing-list--zoom .cat-zoom-btn { position: fixed; top: 14px; right: 14px; width: 42px; height: 42px; }
+.cat-ing-list--zoom .cat-ing-row { padding: clamp(14px, 3.2vh, 30px) 6px; }
+.cat-ing-list--zoom .cat-ing-name,
+.cat-ing-list--zoom .cat-ing-amt { font-size: clamp(1.4rem, 6.4vw, 2.2rem); }
+.cat-ing-list--zoom .cat-ing-name { min-width: 44%; }
+/* Freeze the page behind the overlay so it can't scroll underneath. */
+body.cat-zoom-lock { overflow: hidden; }
+
 /* The recipe is the hero of this screen: tall, roomy rows with large, readable
    figures so it fills the view rather than sitting as a small card at the top. */
 .cat-ing-row { display: flex; align-items: baseline; padding: 17px 18px; border-top: 1px solid var(--cat-border); }

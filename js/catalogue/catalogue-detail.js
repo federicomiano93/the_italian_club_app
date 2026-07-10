@@ -12,6 +12,11 @@ const IMPORT_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>';
 const TRASH_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
+// Corner affordance: expand (enter full screen) / close (exit). Static SVG only.
+const EXPAND_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>';
+const CLOSE_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
 
 // Whole grams only: values are already rounded in the model, and maximumFractionDigits:0
 // is a belt-and-suspenders guard so nothing ever shows a decimal. useGrouping:false
@@ -26,7 +31,44 @@ export function renderDetail({ recipe, app }) {
   // leaving and reopening the recipe shows the same scaled amounts. 0 = base.
   let displayTarget = getScaledTarget(recipe.id) || 0;
 
-  const ingList = el('div', { class: 'cat-ing-list' });
+  // The rows live in an inner container so re-rendering (renderRows) never wipes
+  // the zoom button that sits alongside them inside .cat-ing-list.
+  const ingRows = el('div', { class: 'cat-ing-rows' });
+
+  // Tap-to-zoom: a tap on the recipe expands it into a full-screen overlay (bigger
+  // figures, readable across the room); tapping again — or the corner button, or
+  // Escape — returns to normal. A CSS fixed overlay is used, NOT the Fullscreen
+  // API, because iOS Safari blocks that API for non-video elements.
+  let zoomed = false;
+  const zoomBtn = el('button', {
+    class: 'cat-zoom-btn', type: 'button', 'aria-label': 'View recipe full screen',
+    onclick: (e) => { e.stopPropagation(); setZoom(!zoomed); },
+  }, [
+    el('span', { class: 'cat-zoom-ic cat-zoom-ic-expand', icon: EXPAND_SVG, 'aria-hidden': 'true' }),
+    el('span', { class: 'cat-zoom-ic cat-zoom-ic-close', icon: CLOSE_SVG, 'aria-hidden': 'true' }),
+  ]);
+
+  const ingList = el('div', {
+    class: 'cat-ing-list', role: 'button', tabindex: '0', 'aria-pressed': 'false',
+    'aria-label': 'View recipe full screen',
+    onclick: () => setZoom(!zoomed),
+    onkeydown: (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setZoom(!zoomed); }
+      else if (e.key === 'Escape' && zoomed) { e.preventDefault(); setZoom(false); }
+    },
+  }, [ingRows, zoomBtn]);
+
+  function setZoom(on) {
+    zoomed = on;
+    ingList.classList.toggle('cat-ing-list--zoom', on);
+    ingList.setAttribute('aria-pressed', on ? 'true' : 'false');
+    const label = on ? 'Exit full screen' : 'View recipe full screen';
+    ingList.setAttribute('aria-label', label);
+    zoomBtn.setAttribute('aria-label', label);
+    // Lock the page behind the overlay so it can't scroll under it.
+    document.body.classList.toggle('cat-zoom-lock', on);
+    if (on) { try { ingList.focus({ preventScroll: true }); } catch (e) { /* best-effort */ } }
+  }
 
   const kgInput = el('input', {
     id: 'catKg', type: 'number', min: '0', step: '0.1',
@@ -45,11 +87,11 @@ export function renderDetail({ recipe, app }) {
   });
 
   function renderRows() {
-    ingList.replaceChildren();
+    ingRows.replaceChildren();
     const scaled = displayTarget > 0;
     const amounts = scaled ? scaleCatalogue(recipe, displayTarget) : baseAmounts(recipe);
     recipe.ingredients.forEach((ing, i) => {
-      ingList.appendChild(el('div', { class: 'cat-ing-row' }, [
+      ingRows.appendChild(el('div', { class: 'cat-ing-row' }, [
         el('span', { class: 'cat-ing-name', text: ing.label }),
         el('span', { class: 'cat-ing-amt', text: fmtAmount(amounts[i], unitOf(ing)) }),
       ]));
@@ -58,7 +100,7 @@ export function renderDetail({ recipe, app }) {
     // the target, at base the recipe's own weighable total. Non-weight rows (pieces /
     // to-taste) are shown above but never enter this total.
     const total = scaled ? displayTarget : weighableTotalGrams(recipe);
-    ingList.appendChild(el('div', { class: 'cat-ing-row cat-ing-total' }, [
+    ingRows.appendChild(el('div', { class: 'cat-ing-row cat-ing-total' }, [
       el('span', { class: 'cat-ing-name', text: 'Total' }),
       el('span', { class: 'cat-ing-amt', text: fmtG(total) }),
     ]));
