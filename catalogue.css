@@ -63,7 +63,9 @@ body {
 
 /* Scroll area + centered view width */
 .cat-screen { flex: 1; overflow-y: auto; padding: 16px; }
-.cat-view { max-width: 620px; margin: 0 auto; }
+/* Flex column that fills the scroll area, so the recipe leads and the secondary
+   actions (.cat-detail-bottom) can be pushed to the bottom via margin-top:auto. */
+.cat-view { max-width: 620px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; }
 
 /* On each route change the view container is programmatically focused (see
    swap() in catalogue-main.js) so keyboard / screen-reader users don't drop to
@@ -108,11 +110,10 @@ body {
 .cat-card .chev { flex: none; color: var(--cat-text-2); font-size: 1.3rem; line-height: 1; }
 .cat-empty { text-align: center; color: var(--cat-text-2); padding: 34px 12px; font-size: .95rem; }
 
-/* Detail — ingredient list */
-.cat-ing-head { display: flex; justify-content: space-between; align-items: baseline; margin: 2px 2px 12px; }
-.cat-ing-head h2 { margin: 0; font-family: var(--cat-font-round); font-size: 1.15rem; }
+/* Detail — the ingredient list is the focus of the screen (no title above it;
+   the recipe name already sits in the green header). */
 .cat-ing-list { background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: var(--cat-radius); overflow: hidden; }
-.cat-ing-row { display: flex; align-items: baseline; padding: 9px 16px; border-top: 1px solid var(--cat-border); }
+.cat-ing-row { display: flex; align-items: baseline; padding: 11px 16px; border-top: 1px solid var(--cat-border); }
 .cat-ing-row:first-child { border-top: 0; }
 .cat-ing-name { flex: 0 0 auto; min-width: 172px; padding-right: 14px; font-weight: 500; }
 .cat-ing-amt { flex: 1 1 auto; text-align: left; font-weight: 600; font-family: var(--cat-font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -121,18 +122,16 @@ body {
 .cat-ing-total .cat-ing-amt { font-weight: 700; color: var(--cat-brand-2); }
 @media (prefers-color-scheme: dark) { .cat-ing-total .cat-ing-amt { color: var(--cat-accent); } }
 
-.cat-scaled-note { font-size: .85rem; color: var(--cat-text-2); margin: 12px 2px 0; }
-.cat-scaled-note[hidden] { display: none; }
-
-/* Bottom total-weight panel */
-.cat-weight-panel { background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: var(--cat-radius); padding: 13px; margin-top: 16px; box-shadow: var(--cat-shadow); }
-.cat-weight-panel label { display: block; font-size: .78rem; color: var(--cat-text-2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+/* Total-weight panel — deliberately COMPACT and quiet (secondary to the recipe):
+   small input, tight padding, no shadow. Sits right below the recipe, visible on open. */
+.cat-weight-panel { background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: var(--cat-radius); padding: 9px 10px; margin-top: 12px; }
+.cat-weight-panel label { display: block; font-size: .72rem; color: var(--cat-text-2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 5px; }
 .cat-weight-input { display: flex; align-items: stretch; gap: 8px; }
-.cat-field { flex: 1; display: flex; align-items: baseline; gap: 6px; background: var(--cat-surface-2); border: 1px solid var(--cat-border); border-radius: 12px; padding: 8px 12px; }
-.cat-field input { width: 100%; border: 0; background: transparent; outline: none; font-family: var(--cat-font-mono); font-size: 1.35rem; font-weight: 700; color: var(--cat-text); font-variant-numeric: tabular-nums; }
-.cat-field .unit { font-size: .9rem; font-weight: 600; color: var(--cat-text-2); }
+.cat-field { flex: 1; display: flex; align-items: baseline; gap: 6px; background: var(--cat-surface-2); border: 1px solid var(--cat-border); border-radius: 10px; padding: 6px 10px; }
+.cat-field input { width: 100%; border: 0; background: transparent; outline: none; font-family: var(--cat-font-mono); font-size: 1rem; font-weight: 700; color: var(--cat-text); font-variant-numeric: tabular-nums; }
+.cat-field .unit { font-size: .85rem; font-weight: 600; color: var(--cat-text-2); }
 .cat-field:focus-within { border-color: var(--cat-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cat-accent) 22%, transparent); }
-.cat-calc-btn { flex: none; border: 0; border-radius: 12px; padding: 0 18px; background: var(--cat-brand); color: var(--cat-brand-ink); font-family: var(--cat-font-round); font-weight: 600; font-size: .95rem; cursor: pointer; }
+.cat-calc-btn { flex: none; border: 0; border-radius: 10px; padding: 0 14px; background: var(--cat-brand); color: var(--cat-brand-ink); font-family: var(--cat-font-round); font-weight: 600; font-size: .9rem; cursor: pointer; }
 .cat-calc-btn:hover { background: var(--cat-brand-2); }
 .cat-calc-btn:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
 .cat-clear-btn { width: 100%; margin-top: 10px; padding: 10px; background: var(--cat-surface-2); border: 1px solid var(--cat-border); color: var(--cat-text-2); border-radius: 12px; font-family: var(--cat-font); font-size: .92rem; cursor: pointer; }
@@ -140,14 +139,19 @@ body {
 .cat-clear-btn:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
 .cat-clear-btn[hidden] { display: none; }
 
-/* Import button */
-.cat-import-btn { width: 100%; margin-top: 18px; padding: 13px; border: 0; border-radius: 12px; background: var(--cat-brand); color: var(--cat-brand-ink); font-size: 1rem; font-weight: 600; font-family: var(--cat-font-round); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
-.cat-import-btn:hover { background: var(--cat-brand-2); }
+/* Secondary actions pushed to the very bottom of the screen, so the recipe fills
+   the view and Import/Delete are reached by scrolling down (they never compete
+   with the recipe). margin-top:auto works because .cat-view is a flex column. */
+.cat-detail-bottom { margin-top: auto; padding-top: 28px; }
+
+/* Import — de-emphasised (quiet, secondary), not a loud brand button anymore. */
+.cat-import-btn { width: 100%; padding: 11px; border: 1px solid var(--cat-border); border-radius: 12px; background: var(--cat-surface-2); color: var(--cat-text-2); font-size: .92rem; font-weight: 600; font-family: var(--cat-font-round); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.cat-import-btn:hover { color: var(--cat-text); background: var(--cat-surface); border-color: var(--cat-accent); }
 .cat-import-btn:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
 .cat-import-hint { text-align: center; font-size: .76rem; color: var(--cat-text-2); margin: 8px 2px 0; }
 
 /* Low-key delete on the detail view (P20 — never competes with Calculate/Import). */
-.cat-detail-del { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 18px; padding: 12px; background: none; border: 0; color: var(--cat-danger); font-family: var(--cat-font); font-size: .92rem; cursor: pointer; }
+.cat-detail-del { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin-top: 12px; padding: 12px; background: none; border: 0; color: var(--cat-danger); font-family: var(--cat-font); font-size: .92rem; cursor: pointer; }
 .cat-detail-del:hover { text-decoration: underline; }
 .cat-detail-del:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
 

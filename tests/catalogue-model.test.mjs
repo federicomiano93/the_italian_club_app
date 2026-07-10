@@ -15,6 +15,8 @@ import {
   toCalculatorRecipe,
   mergeImportedRecipe,
   findCalculatorImport,
+  isScaledEntryFresh,
+  SCALED_TTL_MS,
 } from '../js/catalogue/catalogue-model.js';
 
 const FOCACCIA = {
@@ -72,9 +74,20 @@ test('normalizeCatalogueRecipes drops junk entries', () => {
 // ── scaleCatalogue: the core invariant (integers sum EXACTLY to the target) ─────
 
 test('scaleCatalogue keeps the base recipe when target equals its total', () => {
-  const total = sum(baseAmounts(FOCACCIA)); // 995.6
+  const total = FOCACCIA.ingredients.reduce((s, i) => s + i.grams, 0); // 995.6 (raw, fractional)
   const out = scaleCatalogue(FOCACCIA, total);
   assert.equal(sum(out), Math.round(total));
+});
+
+test('baseAmounts rounds to whole grams that sum to the rounded base total', () => {
+  const out = baseAmounts(FOCACCIA);
+  assert.ok(out.every(Number.isInteger), 'every base amount is a whole number');
+  const rawTotal = FOCACCIA.ingredients.reduce((s, i) => s + i.grams, 0); // 995.6
+  assert.equal(sum(out), Math.round(rawTotal)); // 996 — rows add up to the shown total
+});
+
+test('baseAmounts on an empty recipe is []', () => {
+  assert.deepEqual(baseAmounts({ ingredients: [] }), []);
 });
 
 test('scaleCatalogue to 10 kg: proportional and sums to exactly 10000 g', () => {
@@ -97,6 +110,19 @@ test('scaleCatalogue is defensive: empty recipe / non-positive / bad target -> z
   assert.deepEqual(scaleCatalogue(FOCACCIA, 0).every(x => x === 0), true);
   assert.deepEqual(scaleCatalogue(FOCACCIA, -5).every(x => x === 0), true);
   assert.deepEqual(scaleCatalogue(FOCACCIA, NaN).every(x => x === 0), true);
+});
+
+// ── isScaledEntryFresh (persisted "keep the calculated batch" for 12h) ──────────
+
+test('isScaledEntryFresh: valid within 12h, expired after, junk-safe', () => {
+  const now = 1_000_000_000_000; // fixed reference ms (Date.now() not used in tests)
+  assert.equal(isScaledEntryFresh({ target: 10000, ts: now - 1000 }, now), true);       // 1s ago
+  assert.equal(isScaledEntryFresh({ target: 10000, ts: now - (SCALED_TTL_MS - 1) }, now), true);  // just under 12h
+  assert.equal(isScaledEntryFresh({ target: 10000, ts: now - SCALED_TTL_MS }, now), false);       // exactly 12h → stale
+  assert.equal(isScaledEntryFresh({ target: 10000, ts: now - (SCALED_TTL_MS + 1) }, now), false);  // over 12h
+  assert.equal(isScaledEntryFresh(null, now), false);
+  assert.equal(isScaledEntryFresh({ target: 0, ts: now }, now), false);      // non-positive target
+  assert.equal(isScaledEntryFresh({ target: 5000 }, now), false);            // missing ts
 });
 
 // ── sortByUsage / filterByName ──────────────────────────────────────────────────

@@ -98,10 +98,27 @@ export function scaleCatalogue(recipe, targetGrams) {
   return fixRounding(base.map(g => g * factor), target);
 }
 
-// The base (unscaled) recipe amounts, as an array aligned with recipe.ingredients.
+// The base (unscaled) recipe amounts, aligned with recipe.ingredients, rounded to
+// WHOLE grams. Like the scaled view, the integer rows sum exactly to the rounded
+// base total (fixRounding absorbs the residual), so rows and Total always agree.
 export function baseAmounts(recipe) {
   const ings = (recipe && Array.isArray(recipe.ingredients)) ? recipe.ingredients : [];
-  return ings.map(i => Number(i.grams) || 0);
+  const raw = ings.map(i => Number(i.grams) || 0);
+  return fixRounding(raw, raw.reduce((a, b) => a + b, 0));
+}
+
+// ── Persisted "scaled batch" freshness ─────────────────────────────────────────
+// A calculated total-dough-weight stays shown when you leave and reopen a recipe,
+// until you tap Clear or it ages out. This TTL + the pure check live here so the
+// 12-hour rule is unit-testable without the storage/Firestore layer.
+export const SCALED_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+// True if a stored { target, ts } entry is still valid: a positive gram target
+// calculated less than SCALED_TTL_MS ago (relative to nowMs).
+export function isScaledEntryFresh(entry, nowMs) {
+  return !!entry
+    && Number.isFinite(entry.target) && entry.target > 0
+    && Number.isFinite(entry.ts) && (nowMs - entry.ts) < SCALED_TTL_MS;
 }
 
 // ── Editor validation ─────────────────────────────────────────────────────────
