@@ -113,10 +113,12 @@ body {
 /* Detail — the ingredient list is the focus of the screen (no title above it;
    the recipe name already sits in the green header). */
 .cat-ing-list { background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: var(--cat-radius); overflow: hidden; }
-.cat-ing-row { display: flex; align-items: baseline; padding: 11px 16px; border-top: 1px solid var(--cat-border); }
+/* The recipe is the hero of this screen: tall, roomy rows with large, readable
+   figures so it fills the view rather than sitting as a small card at the top. */
+.cat-ing-row { display: flex; align-items: baseline; padding: 17px 18px; border-top: 1px solid var(--cat-border); }
 .cat-ing-row:first-child { border-top: 0; }
-.cat-ing-name { flex: 0 0 auto; min-width: 172px; padding-right: 14px; font-weight: 500; }
-.cat-ing-amt { flex: 1 1 auto; text-align: left; font-weight: 600; font-family: var(--cat-font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cat-ing-name { flex: 0 0 auto; min-width: 172px; padding-right: 14px; font-weight: 500; font-size: 1.12rem; }
+.cat-ing-amt { flex: 1 1 auto; text-align: left; font-weight: 600; font-size: 1.12rem; font-family: var(--cat-font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cat-ing-row.cat-ing-total { background: var(--cat-surface-2); border-top: 2px solid var(--cat-border); }
 .cat-ing-total .cat-ing-name { font-weight: 700; }
 .cat-ing-total .cat-ing-amt { font-weight: 700; color: var(--cat-brand-2); }
