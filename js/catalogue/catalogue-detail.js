@@ -12,9 +12,7 @@ const IMPORT_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>';
 const TRASH_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
-// Corner affordance: expand (enter full screen) / close (exit). Static SVG only.
-const EXPAND_SVG =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>';
+// Close (exit full screen) button icon. Static SVG only.
 const CLOSE_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
 
@@ -45,13 +43,6 @@ export function renderDetail({ recipe, app }) {
   // returns to normal. A CSS fixed overlay is used, NOT the Fullscreen API, because
   // iOS Safari blocks that API for non-video elements.
   let zoomed = false;
-  // "Enlarge" control sits in a slim bar ABOVE the list (not floating over a row,
-  // which would collide with the right-aligned amounts).
-  const expandBtn = el('button', {
-    class: 'cat-zoom-open', type: 'button', 'aria-label': 'View recipe full screen',
-    onclick: () => setZoom(true), icon: EXPAND_SVG,
-  });
-  const toolbar = el('div', { class: 'cat-ing-toolbar' }, [expandBtn]);
 
   // Close (×) lives inside the overlay and only shows while zoomed.
   const closeBtn = el('button', {
@@ -174,7 +165,6 @@ export function renderDetail({ recipe, app }) {
   // Import/Delete are pushed to the bottom (.cat-detail-bottom → margin-top:auto)
   // so they're reached by scrolling and never compete with the recipe.
   return el('div', { class: 'cat-view' }, [
-    toolbar,
     ingList,
     weightPanel,
     el('div', { class: 'cat-detail-bottom' }, [
