@@ -11,6 +11,7 @@ import { renderList } from './catalogue-list.js';
 import { renderDetail } from './catalogue-detail.js';
 import { renderEditor } from './catalogue-editor.js';
 import { importRecipeIntoCalculator, isRecipeLinkedToCalculator } from './import-to-calculator.js';
+import { nonWeighableLabels, weighableTotalGrams } from './catalogue-model.js';
 
 const screen = document.getElementById('catScreen');
 const titleEl = document.getElementById('catTitle');
@@ -180,9 +181,19 @@ const app = {
     return true;
   },
   async importRecipe(recipe) {
+    // The Calculator is grams-only. If there's no weighable ingredient there is
+    // nothing to import; otherwise warn about any rows that will be left out.
+    if (weighableTotalGrams(recipe) <= 0) {
+      toast("This recipe has no weight-based ingredients, so there's nothing to import into the grams-only Calculator.");
+      return;
+    }
+    const skipped = nonWeighableLabels(recipe);
+    const warn = skipped.length
+      ? `\n\nNote: ${skipped.join(', ')} use a unit the Calculator can't scale (it works in grams only) and won't be imported.`
+      : '';
     const ok = await confirmDialog({
       title: 'Import into Calculator?',
-      message: `Copy "${recipe.name}" into the Calculator? You can then tweak it there without changing the catalogue.`,
+      message: `Copy "${recipe.name}" into the Calculator? You can then tweak it there without changing the catalogue.${warn}`,
       okLabel: 'Import',
     });
     if (!ok) return;

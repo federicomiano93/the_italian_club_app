@@ -15,6 +15,12 @@ import {
   toCalculatorRecipe,
   mergeImportedRecipe,
   findCalculatorImport,
+  isScaledEntryFresh,
+  SCALED_TTL_MS,
+  unitOf,
+  isWeighableUnit,
+  weighableTotalGrams,
+  nonWeighableLabels,
 } from '../js/catalogue/catalogue-model.js';
 
 const FOCACCIA = {
@@ -41,19 +47,25 @@ test('normalizeCatalogueRecipe coerces junk safely (never NaN, never throws)', (
   const r = normalizeCatalogueRecipe({
     id: 42, name: '  Ciabatta  ',
     ingredients: [
-      { label: 'Flour', grams: '500' },   // numeric string
-      { name: 'Water', grams: -5 },        // legacy `name`, negative -> 0
-      { label: 'Salt', grams: 'abc' },     // non-numeric -> 0
-      null,                                // dropped
-      'garbage',                           // dropped
+      { label: 'Flour', grams: '500' },            // numeric string
+      { name: 'Water', grams: -5 },                 // legacy `name`, negative -> 0
+      { label: 'Salt', grams: 'abc' },              // non-numeric -> 0
+      { label: 'Milk', grams: 2, unit: 'l' },       // valid unit preserved
+      { label: 'Eggs', grams: 3, unit: 'pcs' },     // valid unit preserved
+      { label: 'Bad', grams: 1, unit: 'xyz' },      // unknown unit -> grams
+      null,                                          // dropped
+      'garbage',                                     // dropped
     ],
   });
   assert.equal(r.id, '42');
   assert.equal(r.name, 'Ciabatta');
   assert.deepEqual(r.ingredients, [
-    { label: 'Flour', grams: 500 },
-    { label: 'Water', grams: 0 },
-    { label: 'Salt', grams: 0 },
+    { label: 'Flour', grams: 500, unit: 'g' },
+    { label: 'Water', grams: 0, unit: 'g' },
+    { label: 'Salt', grams: 0, unit: 'g' },
+    { label: 'Milk', grams: 2, unit: 'l' },
+    { label: 'Eggs', grams: 3, unit: 'pcs' },
+    { label: 'Bad', grams: 1, unit: 'g' },
   ]);
 });
 
@@ -72,9 +84,20 @@ test('normalizeCatalogueRecipes drops junk entries', () => {
 // ── scaleCatalogue: the core invariant (integers sum EXACTLY to the target) ─────
 
 test('scaleCatalogue keeps the base recipe when target equals its total', () => {
-  const total = sum(baseAmounts(FOCACCIA)); // 995.6
+  const total = FOCACCIA.ingredients.reduce((s, i) => s + i.grams, 0); // 995.6 (raw, fractional)
   const out = scaleCatalogue(FOCACCIA, total);
   assert.equal(sum(out), Math.round(total));
+});
+
+test('baseAmounts rounds to whole grams that sum to the rounded base total', () => {
+  const out = baseAmounts(FOCACCIA);
+  assert.ok(out.every(Number.isInteger), 'every base amount is a whole number');
+  const rawTotal = FOCACCIA.ingredients.reduce((s, i) => s + i.grams, 0); // 995.6
+  assert.equal(sum(out), Math.round(rawTotal)); // 996 — rows add up to the shown total
+});
+
+test('baseAmounts on an empty recipe is []', () => {
+  assert.deepEqual(baseAmounts({ ingredients: [] }), []);
 });
 
 test('scaleCatalogue to 10 kg: proportional and sums to exactly 10000 g', () => {
@@ -97,6 +120,83 @@ test('scaleCatalogue is defensive: empty recipe / non-positive / bad target -> z
   assert.deepEqual(scaleCatalogue(FOCACCIA, 0).every(x => x === 0), true);
   assert.deepEqual(scaleCatalogue(FOCACCIA, -5).every(x => x === 0), true);
   assert.deepEqual(scaleCatalogue(FOCACCIA, NaN).every(x => x === 0), true);
+});
+
+// ── isScaledEntryFresh (persisted "keep the calculated batch" for 12h) ──────────
+
+test('isScaledEntryFresh: valid within 12h, expired after, junk-safe', () => {
+  const now = 1_000_000_000_000; // fixed reference ms (Date.now() not used in tests)
+  assert.equal(isScaledEntryFresh({ target: 10000, ts: now - 1000 }, now), true);       // 1s ago
+  assert.equal(isScaledEntryFresh({ target: 10000, ts: now - (SCALED_TTL_MS - 1) }, now), true);  // just under 12h
+  assert.equal(isScaledEntryFresh({ target: 10000, ts: now - SCALED_TTL_MS }, now), false);       // exactly 12h → stale
+  assert.equal(isScaledEntryFresh({ target: 10000, ts: now - (SCALED_TTL_MS + 1) }, now), false);  // over 12h
+  assert.equal(isScaledEntryFresh(null, now), false);
+  assert.equal(isScaledEntryFresh({ target: 0, ts: now }, now), false);      // non-positive target
+  assert.equal(isScaledEntryFresh({ target: 5000 }, now), false);            // missing ts
+});
+
+// ── Units: conversion, mixed-unit scaling, import filtering ─────────────────────
+
+test('unitOf / isWeighableUnit / weighableTotalGrams', () => {
+  assert.equal(unitOf({ grams: 1 }), 'g');                 // legacy row -> grams
+  assert.equal(unitOf({ grams: 1, unit: 'kg' }), 'kg');
+  assert.equal(unitOf({ grams: 1, unit: 'nope' }), 'g');   // unknown -> grams
+  assert.equal(isWeighableUnit('kg'), true);
+  assert.equal(isWeighableUnit('l'), true);
+  assert.equal(isWeighableUnit('pcs'), false);
+  assert.equal(isWeighableUnit('to taste'), false);
+  // 1 kg (1000) + 500 g + 0.5 l (500) + 3 pcs (0) = 2000 g weighable
+  assert.equal(weighableTotalGrams({ ingredients: [
+    { label: 'A', grams: 1, unit: 'kg' }, { label: 'B', grams: 500, unit: 'g' },
+    { label: 'C', grams: 0.5, unit: 'l' }, { label: 'D', grams: 3, unit: 'pcs' },
+  ] }), 2000);
+});
+
+test('scaleCatalogue mixed units: weighable + pieces scale by the same factor', () => {
+  const recipe = { ingredients: [
+    { label: 'Flour', grams: 1000, unit: 'g' },
+    { label: 'Eggs', grams: 2, unit: 'pcs' },
+    { label: 'Salt', grams: 0, unit: 'to taste' },
+  ] };
+  assert.deepEqual(scaleCatalogue(recipe, 2000), [2000, 4, null]); // factor 2; to-taste has no number
+});
+
+test('scaleCatalogue mixed: kg + l convert into the weighable total, then scale', () => {
+  const recipe = { ingredients: [
+    { label: 'Flour', grams: 1, unit: 'kg' },  // 1000 g
+    { label: 'Water', grams: 1, unit: 'l' },   // 1000 g
+  ] };
+  assert.deepEqual(scaleCatalogue(recipe, 4000), [2, 2]); // factor 2 -> 2 kg, 2 l
+});
+
+test('baseAmounts with non-weight units: whole numbers in each unit, null for to-taste', () => {
+  assert.deepEqual(baseAmounts({ ingredients: [
+    { label: 'Flour', grams: 500.4, unit: 'g' },
+    { label: 'Eggs', grams: 2, unit: 'pcs' },
+    { label: 'Salt', grams: 0, unit: 'to taste' },
+  ] }), [500, 2, null]);
+});
+
+test('toCalculatorRecipe converts weighable to grams and drops non-weighable', () => {
+  const cr = toCalculatorRecipe({ id: 'r1', name: 'Mix', ingredients: [
+    { label: 'Flour', grams: 1, unit: 'kg' },       // -> 1000 g
+    { label: 'Water', grams: 0.5, unit: 'l' },      // -> 500 g
+    { label: 'Eggs', grams: 3, unit: 'pcs' },       // dropped
+    { label: 'Salt', grams: 0, unit: 'to taste' },  // dropped
+  ] });
+  assert.deepEqual(cr.ingredients, [
+    { label: 'Flour', grams: 1000 },
+    { label: 'Water', grams: 500 },
+  ]);
+});
+
+test('nonWeighableLabels lists only what the grams-only Calculator cannot take', () => {
+  assert.deepEqual(nonWeighableLabels({ ingredients: [
+    { label: 'Flour', grams: 1, unit: 'kg' },
+    { label: 'Eggs', grams: 3, unit: 'pcs' },
+    { label: 'Vanilla', grams: 0, unit: 'to taste' },
+    { label: '', grams: 1, unit: 'pcs' }, // blank label ignored
+  ] }), ['Eggs', 'Vanilla']);
 });
 
 // ── sortByUsage / filterByName ──────────────────────────────────────────────────

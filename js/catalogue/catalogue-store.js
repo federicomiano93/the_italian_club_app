@@ -11,7 +11,7 @@
 // "Most used first" is driven by a LOCAL open-count map (per device, free, no
 // extra Firestore writes) — see the usage helpers below.
 
-import { normalizeCatalogueRecipe, normalizeCatalogueRecipes } from './catalogue-model.js';
+import { normalizeCatalogueRecipe, normalizeCatalogueRecipes, isScaledEntryFresh } from './catalogue-model.js';
 import {
   watchRecipes,
   saveRecipeDoc,
@@ -21,9 +21,11 @@ import {
 
 const CACHE_KEY = 'catalogue-recipes';
 const USAGE_KEY = 'catalogue-usage';
+const SCALED_KEY = 'catalogue-scaled';
 
 let recipes = readCache();
 let usage = readUsage();
+let scaled = readScaled();
 let notify = null;         // called with the new recipe list whenever it changes
 let onSyncError = null;    // called with a message when a background write is rejected
 
@@ -68,6 +70,7 @@ export function initCatalogue(onUpdate, onError) {
       recipes = normalizeCatalogueRecipes(remote);
       writeCache(recipes);
       pruneUsage();
+      pruneScaled();
       if (notify) notify(recipes);
     },
     err => { if (onError) onError(err); },
@@ -118,6 +121,7 @@ export function deleteRecipe(id) {
   const prev = recipes.find(r => r.id === id) || null;
   removeLocal(id);
   if (usage[id] != null) { const u = { ...usage }; delete u[id]; usage = u; writeUsage(usage); }
+  clearScaledTarget(id);
   removeRecipeDoc(id).catch(err => {
     console.warn('Recipe delete did not sync to Firestore:', err);
     if (prev) upsertLocal(prev);
@@ -170,4 +174,69 @@ export function bumpUsage(id) {
   if (!id) return;
   usage = { ...usage, [id]: (usage[id] || 0) + 1 };
   writeUsage(usage);
+}
+
+// ── Local "scaled batch" map (keep a calculated total-dough-weight per recipe) ──
+// Per device, no Firestore writes. { recipeId: { target: grams, ts: ms } }. The
+// detail view restores it on open so a calculated batch stays shown until Clear or
+// it ages out (isScaledEntryFresh — 12h). Same corrupt-safe JSON idiom as usage.
+
+function readScaled() {
+  try {
+    const raw = localStorage.getItem(SCALED_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') return parsed;
+    }
+  } catch (e) {
+    // ignore corrupt scaled map
+  }
+  return {};
+}
+
+function writeScaled(map) {
+  try {
+    localStorage.setItem(SCALED_KEY, JSON.stringify(map));
+  } catch (e) {
+    // ignore storage failure — a remembered batch is a nicety, not data
+  }
+}
+
+// The remembered scaled target (grams) for a recipe, or null if none / expired.
+// A stale entry is tidied away on read.
+export function getScaledTarget(id) {
+  const entry = scaled[id];
+  if (isScaledEntryFresh(entry, Date.now())) return entry.target;
+  if (entry) clearScaledTarget(id);
+  return null;
+}
+
+// Remember a freshly calculated target (grams) for a recipe, stamped with now.
+export function setScaledTarget(id, targetGrams) {
+  if (!id || !(targetGrams > 0)) return;
+  scaled = { ...scaled, [id]: { target: targetGrams, ts: Date.now() } };
+  writeScaled(scaled);
+}
+
+// Forget a recipe's remembered target (tapping Clear, or deleting the recipe).
+export function clearScaledTarget(id) {
+  if (scaled[id] == null) return;
+  const next = { ...scaled };
+  delete next[id];
+  scaled = next;
+  writeScaled(scaled);
+}
+
+// Drop scaled entries that are orphaned (recipe gone) or expired (>12h), like
+// pruneUsage — keeps the map from growing.
+function pruneScaled() {
+  const ids = new Set(recipes.map(r => r.id));
+  const now = Date.now();
+  let changed = false;
+  const next = {};
+  for (const key of Object.keys(scaled)) {
+    if (ids.has(key) && isScaledEntryFresh(scaled[key], now)) next[key] = scaled[key];
+    else changed = true;
+  }
+  if (changed) { scaled = next; writeScaled(scaled); }
 }

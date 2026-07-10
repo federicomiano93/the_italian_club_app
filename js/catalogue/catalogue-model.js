@@ -10,17 +10,54 @@
 // Advanced fields (leavening, calc logic) are the Calculator's concern; a recipe is
 // imported into the Calculator as a plain pro-rata ('total') recipe — see toCalculatorRecipe.
 
+// ── Units (bakery / pastry / restaurant) ──────────────────────────────────────
+// Each ingredient carries a unit. Weight and volume are "weighable": they convert
+// to grams for the total-dough-weight scaling (volume at 1 ml = 1 g, the standard
+// bakery approximation). Pieces / spoons / pinch / to-taste are NOT weighable, so
+// they scale in proportion but stay out of the weight total (and can't be imported
+// into the grams-only Calculator). Legacy rows with no unit are treated as grams.
+export const CATALOGUE_UNITS = ['g', 'kg', 'mg', 'ml', 'cl', 'dl', 'l', 'pcs', 'tsp', 'tbsp', 'pinch', 'to taste'];
+export const DEFAULT_UNIT = 'g';
+
+// Grams per one of each weighable unit; a unit absent here is not weighable.
+const UNIT_TO_GRAMS = { g: 1, kg: 1000, mg: 0.001, ml: 1, cl: 10, dl: 100, l: 1000 };
+
+// The ingredient's unit, defaulting to grams for legacy rows with no unit field.
+export function unitOf(ing) {
+  const u = ing && ing.unit;
+  return (typeof u === 'string' && CATALOGUE_UNITS.includes(u)) ? u : DEFAULT_UNIT;
+}
+
+// True when a unit contributes to the weight total (and can be imported to the Calculator).
+export function isWeighableUnit(unit) {
+  return Object.prototype.hasOwnProperty.call(UNIT_TO_GRAMS, unit);
+}
+
+// One ingredient's amount converted to grams, or 0 when its unit isn't weighable.
+function ingGrams(ing) {
+  const factor = UNIT_TO_GRAMS[unitOf(ing)];
+  return factor ? (Number(ing.grams) || 0) * factor : 0;
+}
+
+// The recipe's total WEIGHABLE mass in grams (weight + volume rows only) — what the
+// "Total dough weight" scaling targets.
+export function weighableTotalGrams(recipe) {
+  const ings = (recipe && Array.isArray(recipe.ingredients)) ? recipe.ingredients : [];
+  return ings.reduce((s, i) => s + ingGrams(i), 0);
+}
+
 // ── Normalisation (junk-safe: never throws, never yields NaN) ──────────────────
 
-// One ingredient row: a display label and a non-negative gram amount. Non-numeric
-// or negative grams coerce to 0 so the scaling math never sees NaN. This is the
-// client-side "grams are numbers" guarantee (Firestore rules v2 cannot iterate a
-// list to assert it).
+// One ingredient row: a display label, a non-negative amount, and a unit. Non-numeric
+// or negative amounts coerce to 0 so the scaling math never sees NaN; an unknown or
+// missing unit falls back to grams. This is the client-side shape guarantee (Firestore
+// rules v2 cannot iterate a list to assert it).
 function normalizeIngredient(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const label = String(raw.label != null ? raw.label : (raw.name || '')).trim();
   const grams = Number(raw.grams);
-  return { label, grams: Number.isFinite(grams) && grams >= 0 ? grams : 0 };
+  const unit = (typeof raw.unit === 'string' && CATALOGUE_UNITS.includes(raw.unit)) ? raw.unit : DEFAULT_UNIT;
+  return { label, grams: Number.isFinite(grams) && grams >= 0 ? grams : 0, unit };
 }
 
 function normalizeIngredients(list) {
@@ -86,22 +123,49 @@ function fixRounding(amounts, total) {
 }
 
 // Scale a recipe to a target TOTAL weight in grams: every ingredient in proportion
-// so the rounded amounts sum exactly to Math.round(targetGrams). An empty recipe or
-// a non-positive target yields all zeros (defensive — never NaN).
+// to the weighable total. Returns an array aligned with recipe.ingredients — a whole
+// number in EACH ingredient's own unit, or null for a 'to taste' row (no quantity).
+// Empty recipe / non-positive target / no weighable mass → zeros (defensive, no NaN).
 export function scaleCatalogue(recipe, targetGrams) {
   const ings = (recipe && Array.isArray(recipe.ingredients)) ? recipe.ingredients : [];
-  const base = ings.map(i => Number(i.grams) || 0);
-  const total = base.reduce((a, b) => a + b, 0);
   const target = Number(targetGrams);
-  if (!Number.isFinite(target) || target <= 0 || total <= 0) return base.map(() => 0);
-  const factor = target / total;
-  return fixRounding(base.map(g => g * factor), target);
+  const weighTotal = weighableTotalGrams(recipe);
+  if (!Number.isFinite(target) || target <= 0 || weighTotal <= 0) {
+    return ings.map(i => unitOf(i) === 'to taste' ? null : 0);
+  }
+  const factor = target / weighTotal;
+  // Common case — every ingredient in grams: exact-sum to the target (fixRounding).
+  if (ings.every(i => unitOf(i) === 'g')) {
+    return fixRounding(ings.map(i => (Number(i.grams) || 0) * factor), target);
+  }
+  // Mixed units: proportional, each rounded in its own unit; to-taste has no number.
+  return ings.map(i => unitOf(i) === 'to taste' ? null : Math.round((Number(i.grams) || 0) * factor));
 }
 
-// The base (unscaled) recipe amounts, as an array aligned with recipe.ingredients.
+// The base (unscaled) amounts, aligned with recipe.ingredients — whole numbers in
+// each ingredient's own unit (null for 'to taste'). For an all-grams recipe the
+// integer rows sum exactly to the rounded total (fixRounding), so rows and Total agree.
 export function baseAmounts(recipe) {
   const ings = (recipe && Array.isArray(recipe.ingredients)) ? recipe.ingredients : [];
-  return ings.map(i => Number(i.grams) || 0);
+  if (ings.every(i => unitOf(i) === 'g')) {
+    const raw = ings.map(i => Number(i.grams) || 0);
+    return fixRounding(raw, raw.reduce((a, b) => a + b, 0));
+  }
+  return ings.map(i => unitOf(i) === 'to taste' ? null : Math.round(Number(i.grams) || 0));
+}
+
+// ── Persisted "scaled batch" freshness ─────────────────────────────────────────
+// A calculated total-dough-weight stays shown when you leave and reopen a recipe,
+// until you tap Clear or it ages out. This TTL + the pure check live here so the
+// 12-hour rule is unit-testable without the storage/Firestore layer.
+export const SCALED_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+// True if a stored { target, ts } entry is still valid: a positive gram target
+// calculated less than SCALED_TTL_MS ago (relative to nowMs).
+export function isScaledEntryFresh(entry, nowMs) {
+  return !!entry
+    && Number.isFinite(entry.target) && entry.target > 0
+    && Number.isFinite(entry.ts) && (nowMs - entry.ts) < SCALED_TTL_MS;
 }
 
 // ── Editor validation ─────────────────────────────────────────────────────────
@@ -114,8 +178,9 @@ export function findInvalidRecipe(recipe) {
   const ings = Array.isArray(recipe.ingredients) ? recipe.ingredients : [];
   const named = ings.filter(i => i && String(i.label || '').trim());
   if (!named.length) return 'ingredients';
-  const totalGrams = named.reduce((s, i) => { const g = Number(i.grams); return s + (g > 0 ? g : 0); }, 0);
-  if (totalGrams <= 0) return 'weight';
+  // At least one named ingredient must carry a positive amount (in any unit), so the
+  // recipe is more than a list of names. ('weight' is kept as the problem key.)
+  if (!named.some(i => (Number(i.grams) || 0) > 0)) return 'weight';
   return null;
 }
 
@@ -130,9 +195,24 @@ export function toCalculatorRecipe(recipe) {
     id: 'cat-' + recipe.id,
     name: recipe.name,
     logic: 'total',
-    ingredients: (recipe.ingredients || []).map(i => ({ label: i.label, grams: i.grams })),
+    // The Calculator is grams-only: convert weighable rows to grams and leave out
+    // non-weighable ones (pieces / spoons / pinch / to-taste). The UI warns first
+    // when anything is left out — see nonWeighableLabels.
+    ingredients: (recipe.ingredients || [])
+      .filter(i => isWeighableUnit(unitOf(i)))
+      .map(i => ({ label: i.label, grams: Math.round(ingGrams(i)) })),
     visible: false,
   };
+}
+
+// The labels of ingredients that CAN'T be imported into the grams-only Calculator
+// (pieces / spoons / pinch / to-taste). Empty when the whole recipe is weighable;
+// drives the pre-import warning.
+export function nonWeighableLabels(recipe) {
+  const ings = (recipe && Array.isArray(recipe.ingredients)) ? recipe.ingredients : [];
+  return ings
+    .filter(i => String(i.label || '').trim() && !isWeighableUnit(unitOf(i)))
+    .map(i => i.label);
 }
 
 // Add or update an imported recipe inside a config's recipes[]. If a recipe with the
