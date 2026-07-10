@@ -49,11 +49,8 @@ export function renderDetail({ recipe, app }) {
   // which would collide with the right-aligned amounts).
   const expandBtn = el('button', {
     class: 'cat-zoom-open', type: 'button', 'aria-label': 'View recipe full screen',
-    onclick: () => setZoom(true),
-  }, [
-    el('span', { icon: EXPAND_SVG, 'aria-hidden': 'true' }),
-    'Enlarge',
-  ]);
+    onclick: () => setZoom(true), icon: EXPAND_SVG,
+  });
   const toolbar = el('div', { class: 'cat-ing-toolbar' }, [expandBtn]);
 
   // Close (×) lives inside the overlay and only shows while zoomed.
