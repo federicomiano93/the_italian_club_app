@@ -118,7 +118,7 @@ function maybeNotify(alerts) {
   alerts.forEach(a => {
     if (notified.has(a.key)) return;
     notified.add(a.key);
-    try { new Notification('The Italian Club — Orders', { body: a.text, tag: a.key }); }
+    try { new Notification('The Italian Club', { body: a.text, tag: a.key }); }
     catch (err) { console.warn('Notification failed:', err); }
   });
 }
