@@ -27,7 +27,7 @@
 import { getConfig, saveConfig } from './calculator-config-store.js';
 import { cloneConfig, getClients, getClientById, getProductById, getAllProducts } from './calculator-config.js';
 import { el } from './calculator-render.js';
-import { confirmDialog } from './confirm-dialog.js';
+import { confirmDialog, alertDialog } from './confirm-dialog.js';
 
 let working = null;          // deep copy being edited (re-synced from live at the top)
 let activeList = null;       // null = top screen, else the edited list's index
@@ -166,13 +166,13 @@ async function saveDetail() {
   if (activeDirect !== null) {
     if (isBlank(directClients()[activeDirect].name)) {
       showErrors = true; renderEditor();
-      alert('Please name this client before saving.');
+      alertDialog('Please name this client before saving.');
       return;
     }
   } else if (activeList !== null) {
     if (isBlank(lists()[activeList].title)) {
       showErrors = true; renderEditor();
-      alert('Please name this list before saving.');
+      alertDialog('Please name this list before saving.');
       return;
     }
   }
@@ -188,7 +188,7 @@ async function saveDetail() {
     addingProduct = false;
     renderEditor();
   } catch (e) {
-    alert('Could not save. Check your connection and try again.');
+    alertDialog('Could not save. Check your connection and try again.');
   }
 }
 

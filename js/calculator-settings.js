@@ -30,7 +30,7 @@ import { el } from './calculator-render.js';
 import { openRecipes } from './recipes.js';
 import { openWhatsapp } from './calculator-whatsapp-settings.js';
 import { confirmDiscard } from './calculator-confirm.js';
-import { confirmDialog } from './confirm-dialog.js';
+import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import Sortable from './vendor/sortable.esm.js';
 
 // A recipe's display name (falls back to its id if the recipe was deleted).
@@ -145,7 +145,7 @@ async function saveClients() {
     showErrors = true;
     activeClient = invalid;
     renderEditor();
-    alert('Please name every client and choose a product for every row before saving.');
+    alertDialog('Please name every client and choose a product for every row before saving.');
     return;
   }
   if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
@@ -158,7 +158,7 @@ async function saveClients() {
     activeClient = null;
     renderEditor();
   } catch (e) {
-    alert('Could not save. Check your connection and try again.');
+    alertDialog('Could not save. Check your connection and try again.');
   }
 }
 
@@ -438,7 +438,7 @@ async function saveProducts() {
     prodShowErrors = true;
     prodActive = invalid;
     renderProductsEditor();
-    alert('Please give every product a name before saving.');
+    alertDialog('Please give every product a name before saving.');
     return;
   }
   if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
@@ -451,7 +451,7 @@ async function saveProducts() {
     prodActive = null;
     renderProductsEditor();
   } catch (e) {
-    alert('Could not save. Check your connection and try again.');
+    alertDialog('Could not save. Check your connection and try again.');
   }
 }
 
@@ -528,7 +528,7 @@ function renderProductDetail(pi) {
   const used = clientCountFor(product.id);
   const del = deleteIcon('Delete product', async () => {
     if (used > 0) {
-      alert('This product is ordered by ' + used + (used === 1 ? ' client' : ' clients') + '. Remove it from them in Settings → Clients first.');
+      alertDialog('This product is ordered by ' + used + (used === 1 ? ' client' : ' clients') + '. Remove it from them in Settings → Clients first.');
       return;
     }
     if (!(await confirmDialog({ message: 'Delete this product?', okLabel: 'Delete', danger: true }))) return;
@@ -627,7 +627,7 @@ async function saveIngredients() {
     ingWorking = cloneConfig(getConfig());
     renderIngredientsList();
   } catch (e) {
-    alert('Could not save. Check your connection and try again.');
+    alertDialog('Could not save. Check your connection and try again.');
   }
 }
 
@@ -676,7 +676,7 @@ async function saveExtra() {
     extraDirty = false;
     updateExtraSaveBtn();
   } catch (e) {
-    alert('Could not save. Check your connection and try again.');
+    alertDialog('Could not save. Check your connection and try again.');
   }
 }
 
@@ -810,7 +810,7 @@ async function saveDivisor() {
     divisorDirty = false;
     updateDivisorSaveBtn();
   } catch (e) {
-    alert('Could not save. Check your connection and try again.');
+    alertDialog('Could not save. Check your connection and try again.');
   }
 }
 

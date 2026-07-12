@@ -12,7 +12,7 @@
 // config), no longer device-local localStorage.
 
 import { confirmDiscard } from './calculator-confirm.js';
-import { confirmDialog } from './confirm-dialog.js';
+import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { recipeTotal } from './calculator-dough-math.js';
 import { getConfig, saveConfig } from './calculator-config-store.js';
 import {
@@ -118,7 +118,7 @@ async function saveRecipes() {
     showErrors = true;
     activeRecipe = invalid;
     renderEditor();
-    alert('Please give every recipe a name and at least one named ingredient before saving.');
+    alertDialog('Please give every recipe a name and at least one named ingredient before saving.');
     return;
   }
   if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
@@ -133,7 +133,7 @@ async function saveRecipes() {
     renderEditor();
     document.dispatchEvent(new CustomEvent('recipes-saved'));
   } catch (e) {
-    alert('Could not save. Check your connection and try again.');
+    alertDialog('Could not save. Check your connection and try again.');
   }
 }
 
@@ -186,7 +186,7 @@ async function deleteRecipe(ri) {
   const r = recipes()[ri];
   const used = productCountFor(r.id);
   if (used > 0) {
-    alert('This recipe is used by ' + used + (used === 1 ? ' product' : ' products') + '. Reassign or delete them in Settings → Products first.');
+    alertDialog('This recipe is used by ' + used + (used === 1 ? ' product' : ' products') + '. Reassign or delete them in Settings → Products first.');
     return;
   }
   if (!(await confirmDialog({ message: 'Delete the ' + (r.name || 'this') + ' recipe?', okLabel: 'Delete', danger: true }))) return;
@@ -267,7 +267,7 @@ function renderRecipeDetail(ri) {
   visCb.addEventListener('change', () => {
     if (visCb.checked && r.visible === false && visibleCount() >= MAX_VISIBLE_RECIPES) {
       visCb.checked = false;
-      alert('Only ' + MAX_VISIBLE_RECIPES + ' recipes can show as tabs at once. Hide another first.');
+      alertDialog('Only ' + MAX_VISIBLE_RECIPES + ' recipes can show as tabs at once. Hide another first.');
       return;
     }
     r.visible = visCb.checked;
