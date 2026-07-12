@@ -1048,7 +1048,27 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   justify-content: center;
   padding: 0;
 }
-#loaf-modal.visible, #list-select-modal.visible, #day-modal.visible { display: flex; }
+/* The bottom sheets used to appear instantly, which reads as a glitch rather than
+   a panel arriving. They fade the scrim and slide the sheet up from the edge it
+   is anchored to — ~200ms, no bounce. (app-fade-in lives in tokens.css, loaded on
+   every page; @keyframes are document-global. The reduced-motion kill-switch there
+   neutralises both for anyone who asks the OS for less motion.) */
+#loaf-modal.visible, #list-select-modal.visible, #day-modal.visible {
+  display: flex;
+  animation: app-fade-in .15s ease-out;
+}
+#loaf-modal.visible #loaf-modal-box,
+#list-select-modal.visible #list-select-box,
+#day-modal.visible #day-modal-box { animation: sheet-up .2s ease-out; }
+@keyframes sheet-up { from { transform: translateY(26px); opacity: 0; } }
+
+/* Press feedback: a button that visibly gives under the finger feels responsive.
+   Same 60ms / .97 scale as the shared dialog buttons (tokens.css). */
+.confirm-btn-primary, .day-btn, .cp-save-bottom, .reset-btn, .loaf-modal-send {
+  transition: transform .06s ease;
+}
+.confirm-btn-primary:active, .day-btn:active, .cp-save-bottom:active,
+.reset-btn:active, .loaf-modal-send:active { transform: scale(.97); }
 #loaf-modal-box, #list-select-box, #day-modal-box {
   background: var(--surface);
   border-radius: var(--radius) var(--radius) 0 0;
