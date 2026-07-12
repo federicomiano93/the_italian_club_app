@@ -145,7 +145,11 @@
 .app-dialog-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 2000; /* above page overlays (≤1000), below #sw-update-host (9999) */
+  /* ABOVE everything, the update banner (9999) included. A native confirm() used
+     to swallow all input while it was up; this dialog replaces it, so nothing may
+     stay clickable behind it — least of all the banner, whose tap reloads the page
+     and would destroy the very unsaved edits the dialog is guarding. */
+  z-index: 10000;
   background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;

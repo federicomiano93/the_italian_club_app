@@ -12,6 +12,7 @@
 // Multi-line messages work: .app-dialog-msg uses white-space: pre-line.
 
 let isOpen = false; // one dialog at a time; a re-entrant open resolves false
+let seq = 0;        // unique ids, so a dialog can name itself to a screen reader
 
 // confirmDialog({ title?, message, okLabel='OK', cancelLabel='Cancel', danger=false })
 //   -> Promise<boolean>   true = confirmed; Cancel / Escape / backdrop tap = false
@@ -31,17 +32,30 @@ function open({ title = '', message = '', okLabel = 'OK', cancelLabel = 'Cancel'
   isOpen = true;
   const prevFocus = document.activeElement;
 
+  const n = ++seq;
   const backdrop = make('div', 'app-dialog-backdrop');
   const box = make('div', 'app-dialog');
   box.setAttribute('role', 'dialog');
   box.setAttribute('aria-modal', 'true');
-  if (title) box.appendChild(make('h3', 'app-dialog-title', title));
+  // Name and describe the dialog for a screen reader — without these it is
+  // announced as an unnamed dialog and the message is never read out.
+  const msg = make('p', 'app-dialog-msg', message);
+  msg.id = 'app-dialog-msg-' + n;
+  box.setAttribute('aria-describedby', msg.id);
+  if (title) {
+    const h = make('h3', 'app-dialog-title', title);
+    h.id = 'app-dialog-title-' + n;
+    box.setAttribute('aria-labelledby', h.id);
+    box.appendChild(h);
+  } else {
+    box.setAttribute('aria-labelledby', msg.id); // no title → the message names it
+  }
   const actions = make('div', 'app-dialog-actions');
   const ok = btn(danger ? 'app-dialog-btn-danger' : 'app-dialog-btn-solid', okLabel);
   const cancel = alertOnly ? null : btn('app-dialog-btn-ghost', cancelLabel);
   if (cancel) actions.appendChild(cancel);
   actions.appendChild(ok);
-  box.appendChild(make('p', 'app-dialog-msg', message));
+  box.appendChild(msg);
   box.appendChild(actions);
   backdrop.appendChild(box);
 
