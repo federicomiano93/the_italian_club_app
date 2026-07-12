@@ -15,6 +15,7 @@ import { buildManagement, isAdmin } from './management.js';
 import { computeSuggestion } from './suggestions.js';
 import { refreshBankHolidays } from './bank-holidays.js';
 import { renderAlerts } from './notifications.js';
+import { confirmDialog } from './confirm-dialog.js';
 
 const state = {
   suppliers: [],
@@ -116,24 +117,6 @@ function showAlerts() {
   renderAlerts(document.getElementById('orders-alerts'), state.suppliers);
 }
 
-// Small on-brand confirmation dialog (matches the management panel's). Resolves
-// true (confirm) / false (cancel).
-function confirmDialog(message, confirmLabel = 'Confirm') {
-  return new Promise(resolve => {
-    const close = value => { wrap.remove(); resolve(value); };
-    const wrap = el('div', { class: 'confirm-overlay', onClick: e => { if (e.target === wrap) close(false); } }, [
-      el('div', { class: 'confirm-box' }, [
-        el('p', { class: 'confirm-msg', text: message }),
-        el('div', { class: 'confirm-actions' }, [
-          el('button', { type: 'button', class: 'btn-secondary', onClick: () => close(false) }, 'Cancel'),
-          el('button', { type: 'button', class: 'btn-primary', onClick: () => close(true) }, confirmLabel),
-        ]),
-      ]),
-    ]);
-    document.body.appendChild(wrap);
-  });
-}
-
 // ── Send order (WhatsApp selection screen) ────────────────────────────────────
 function openSendScreen() {
   const overlay = buildSendScreen(activeSuppliers(), ingredientsBySupplier(), state.entries, {
@@ -149,7 +132,10 @@ async function ordersPlaced() {
     setStatus('Nothing to archive yet — add quantities first.', 'warn');
     return;
   }
-  const ok = await confirmDialog('Mark this order as placed? It will be saved to History and the current order cleared.', 'Orders placed');
+  const ok = await confirmDialog({
+    message: 'Mark this order as placed? It will be saved to History and the current order cleared.',
+    okLabel: 'Orders placed',
+  });
   if (!ok) return;
   try {
     await archiveOrder(state.entries);
