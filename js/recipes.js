@@ -12,6 +12,7 @@
 // config), no longer device-local localStorage.
 
 import { confirmDiscard } from './calculator-confirm.js';
+import { confirmDialog } from './confirm-dialog.js';
 import { recipeTotal } from './calculator-dough-math.js';
 import { getConfig, saveConfig } from './calculator-config-store.js';
 import {
@@ -72,7 +73,7 @@ export async function closeRecipes() {
   if (activeRecipe !== null) {
     const r = recipes()[activeRecipe];
     if (freshlyAdded && isEmptyRecipe(r)) {
-      if (!confirm('Discard this new recipe? You have not added anything to it.')) return;
+      if (!(await confirmDialog({ message: 'Discard this new recipe? You have not added anything to it.', okLabel: 'Discard', danger: true }))) return;
       recipes().splice(activeRecipe, 1);
     }
     freshlyAdded = false;
@@ -120,7 +121,7 @@ async function saveRecipes() {
     alert('Please give every recipe a name and at least one named ingredient before saving.');
     return;
   }
-  if (!confirm('Save these changes?')) return;
+  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
   try {
     await saveConfig(working);
     showErrors = false;
@@ -181,14 +182,14 @@ function renderRecipeList() {
   content.appendChild(save);
 }
 
-function deleteRecipe(ri) {
+async function deleteRecipe(ri) {
   const r = recipes()[ri];
   const used = productCountFor(r.id);
   if (used > 0) {
     alert('This recipe is used by ' + used + (used === 1 ? ' product' : ' products') + '. Reassign or delete them in Settings → Products first.');
     return;
   }
-  if (!confirm('Delete the ' + (r.name || 'this') + ' recipe?')) return;
+  if (!(await confirmDialog({ message: 'Delete the ' + (r.name || 'this') + ' recipe?', okLabel: 'Delete', danger: true }))) return;
   recipes().splice(ri, 1);
   markDirty();
   activeRecipe = null;

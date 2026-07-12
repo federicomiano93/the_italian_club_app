@@ -27,6 +27,7 @@
 import { getConfig, saveConfig } from './calculator-config-store.js';
 import { cloneConfig, getClients, getClientById, getProductById, getAllProducts } from './calculator-config.js';
 import { el } from './calculator-render.js';
+import { confirmDialog } from './confirm-dialog.js';
 
 let working = null;          // deep copy being edited (re-synced from live at the top)
 let activeList = null;       // null = top screen, else the edited list's index
@@ -106,10 +107,11 @@ export function openWhatsapp() {
 // Contextual "back": within an item step up one level (edits live in the working
 // copy); leaving a detail to the top prompts to discard unsaved edits; from the top
 // it exits the overlay (nothing is pending there — the top re-reads the saved config).
-function backWhatsapp() {
+async function backWhatsapp() {
+  const discardOk = () => confirmDialog({ message: 'Discard unsaved changes?', okLabel: 'Discard', danger: true });
   if (activeDirect !== null) {
     if (addingProduct) { addingProduct = false; renderEditor(); return; }
-    if (dirty && !confirm('Discard unsaved changes?')) return;
+    if (dirty && !(await discardOk())) return;
     activeDirect = null;
     renderEditor();
     return;
@@ -122,7 +124,7 @@ function backWhatsapp() {
       renderEditor();
       return;
     }
-    if (dirty && !confirm('Discard unsaved changes?')) return;
+    if (dirty && !(await discardOk())) return;
     activeList = null;
     renderEditor();
     return;
@@ -174,7 +176,7 @@ async function saveDetail() {
       return;
     }
   }
-  if (!confirm('Save these changes?')) return;
+  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
   try {
     await saveConfig(working);
     showErrors = false;
@@ -251,14 +253,14 @@ function topRow(label, onOpen, delLabel, onDelete) {
 
 // Delete a saved list / direct client straight from the top screen, persisting at
 // once (there is no Save here). Always confirmed.
-function deleteList(li) {
-  if (!confirm('Delete this list?')) return;
+async function deleteList(li) {
+  if (!(await confirmDialog({ message: 'Delete this list?', okLabel: 'Delete', danger: true }))) return;
   lists().splice(li, 1);
   saveConfig(working);
   renderEditor();
 }
-function deleteDirect(di) {
-  if (!confirm('Delete this client?')) return;
+async function deleteDirect(di) {
+  if (!(await confirmDialog({ message: 'Delete this client?', okLabel: 'Delete', danger: true }))) return;
   directClients().splice(di, 1);
   saveConfig(working);
   renderEditor();
@@ -313,8 +315,8 @@ function entryCard(list, entry, ei) {
   ]);
   open.addEventListener('click', () => { activeEntry = ei; addingProduct = false; renderEditor(); });
 
-  const del = deleteIcon('Remove client from list', () => {
-    if (!confirm('Remove this client from the list?')) return;
+  const del = deleteIcon('Remove client from list', async () => {
+    if (!(await confirmDialog({ message: 'Remove this client from the list?', okLabel: 'Remove', danger: true }))) return;
     list.clients.splice(ei, 1);
     markDirty();
     renderEditor();

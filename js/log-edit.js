@@ -20,6 +20,7 @@ import { buildSheet, buildLogText, latestVersion } from './log-model.js';
 import { getLogById, appendAndSave, restoreAndSave } from './log-store.js';
 import { renderVersion } from './log-view.js';
 import { qtyRow } from './log-qty.js';
+import { confirmDialog } from './confirm-dialog.js';
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
@@ -108,8 +109,8 @@ function saveBottom() {
   return b;
 }
 
-function save() {
-  if (!confirm('Save these changes as a new version?')) return;
+async function save() {
+  if (!(await confirmDialog({ message: 'Save these changes as a new version?', okLabel: 'Save' }))) return;
   const tab = working.tab;
 
   const items = working.items.map(it => ({
@@ -211,8 +212,8 @@ function openHistoryVersion(i) {
   c.appendChild(renderVersion(v, log));
   if (i !== vs.length - 1) {
     const restore = el('button', { class: 'cp-save-bottom', type: 'button' }, 'Restore this version');
-    restore.addEventListener('click', () => {
-      if (!confirm('Restore this version? It is added on top as the new current version — the history is kept.')) return;
+    restore.addEventListener('click', async () => {
+      if (!(await confirmDialog({ message: 'Restore this version? It is added on top as the new current version — the history is kept.', okLabel: 'Restore' }))) return;
       restoreAndSave(historyLogId, i, { calculatedBy: v.calculatedBy || '', at: logTimestamp() });
       renderHistoryList();
     });

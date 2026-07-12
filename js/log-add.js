@@ -12,6 +12,7 @@ import { confirmDiscard } from './calculator-confirm.js';
 import { buildSheet, buildLogText } from './log-model.js';
 import { createAndSave } from './log-store.js';
 import { qtyRow } from './log-qty.js';
+import { confirmDialog } from './confirm-dialog.js';
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
@@ -127,9 +128,9 @@ function render() {
 }
 
 // Build and save a brand-new log — same generic math/shape as a calculator Confirm.
-function commit() {
+async function commit() {
   if (!state || !state.recipeId || !state.forDay) return;
-  if (!confirm('Save this log?')) return;
+  if (!(await confirmDialog({ message: 'Save this log?', okLabel: 'Save' }))) return;
   const recipe = getRecipeById(getConfig(), state.recipeId);
   if (!recipe) return;
   const items = state.items.map(it => ({

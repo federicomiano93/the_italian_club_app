@@ -12,6 +12,7 @@ import { getConfig, initConfig } from './calculator-config-store.js';
 import { initLogs } from './log-store.js';
 import { renderTab, buildRecipePanel, el } from './calculator-render.js';
 import { getVisibleRecipes, getRecipeById, getTabProducts, isExtraDoughEnabled } from './calculator-config.js';
+import { confirmDialog } from './confirm-dialog.js';
 
 // Service-worker registration and the update banner live in js/sw-update.js,
 // shared by every page — nothing to do here.
@@ -185,8 +186,8 @@ function renderAll() {
 }
 
 // ── Reset ─────────────────────────────────────────────────────────────────────
-function resetTab(recipeId) {
-  if (!confirm('Reset all fields?')) return;
+async function resetTab(recipeId) {
+  if (!(await confirmDialog({ message: 'Reset all fields?', okLabel: 'Reset', danger: true }))) return;
   const recipe = getRecipeById(getConfig(), recipeId);
   clearRevealed(recipeId);
   clearLock(recipeId);

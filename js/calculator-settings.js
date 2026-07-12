@@ -30,6 +30,7 @@ import { el } from './calculator-render.js';
 import { openRecipes } from './recipes.js';
 import { openWhatsapp } from './calculator-whatsapp-settings.js';
 import { confirmDiscard } from './calculator-confirm.js';
+import { confirmDialog } from './confirm-dialog.js';
 import Sortable from './vendor/sortable.esm.js';
 
 // A recipe's display name (falls back to its id if the recipe was deleted).
@@ -100,7 +101,7 @@ async function closeClients() {
   if (activeClient !== null) {
     const client = clients()[activeClient];
     if (freshlyAdded && isEmptyClient(client)) {
-      if (!confirm('Discard this new client? You have not added anything to it.')) return;
+      if (!(await confirmDialog({ message: 'Discard this new client? You have not added anything to it.', okLabel: 'Discard', danger: true }))) return;
       clients().splice(activeClient, 1);
     }
     freshlyAdded = false;
@@ -147,7 +148,7 @@ async function saveClients() {
     alert('Please name every client and choose a product for every row before saving.');
     return;
   }
-  if (!confirm('Save these changes?')) return;
+  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
   try {
     await saveConfig(working);
     showErrors = false;
@@ -251,8 +252,8 @@ function renderClientDetail(ci) {
   const nameInput = el('input', { class: 'cp-client-name', type: 'text', value: client.name || '', placeholder: 'Client name' });
   if (showErrors && isBlank(client.name)) nameInput.classList.add('cp-invalid');
   nameInput.addEventListener('input', () => { client.name = nameInput.value; nameInput.classList.remove('cp-invalid'); markDirty(); });
-  const del = deleteIcon('Delete client', () => {
-    if (!confirm('Delete this client and its products?')) return;
+  const del = deleteIcon('Delete client', async () => {
+    if (!(await confirmDialog({ message: 'Delete this client and its products?', okLabel: 'Delete', danger: true }))) return;
     clients().splice(ci, 1);
     markDirty();
     activeClient = null;
@@ -408,7 +409,7 @@ async function closeProducts() {
   if (prodActive !== null) {
     const product = pcProducts()[prodActive];
     if (prodFresh && isEmptyProduct(product)) {
-      if (!confirm('Discard this new product? You have not named it.')) return;
+      if (!(await confirmDialog({ message: 'Discard this new product? You have not named it.', okLabel: 'Discard', danger: true }))) return;
       pcProducts().splice(prodActive, 1);
     }
     prodFresh = false;
@@ -440,7 +441,7 @@ async function saveProducts() {
     alert('Please give every product a name before saving.');
     return;
   }
-  if (!confirm('Save these changes?')) return;
+  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
   try {
     await saveConfig(prodWorking);
     prodShowErrors = false;
@@ -525,12 +526,12 @@ function renderProductDetail(pi) {
   nameInput.addEventListener('input', () => { product.name = nameInput.value; nameInput.classList.remove('cp-invalid'); prodMarkDirty(); });
 
   const used = clientCountFor(product.id);
-  const del = deleteIcon('Delete product', () => {
+  const del = deleteIcon('Delete product', async () => {
     if (used > 0) {
       alert('This product is ordered by ' + used + (used === 1 ? ' client' : ' clients') + '. Remove it from them in Settings → Clients first.');
       return;
     }
-    if (!confirm('Delete this product?')) return;
+    if (!(await confirmDialog({ message: 'Delete this product?', okLabel: 'Delete', danger: true }))) return;
     pcProducts().splice(pi, 1);
     prodMarkDirty();
     prodActive = null;
@@ -618,7 +619,7 @@ function renderIngredientsList() {
 async function saveIngredients() {
   // Drop blank rows; normalizeConfig de-dupes and re-seeds names used by recipes.
   ingWorking.ingredients = ingList().filter(i => !isBlank(i.name));
-  if (!confirm('Save these changes?')) return;
+  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
   try {
     await saveConfig(ingWorking);
     ingDirty = false;
@@ -669,7 +670,7 @@ async function closeExtra() {
 }
 
 async function saveExtra() {
-  if (!confirm('Save these changes?')) return;
+  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
   try {
     await saveConfig(extraWorking);
     extraDirty = false;
@@ -802,7 +803,7 @@ function clearDivisorTab(tab) {
 }
 
 async function saveDivisor() {
-  if (!confirm('Save these changes?')) return;
+  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
   try {
     await saveConfig(divisorWorking);
     divisorWorking = cloneConfig(getConfig());
