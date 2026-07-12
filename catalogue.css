@@ -249,21 +249,12 @@ body.cat-zoom-lock { overflow: hidden; }
 .cat-del-btn:hover { text-decoration: underline; }
 .cat-save-btn:focus-visible, .cat-del-btn:focus-visible, .cat-add-row:focus-visible, .cat-del-icon:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
 
-/* Confirm dialog */
-.cat-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 30; }
-.cat-modal-backdrop[hidden] { display: none; }
-.cat-modal { background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: 16px; padding: 20px; width: 100%; max-width: 360px; box-shadow: var(--cat-shadow); }
-.cat-modal h3 { margin: 0 0 8px; font-family: var(--cat-font-round); font-size: 1.1rem; }
-/* pre-line: the dialog text is set with textContent (CSP-safe, no HTML), so a
-   blank line between a warning and its question only shows if newlines survive. */
-.cat-modal p { margin: 0 0 18px; color: var(--cat-text-2); white-space: pre-line; }
-.cat-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
-.cat-btn-ghost { background: var(--cat-surface-2); border: 1px solid var(--cat-border); color: var(--cat-text); border-radius: 10px; padding: 9px 16px; cursor: pointer; font-family: var(--cat-font); }
-.cat-btn-solid { background: var(--cat-brand); border: 0; color: var(--cat-brand-ink); border-radius: 10px; padding: 9px 18px; cursor: pointer; font-family: var(--cat-font-round); font-weight: 600; }
-.cat-btn-ghost:focus-visible, .cat-btn-solid:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
+/* The confirm dialog moved to the shared .app-dialog-* component
+   (js/catalogue/confirm-dialog.js + tokens.css), which keeps the
+   white-space: pre-line the batch warning depends on. */
 
 /* Toast */
 .cat-toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px); background: var(--cat-text); color: var(--cat-ground); padding: 11px 18px; border-radius: 999px; font-size: .9rem; opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; z-index: 40; max-width: 90vw; text-align: center; }
 .cat-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+/* The reduced-motion kill-switch is now app-wide, in tokens.css. */

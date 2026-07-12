@@ -12,6 +12,7 @@ import { renderDetail } from './catalogue-detail.js';
 import { renderEditor } from './catalogue-editor.js';
 import { importRecipeIntoCalculator, isRecipeLinkedToCalculator } from './import-to-calculator.js';
 import { nonWeighableLabels, weighableTotalGrams } from './catalogue-model.js';
+import { confirmDialog } from './confirm-dialog.js';
 
 const screen = document.getElementById('catScreen');
 const titleEl = document.getElementById('catTitle');
@@ -91,50 +92,6 @@ async function handleBack() {
   showList();
 }
 
-// ── Shared confirm dialog (resolves true/false) ─────────────────────────────────
-
-let confirmOpen = false;
-
-function confirmDialog({ title = 'Confirm', message = '', okLabel = 'OK' }) {
-  if (confirmOpen) return Promise.resolve(false); // guard against re-entrant opens
-  confirmOpen = true;
-  const backdrop = document.getElementById('catConfirm');
-  document.getElementById('catConfirmTitle').textContent = title;
-  document.getElementById('catConfirmText').textContent = message;
-  const okBtn = document.getElementById('catConfirmOk');
-  const cancelBtn = document.getElementById('catConfirmCancel');
-  okBtn.textContent = okLabel;
-  const prevFocus = document.activeElement; // restore on close
-  backdrop.hidden = false;
-  try { okBtn.focus(); } catch (e) { /* focus is best-effort */ }
-  return new Promise((resolve) => {
-    const cleanup = (result) => {
-      confirmOpen = false;
-      backdrop.hidden = true;
-      okBtn.removeEventListener('click', onOk);
-      cancelBtn.removeEventListener('click', onCancel);
-      backdrop.removeEventListener('click', onBackdrop);
-      backdrop.removeEventListener('keydown', onKey);
-      if (prevFocus && typeof prevFocus.focus === 'function') { try { prevFocus.focus(); } catch (e) { /* ignore */ } }
-      resolve(result);
-    };
-    const onOk = () => cleanup(true);
-    const onCancel = () => cleanup(false);
-    const onBackdrop = (e) => { if (e.target === backdrop) cleanup(false); };
-    const onKey = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); cleanup(false); }
-      else if (e.key === 'Tab') { // trap focus between the two buttons
-        e.preventDefault();
-        (document.activeElement === okBtn ? cancelBtn : okBtn).focus();
-      }
-    };
-    okBtn.addEventListener('click', onOk);
-    cancelBtn.addEventListener('click', onCancel);
-    backdrop.addEventListener('click', onBackdrop);
-    backdrop.addEventListener('keydown', onKey);
-  });
-}
-
 function toast(msg) {
   const t = document.getElementById('catToast');
   t.textContent = msg;
@@ -173,7 +130,7 @@ const app = {
       ? base + ' It was imported into the Calculator — that copy will stay; remove it separately in the Calculator if you want it gone.'
       : base;
 
-    const ok = await confirmDialog({ title: 'Delete recipe?', message, okLabel: 'Delete' });
+    const ok = await confirmDialog({ title: 'Delete recipe?', message, okLabel: 'Delete', danger: true });
     if (!ok) return false;
     deleteRecipe(recipe.id);
     toast('Recipe deleted.');
