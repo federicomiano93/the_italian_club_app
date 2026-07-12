@@ -154,6 +154,51 @@ export function baseAmounts(recipe) {
   return ings.map(i => unitOf(i) === 'to taste' ? null : Math.round(Number(i.grams) || 0));
 }
 
+// ── Batch size: a readable weight, and a guard against a mistyped total ────────
+// The "Total dough weight" field takes GRAMS — the unit the recipes themselves are
+// written in ("Croissant (4 x 3500gr.)"), so what you type matches what you read.
+// It used to take kilograms, which invited exactly the wrong number: typing 17500
+// (meaning 17500 g) asked for 17500 KG and produced a 17.5-tonne batch, scaled and
+// displayed without a murmur.
+//
+// Grams remove that trap but not the fat-finger one: a single extra zero still turns
+// a 17.5 kg batch into 175 kg. So a total far outside any real batch is FLAGGED before
+// it is applied — a loud confirm, never a silent scale, and never a hard block (an
+// unusual but intended batch still goes through).
+
+// Beyond any bakery mixer, and far out of proportion to the recipe as written.
+export const MAX_SANE_BATCH_G = 100000; // 100 kg
+export const MAX_SANE_MULTIPLE = 50;    // 50x the base recipe
+
+const gnum = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; };
+// Drop a trailing '.0' so 17.5 kg stays "17.5 kg" but 18.0 kg reads "18 kg".
+const trim = (n) => String(Math.round(n * 100) / 100);
+
+// A weight named the way a person would say it, so a wrong order of magnitude is
+// obvious at a glance: 17500 g → "17.5 kg"; 17500000 g → "17.5 tonnes".
+export function formatWeight(grams) {
+  const g = gnum(grams);
+  if (g >= 1000000) return trim(g / 1000000) + ' tonnes';
+  if (g >= 1000) return trim(g / 1000) + ' kg';
+  return trim(g) + ' g';
+}
+
+// null when the batch is plausible; otherwise a plain-language warning naming the
+// weight and how it compares to the recipe as written. Pure, so it is unit-tested.
+export function batchWarning(targetGrams, baseGrams) {
+  const target = gnum(targetGrams);
+  const base = gnum(baseGrams);
+  if (!target) return null;
+
+  const tooHeavy = target > MAX_SANE_BATCH_G;
+  const tooBig = base > 0 && target / base > MAX_SANE_MULTIPLE;
+  if (!tooHeavy && !tooBig) return null;
+
+  const parts = ['That is ' + formatWeight(target) + ' of dough'];
+  if (base > 0) parts.push('— ' + trim(target / base) + '× the recipe as written (' + formatWeight(base) + ')');
+  return parts.join(' ') + '. Check the amount before calculating.';
+}
+
 // ── Persisted "scaled batch" freshness ─────────────────────────────────────────
 // A calculated total-dough-weight stays shown when you leave and reopen a recipe,
 // until you tap Clear or it ages out. This TTL + the pure check live here so the
