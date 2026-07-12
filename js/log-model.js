@@ -269,6 +269,49 @@ export function filterVisibleLogs(logs, { visibility = {}, retentionHours = 24, 
   });
 }
 
+// ── Day label (relative to the day it is READ, not the day it was made) ───────
+// `forDay` records the day the dough was FOR, chosen at creation — so it is only
+// meaningful together with the day the log was created. Rendering it literally
+// froze the badge ("Today" stayed "Today" forever); a log made for today must
+// read "Yesterday" tomorrow. So resolve the log's TARGET DATE (creation day, +1
+// when forDay is 'tomorrow') and name it relative to the current day.
+//
+// Pure (nowMs is passed in) so it is unit-testable. Returns { text, tone }; tone
+// drives the badge colour ('today' | 'tomorrow' | 'past').
+
+// Calendar-day number in LOCAL time. Built from the Y/M/D components rather than
+// dividing the timestamp, so a DST change (which makes a day 23 or 25 hours long)
+// cannot shift a date by one.
+function localDayIndex(ms) {
+  const d = new Date(num(ms));
+  return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+}
+
+export function dayLabel(log, nowMs) {
+  const forDay = safeForDay(log && log.forDay);
+  const createdAtMs = num(log && log.createdAtMs);
+
+  // A log with no usable creation time (corrupt data) has no anchor to count from;
+  // fall back to the literal stored choice rather than inventing a wrong date.
+  if (createdAtMs <= 0 || !Number.isFinite(Number(nowMs))) {
+    return forDay === 'tomorrow'
+      ? { text: 'Tomorrow', tone: 'tomorrow' }
+      : { text: 'Today', tone: 'today' };
+  }
+
+  const target = localDayIndex(createdAtMs) + (forDay === 'tomorrow' ? 1 : 0);
+  const diff = target - localDayIndex(nowMs);
+
+  if (diff === 0) return { text: 'Today', tone: 'today' };
+  if (diff === 1) return { text: 'Tomorrow', tone: 'tomorrow' };
+  if (diff === -1) return { text: 'Yesterday', tone: 'past' };
+  // Beyond ±1 day the log is normally already out of the 24/48h retention window,
+  // but a clock change or a long-lived tab can still surface one — name it plainly
+  // instead of showing a wrong "Today".
+  if (diff > 1) return { text: 'In ' + diff + ' days', tone: 'tomorrow' };
+  return { text: -diff + ' days ago', tone: 'past' };
+}
+
 // Sort logs for display: newest first by creation time, with a stable id tiebreak.
 export function sortLogs(logs) {
   return (Array.isArray(logs) ? logs.slice() : []).sort((a, b) => {
