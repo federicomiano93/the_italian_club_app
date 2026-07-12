@@ -16,6 +16,7 @@ import { getLogs, getLogById, createAndSave, appendAndSave, genLogId, deleteLog 
 import { renderOrder, renderVersion } from './log-view.js';
 import { openLogEdit, openLogHistory } from './log-edit.js';
 import { openLogAdd } from './log-add.js';
+import { confirmDialog } from './confirm-dialog.js';
 
 function qtyOf(id) { const e = document.getElementById(id); return e ? (+e.value || 0) : 0; }
 
@@ -88,9 +89,9 @@ export function saveDay(tab, day) {
 
 // Tap Edit on a locked dough tab → confirm, then unlock the inputs (keeping the link)
 // and hide the recipe so it can't change live; it returns, recomputed, on the next save.
-export function editTab(tab) {
+export async function editTab(tab) {
   if (!getLock(tab).locked) return;
-  if (!confirm('Edit these quantities? The recipe updates only after you save it again.')) return;
+  if (!(await confirmDialog({ message: 'Edit these quantities? The recipe updates only after you save it again.', okLabel: 'Edit' }))) return;
   clearRevealed(tab);
   hideResult(tab + '-result');
   setLock(tab, false, getLock(tab).logId);
@@ -216,8 +217,8 @@ function openLogView(id) {
 function closeLogView() { document.getElementById('logview-overlay').classList.remove('visible'); }
 
 // Edit (B): confirm first, then open the dedicated edit screen (never the calculator).
-function startEdit(id) {
-  if (!confirm('Edit this log?')) return;
+async function startEdit(id) {
+  if (!(await confirmDialog({ message: 'Edit this log?', okLabel: 'Edit' }))) return;
   openLogEdit(id);
 }
 
@@ -225,7 +226,7 @@ function startEdit(id) {
 document.querySelector('.logview-back-btn').addEventListener('click', closeLogView);
 document.querySelector('.logview-home-btn').addEventListener('click', () => { window.location.href = 'index.html'; });
 
-document.getElementById('log-content').addEventListener('click', e => {
+document.getElementById('log-content').addEventListener('click', async e => {
   const histB = e.target.closest('.log-hist-btn');
   const editB = e.target.closest('.log-edit-btn');
   const delB = e.target.closest('.log-delete-btn');
@@ -235,7 +236,8 @@ document.getElementById('log-content').addEventListener('click', e => {
   if (delB) {
     const id = delB.dataset.id;
     const log = getLogById(id);
-    if (confirm('Delete this ' + (log ? log.dough : '') + ' log? This cannot be undone.')) deleteLog(id);
+    const msg = 'Delete this ' + (log ? log.dough : '') + ' log? This cannot be undone.';
+    if (await confirmDialog({ message: msg, okLabel: 'Delete', danger: true })) deleteLog(id);
     return;
   }
   if (bodyB) { openLogView(bodyB.dataset.id); return; }

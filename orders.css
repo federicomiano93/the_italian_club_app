@@ -406,42 +406,9 @@ input.ing-stock {
 .mgmt-form-actions .btn-secondary { flex: 1; }
 .mgmt-form-actions .btn-primary { flex: 2; margin-top: 0; }
 
-/* ── Confirmation dialog ──────────────────────────────────────────────────── */
-.confirm-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 800;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-}
-.confirm-box {
-  background: var(--surface);
-  border-radius: var(--radius);
-  padding: 22px 20px 18px;
-  width: 100%;
-  max-width: 360px;
-  box-shadow: var(--shadow);
-}
-.confirm-msg { font-size: 15px; color: var(--text); line-height: 1.5; margin-bottom: 20px; }
-.confirm-actions { display: flex; gap: 10px; }
-.confirm-actions .btn-secondary { flex: 1; }
-.confirm-actions .btn-danger { flex: 1; }
-.confirm-actions .btn-primary { flex: 1; margin-top: 0; box-shadow: none; }
-.btn-danger {
-  padding: 13px;
-  background: var(--danger);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-family: 'Manrope', sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  color: #fff;
-  cursor: pointer;
-}
-.btn-danger:active { background: color-mix(in srgb, var(--danger) 85%, #000); }
+/* The confirmation dialog moved to the shared .app-dialog-* component
+   (js/orders/confirm-dialog.js + tokens.css); .btn-danger went with it — the
+   dialog was its only user. */
 
 /* ── Alerts (Phase 6) ─────────────────────────────────────────────────────── */
 #orders-alerts { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }

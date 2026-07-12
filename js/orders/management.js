@@ -15,25 +15,9 @@
 
 import { el } from './dom.js';
 import { renderNotificationSettings } from './notifications.js';
+import { confirmDialog } from './confirm-dialog.js';
 
 export const isAdmin = true; // placeholder until real auth/roles exist
-
-// Small on-brand confirmation dialog. Resolves true (confirm) / false (cancel).
-function confirmDialog(message, confirmLabel = 'Confirm', danger = true) {
-  return new Promise(resolve => {
-    const close = value => { wrap.remove(); resolve(value); };
-    const wrap = el('div', { class: 'confirm-overlay', onClick: e => { if (e.target === wrap) close(false); } }, [
-      el('div', { class: 'confirm-box' }, [
-        el('p', { class: 'confirm-msg', text: message }),
-        el('div', { class: 'confirm-actions' }, [
-          el('button', { type: 'button', class: 'btn-secondary', onClick: () => close(false) }, 'Cancel'),
-          el('button', { type: 'button', class: danger ? 'btn-danger' : 'btn-primary', onClick: () => close(true) }, confirmLabel),
-        ]),
-      ]),
-    ]);
-    document.body.appendChild(wrap);
-  });
-}
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BACK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
@@ -140,13 +124,19 @@ export function buildManagement(data, actions) {
           // Confirm before deactivating (guards against accidental taps);
           // reactivating is harmless and needs no confirmation.
           if (active) {
-            const ok = await confirmDialog(`Deactivate "${name}"? It will be hidden from the order screen. You can reactivate it later.`, 'Deactivate', true);
+            const ok = await confirmDialog({
+              message: `Deactivate "${name}"? It will be hidden from the order screen. You can reactivate it later.`,
+              okLabel: 'Deactivate', danger: true,
+            });
             if (!ok) return;
           }
           onToggle();
         } }, active ? 'Deactivate' : 'Activate'),
         el('button', { type: 'button', class: 'mgmt-link danger', onClick: async () => {
-          const ok = await confirmDialog(`Permanently delete "${name}"? This cannot be undone.`, 'Delete', true);
+          const ok = await confirmDialog({
+            message: `Permanently delete "${name}"? This cannot be undone.`,
+            okLabel: 'Delete', danger: true,
+          });
           if (!ok) return;
           onDelete();
         } }, 'Delete'),

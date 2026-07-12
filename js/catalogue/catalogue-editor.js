@@ -175,7 +175,7 @@ export function renderEditor({ recipe, allRecipes, app }) {
   // Discard protection: Back with unsaved edits asks first.
   app.setLeaveGuard(async () => {
     if (!dirty) return true;
-    return app.confirm({ title: 'Discard changes?', message: 'You have unsaved changes. Discard them?', okLabel: 'Discard' });
+    return app.confirm({ title: 'Discard changes?', message: 'You have unsaved changes. Discard them?', okLabel: 'Discard', danger: true });
   });
 
   const addRowBtn = el('button', {

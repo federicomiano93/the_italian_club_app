@@ -15,6 +15,7 @@
 import { getConfig } from './calculator-config-store.js';
 import { getWhatsappLists, getWhatsappClients, resolveListClients, resolveDirectClient } from './calculator-config.js';
 import { el } from './calculator-render.js';
+import { alertDialog } from './confirm-dialog.js';
 
 // The resolved client entries we are sending: [{ client, products }]. The order
 // message heading is the chosen list's title.
@@ -32,7 +33,7 @@ export function shareMarketOrder() {
   const lists = getWhatsappLists(config);
   const directs = getWhatsappClients(config);
   if (lists.length + directs.length === 0) {
-    alert('No WhatsApp lists or clients yet. Add one in Settings → WhatsApp.');
+    alertDialog('No WhatsApp lists or clients yet. Add one in Settings → WhatsApp.');
     return;
   }
   // Shortcut: a single saved item opens straight into its order modal.
@@ -49,7 +50,7 @@ export function shareMarketOrder() {
 function openList(config, list) {
   const entries = resolveListClients(config, list);
   if (!entries.length) {
-    alert('This list has no clients yet. Add some in Settings → WhatsApp.');
+    alertDialog('This list has no clients yet. Add some in Settings → WhatsApp.');
     return;
   }
   selectedEntries = entries;
@@ -158,7 +159,7 @@ export function sendWithLoaves() {
     })
     .filter(Boolean);
 
-  if (!sections.length) { alert('No orders to share'); return; }
+  if (!sections.length) { alertDialog('No orders to share'); return; }
 
   const text = `*${selectedTitle || 'Order'}*\n\n` + sections.join('\n\n');
   window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');

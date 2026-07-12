@@ -30,6 +30,7 @@ import { el } from './calculator-render.js';
 import { openRecipes } from './recipes.js';
 import { openWhatsapp } from './calculator-whatsapp-settings.js';
 import { confirmDiscard } from './calculator-confirm.js';
+import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import Sortable from './vendor/sortable.esm.js';
 
 // A recipe's display name (falls back to its id if the recipe was deleted).
@@ -96,11 +97,11 @@ function isEmptyClient(c) {
   return !c || (isBlank(c.name) && (!c.items || c.items.length === 0));
 }
 
-function closeClients() {
+async function closeClients() {
   if (activeClient !== null) {
     const client = clients()[activeClient];
     if (freshlyAdded && isEmptyClient(client)) {
-      if (!confirm('Discard this new client? You have not added anything to it.')) return;
+      if (!(await confirmDialog({ message: 'Discard this new client? You have not added anything to it.', okLabel: 'Discard', danger: true }))) return;
       clients().splice(activeClient, 1);
     }
     freshlyAdded = false;
@@ -108,12 +109,12 @@ function closeClients() {
     renderEditor();
     return;
   }
-  if (!confirmDiscard(dirty)) return;
+  if (!(await confirmDiscard(dirty))) return;
   hide('cp-overlay');
 }
 
-function goHomeFromClients() {
-  if (!confirmDiscard(dirty)) return;
+async function goHomeFromClients() {
+  if (!(await confirmDiscard(dirty))) return;
   window.location.href = 'index.html';
 }
 
@@ -144,10 +145,10 @@ async function saveClients() {
     showErrors = true;
     activeClient = invalid;
     renderEditor();
-    alert('Please name every client and choose a product for every row before saving.');
+    alertDialog('Please name every client and choose a product for every row before saving.');
     return;
   }
-  if (!confirm('Save these changes?')) return;
+  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
   try {
     await saveConfig(working);
     showErrors = false;
@@ -157,7 +158,7 @@ async function saveClients() {
     activeClient = null;
     renderEditor();
   } catch (e) {
-    alert('Could not save. Check your connection and try again.');
+    alertDialog('Could not save. Check your connection and try again.');
   }
 }
 
@@ -251,8 +252,8 @@ function renderClientDetail(ci) {
   const nameInput = el('input', { class: 'cp-client-name', type: 'text', value: client.name || '', placeholder: 'Client name' });
   if (showErrors && isBlank(client.name)) nameInput.classList.add('cp-invalid');
   nameInput.addEventListener('input', () => { client.name = nameInput.value; nameInput.classList.remove('cp-invalid'); markDirty(); });
-  const del = deleteIcon('Delete client', () => {
-    if (!confirm('Delete this client and its products?')) return;
+  const del = deleteIcon('Delete client', async () => {
+    if (!(await confirmDialog({ message: 'Delete this client and its products?', okLabel: 'Delete', danger: true }))) return;
     clients().splice(ci, 1);
     markDirty();
     activeClient = null;
@@ -404,11 +405,11 @@ function clientCountFor(productId) {
 
 function isEmptyProduct(p) { return !p || isBlank(p.name); }
 
-function closeProducts() {
+async function closeProducts() {
   if (prodActive !== null) {
     const product = pcProducts()[prodActive];
     if (prodFresh && isEmptyProduct(product)) {
-      if (!confirm('Discard this new product? You have not named it.')) return;
+      if (!(await confirmDialog({ message: 'Discard this new product? You have not named it.', okLabel: 'Discard', danger: true }))) return;
       pcProducts().splice(prodActive, 1);
     }
     prodFresh = false;
@@ -416,12 +417,12 @@ function closeProducts() {
     renderProductsEditor();
     return;
   }
-  if (!confirmDiscard(prodDirty)) return;
+  if (!(await confirmDiscard(prodDirty))) return;
   hide('products-overlay');
 }
 
-function goHomeFromProducts() {
-  if (!confirmDiscard(prodDirty)) return;
+async function goHomeFromProducts() {
+  if (!(await confirmDiscard(prodDirty))) return;
   window.location.href = 'index.html';
 }
 
@@ -437,10 +438,10 @@ async function saveProducts() {
     prodShowErrors = true;
     prodActive = invalid;
     renderProductsEditor();
-    alert('Please give every product a name before saving.');
+    alertDialog('Please give every product a name before saving.');
     return;
   }
-  if (!confirm('Save these changes?')) return;
+  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
   try {
     await saveConfig(prodWorking);
     prodShowErrors = false;
@@ -450,7 +451,7 @@ async function saveProducts() {
     prodActive = null;
     renderProductsEditor();
   } catch (e) {
-    alert('Could not save. Check your connection and try again.');
+    alertDialog('Could not save. Check your connection and try again.');
   }
 }
 
@@ -525,12 +526,12 @@ function renderProductDetail(pi) {
   nameInput.addEventListener('input', () => { product.name = nameInput.value; nameInput.classList.remove('cp-invalid'); prodMarkDirty(); });
 
   const used = clientCountFor(product.id);
-  const del = deleteIcon('Delete product', () => {
+  const del = deleteIcon('Delete product', async () => {
     if (used > 0) {
-      alert('This product is ordered by ' + used + (used === 1 ? ' client' : ' clients') + '. Remove it from them in Settings → Clients first.');
+      alertDialog('This product is ordered by ' + used + (used === 1 ? ' client' : ' clients') + '. Remove it from them in Settings → Clients first.');
       return;
     }
-    if (!confirm('Delete this product?')) return;
+    if (!(await confirmDialog({ message: 'Delete this product?', okLabel: 'Delete', danger: true }))) return;
     pcProducts().splice(pi, 1);
     prodMarkDirty();
     prodActive = null;
@@ -594,8 +595,8 @@ function openIngredients() {
   updateIngSaveBtn();
   show('ingredients-overlay');
 }
-function closeIngredients() {
-  if (!confirmDiscard(ingDirty)) return;
+async function closeIngredients() {
+  if (!(await confirmDiscard(ingDirty))) return;
   hide('ingredients-overlay');
 }
 
@@ -618,7 +619,7 @@ function renderIngredientsList() {
 async function saveIngredients() {
   // Drop blank rows; normalizeConfig de-dupes and re-seeds names used by recipes.
   ingWorking.ingredients = ingList().filter(i => !isBlank(i.name));
-  if (!confirm('Save these changes?')) return;
+  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
   try {
     await saveConfig(ingWorking);
     ingDirty = false;
@@ -626,7 +627,7 @@ async function saveIngredients() {
     ingWorking = cloneConfig(getConfig());
     renderIngredientsList();
   } catch (e) {
-    alert('Could not save. Check your connection and try again.');
+    alertDialog('Could not save. Check your connection and try again.');
   }
 }
 
@@ -663,27 +664,27 @@ function openExtra() {
   updateExtraSaveBtn();
   show('extra-overlay');
 }
-function closeExtra() {
-  if (!confirmDiscard(extraDirty)) return;
+async function closeExtra() {
+  if (!(await confirmDiscard(extraDirty))) return;
   hide('extra-overlay');
 }
 
 async function saveExtra() {
-  if (!confirm('Save these changes?')) return;
+  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
   try {
     await saveConfig(extraWorking);
     extraDirty = false;
     updateExtraSaveBtn();
   } catch (e) {
-    alert('Could not save. Check your connection and try again.');
+    alertDialog('Could not save. Check your connection and try again.');
   }
 }
 
 document.getElementById('open-extra-btn').addEventListener('click', openExtra);
 document.querySelector('.extra-back-btn').addEventListener('click', closeExtra);
 document.getElementById('extra-save-btn').addEventListener('click', saveExtra);
-document.getElementById('extra-home-btn').addEventListener('click', () => {
-  if (!confirmDiscard(extraDirty)) return;
+document.getElementById('extra-home-btn').addEventListener('click', async () => {
+  if (!(await confirmDiscard(extraDirty))) return;
   window.location.href = 'index.html';
 });
 
@@ -699,9 +700,9 @@ function openDivisor() {
 }
 function closeDivisor() { hide('divisor-overlay'); }
 
-function backDivisor() {
+async function backDivisor() {
   if (divisorTab !== null) {
-    if (!confirmDiscard(divisorDirty)) return;
+    if (!(await confirmDiscard(divisorDirty))) return;
     divisorTab = null; divisorWorking = null; divisorDirty = false;
     renderDivisorSettings();
     return;
@@ -802,21 +803,21 @@ function clearDivisorTab(tab) {
 }
 
 async function saveDivisor() {
-  if (!confirm('Save these changes?')) return;
+  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
   try {
     await saveConfig(divisorWorking);
     divisorWorking = cloneConfig(getConfig());
     divisorDirty = false;
     updateDivisorSaveBtn();
   } catch (e) {
-    alert('Could not save. Check your connection and try again.');
+    alertDialog('Could not save. Check your connection and try again.');
   }
 }
 
 document.getElementById('open-divisor-btn').addEventListener('click', openDivisor);
 document.querySelector('.divisor-back-btn').addEventListener('click', backDivisor);
-document.getElementById('divisor-home-btn').addEventListener('click', () => {
-  if (!confirmDiscard(divisorDirty)) return;
+document.getElementById('divisor-home-btn').addEventListener('click', async () => {
+  if (!(await confirmDiscard(divisorDirty))) return;
   window.location.href = 'index.html';
 });
 
@@ -834,8 +835,8 @@ document.getElementById('products-home-btn').addEventListener('click', goHomeFro
 document.getElementById('products-save-btn').addEventListener('click', saveProducts);
 document.getElementById('open-ingredients-btn').addEventListener('click', openIngredients);
 document.querySelector('.ingredients-back-btn').addEventListener('click', closeIngredients);
-document.getElementById('ingredients-home-btn').addEventListener('click', () => {
-  if (!confirmDiscard(ingDirty)) return;
+document.getElementById('ingredients-home-btn').addEventListener('click', async () => {
+  if (!(await confirmDiscard(ingDirty))) return;
   window.location.href = 'index.html';
 });
 document.getElementById('ingredients-save-btn').addEventListener('click', saveIngredients);

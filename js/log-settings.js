@@ -14,6 +14,7 @@ import {
 } from './calculator-config.js';
 import { el } from './calculator-render.js';
 import { confirmDiscard } from './calculator-confirm.js';
+import { confirmDialog } from './confirm-dialog.js';
 
 let working = null; // { visibility: {recipeId:bool}, retention: {recipeId:hours} } or null
 let dirty = false;
@@ -71,8 +72,8 @@ function recipeCard(recipe) {
   return card;
 }
 
-function saveAll() {
-  if (!confirm('Save these log settings?')) return;
+async function saveAll() {
+  if (!(await confirmDialog({ message: 'Save these log settings?', okLabel: 'Save' }))) return;
   const cfg = cloneConfig(getConfig());
   cfg.logVisibility = { ...working.visibility };
   cfg.logRetentionByDough = { ...working.retention };
@@ -81,15 +82,15 @@ function saveAll() {
   hide('logsettings-overlay');
 }
 
-function closeLogSettings() {
-  if (!confirmDiscard(dirty)) return;
+async function closeLogSettings() {
+  if (!(await confirmDiscard(dirty))) return;
   dirty = false;
   hide('logsettings-overlay');
 }
 
 document.getElementById('open-logsettings-btn').addEventListener('click', openLogSettings);
 document.querySelector('.logsettings-back-btn').addEventListener('click', closeLogSettings);
-document.getElementById('logsettings-home-btn').addEventListener('click', () => {
-  if (!confirmDiscard(dirty)) return;
+document.getElementById('logsettings-home-btn').addEventListener('click', async () => {
+  if (!(await confirmDiscard(dirty))) return;
   window.location.href = 'index.html';
 });

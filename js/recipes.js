@@ -12,6 +12,7 @@
 // config), no longer device-local localStorage.
 
 import { confirmDiscard } from './calculator-confirm.js';
+import { confirmDialog, alertDialog } from './confirm-dialog.js';
 import { recipeTotal } from './calculator-dough-math.js';
 import { getConfig, saveConfig } from './calculator-config-store.js';
 import {
@@ -68,11 +69,11 @@ function isEmptyRecipe(r) {
   return !r || (isBlank(r.name) && (!r.ingredients || r.ingredients.length === 0));
 }
 
-export function closeRecipes() {
+export async function closeRecipes() {
   if (activeRecipe !== null) {
     const r = recipes()[activeRecipe];
     if (freshlyAdded && isEmptyRecipe(r)) {
-      if (!confirm('Discard this new recipe? You have not added anything to it.')) return;
+      if (!(await confirmDialog({ message: 'Discard this new recipe? You have not added anything to it.', okLabel: 'Discard', danger: true }))) return;
       recipes().splice(activeRecipe, 1);
     }
     freshlyAdded = false;
@@ -80,12 +81,12 @@ export function closeRecipes() {
     renderEditor();
     return;
   }
-  if (!confirmDiscard(dirty)) return;
+  if (!(await confirmDiscard(dirty))) return;
   document.getElementById('recipe-overlay').classList.remove('visible');
 }
 
-export function goHomeFromRecipes() {
-  if (!confirmDiscard(dirty)) return;
+export async function goHomeFromRecipes() {
+  if (!(await confirmDiscard(dirty))) return;
   window.location.href = 'index.html';
 }
 
@@ -117,10 +118,10 @@ async function saveRecipes() {
     showErrors = true;
     activeRecipe = invalid;
     renderEditor();
-    alert('Please give every recipe a name and at least one named ingredient before saving.');
+    alertDialog('Please give every recipe a name and at least one named ingredient before saving.');
     return;
   }
-  if (!confirm('Save these changes?')) return;
+  if (!(await confirmDialog({ message: 'Save these changes?', okLabel: 'Save' }))) return;
   try {
     await saveConfig(working);
     showErrors = false;
@@ -132,7 +133,7 @@ async function saveRecipes() {
     renderEditor();
     document.dispatchEvent(new CustomEvent('recipes-saved'));
   } catch (e) {
-    alert('Could not save. Check your connection and try again.');
+    alertDialog('Could not save. Check your connection and try again.');
   }
 }
 
@@ -181,14 +182,14 @@ function renderRecipeList() {
   content.appendChild(save);
 }
 
-function deleteRecipe(ri) {
+async function deleteRecipe(ri) {
   const r = recipes()[ri];
   const used = productCountFor(r.id);
   if (used > 0) {
-    alert('This recipe is used by ' + used + (used === 1 ? ' product' : ' products') + '. Reassign or delete them in Settings → Products first.');
+    alertDialog('This recipe is used by ' + used + (used === 1 ? ' product' : ' products') + '. Reassign or delete them in Settings → Products first.');
     return;
   }
-  if (!confirm('Delete the ' + (r.name || 'this') + ' recipe?')) return;
+  if (!(await confirmDialog({ message: 'Delete the ' + (r.name || 'this') + ' recipe?', okLabel: 'Delete', danger: true }))) return;
   recipes().splice(ri, 1);
   markDirty();
   activeRecipe = null;
@@ -266,7 +267,7 @@ function renderRecipeDetail(ri) {
   visCb.addEventListener('change', () => {
     if (visCb.checked && r.visible === false && visibleCount() >= MAX_VISIBLE_RECIPES) {
       visCb.checked = false;
-      alert('Only ' + MAX_VISIBLE_RECIPES + ' recipes can show as tabs at once. Hide another first.');
+      alertDialog('Only ' + MAX_VISIBLE_RECIPES + ' recipes can show as tabs at once. Hide another first.');
       return;
     }
     r.visible = visCb.checked;
