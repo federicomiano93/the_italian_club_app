@@ -40,26 +40,36 @@ body {
 }
 
 /* Header */
+/* The header follows the app-wide spec (Calculator + Orders): a 36px icon button
+   on each side and a CENTRED 18px/600 title. Three fixed grid tracks, so an empty
+   side slot still holds its column and the title never drifts off-centre. */
 .cat-header {
   flex: none;
   background: var(--cat-brand);
   color: var(--cat-brand-ink);
   padding: 16px 16px;
-  display: flex;
+  display: grid;
+  grid-template-columns: 36px 1fr 36px;
   align-items: center;
   gap: 12px;
 }
+.cat-header-slot { display: flex; align-items: center; justify-content: center; }
 .cat-icon-btn {
-  appearance: none; background: rgba(255,255,255,.14); border: 0; color: inherit;
-  width: 38px; height: 38px; border-radius: 50%; cursor: pointer; flex: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  color: inherit;
+  width: 36px; height: 36px; border-radius: 50%; cursor: pointer; flex: none;
   display: flex; align-items: center; justify-content: center; text-decoration: none;
 }
-.cat-icon-btn:hover { background: rgba(255,255,255,.24); }
+.cat-icon-btn:hover { background: rgba(255, 255, 255, 0.24); }
+.cat-icon-btn:active { background: rgba(255, 255, 255, 0.28); }
+/* On-brand ring: the app's default green focus ring is invisible on the green header. */
 .cat-icon-btn:focus-visible { outline: 2px solid var(--cat-brand-ink); outline-offset: 2px; }
 .cat-icon-btn[hidden] { display: none; }
-.cat-header-title { flex: 1; min-width: 0; }
-.cat-header-title h1 { margin: 0; font-family: var(--cat-font-round); font-size: 1.3rem; font-weight: 700; text-wrap: balance; }
-.cat-header-title p { margin: 2px 0 0; font-size: .8rem; opacity: .82; }
+.cat-header-title { min-width: 0; text-align: center; }
+.cat-header-title h1 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -0.3px; text-wrap: balance; }
+.cat-header-title p { margin: 1px 0 0; font-size: 11px; font-family: var(--cat-font-mono); opacity: .75; }
 
 /* Scroll area + centered view width */
 .cat-screen { flex: 1; overflow-y: auto; padding: 16px; }
@@ -162,6 +172,8 @@ body.cat-zoom-lock { overflow: hidden; }
 .cat-field:focus-within { border-color: var(--cat-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cat-accent) 22%, transparent); }
 .cat-calc-btn { flex: none; border: 0; border-radius: 10px; padding: 0 14px; background: var(--cat-brand); color: var(--cat-brand-ink); font-family: var(--cat-font-round); font-weight: 600; font-size: .9rem; cursor: pointer; }
 .cat-calc-btn:hover { background: var(--cat-brand-2); }
+.cat-calc-btn, .cat-save-btn, .cat-add-row { transition: transform .06s ease; }
+.cat-calc-btn:active, .cat-save-btn:active, .cat-add-row:active { transform: scale(.97); }
 .cat-calc-btn:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
 .cat-clear-btn { width: 100%; margin-top: 10px; padding: 10px; background: var(--cat-surface-2); border: 1px solid var(--cat-border); color: var(--cat-text-2); border-radius: 12px; font-family: var(--cat-font); font-size: .92rem; cursor: pointer; }
 .cat-clear-btn:hover { color: var(--cat-text); border-color: var(--cat-accent); }

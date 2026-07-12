@@ -96,7 +96,12 @@
   padding: 0;
   text-decoration: none;
 }
+.orders-icon-btn:hover { background: rgba(255, 255, 255, 0.24); }
 .orders-icon-btn:active { background: rgba(255, 255, 255, 0.28); }
+/* On-brand ring: the app's default green focus ring (--accent-2) is green-on-green
+   here, i.e. invisible. Keyboard focus must be visible on the header too (P18). */
+.orders-icon-btn:focus-visible,
+#header-wa-btn:focus-visible { outline: 2px solid var(--on-brand); outline-offset: 2px; }
 
 /* ── Connection status line (Phase 1) ─────────────────────────────────────── */
 .orders-status {
@@ -226,7 +231,8 @@ input.ing-stock {
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(45, 80, 22, 0.25);
 }
-.btn-primary:active { background: #1e3810; box-shadow: none; }
+.btn-primary { transition: transform .06s ease; }
+.btn-primary:active { background: #1e3810; box-shadow: none; transform: scale(.97); }
 .btn-primary:disabled { opacity: 0.5; cursor: default; box-shadow: none; }
 .btn-secondary {
   padding: 14px 18px;
