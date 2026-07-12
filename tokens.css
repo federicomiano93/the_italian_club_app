@@ -136,3 +136,77 @@
   box-shadow: var(--shadow);
 }
 #sw-update-banner:disabled { opacity: .7; cursor: default; }
+
+/* ── App dialog (js/confirm-dialog.js — copied per feature) ──────────────
+   The styled replacement for native confirm()/alert(), shared by every
+   feature. Like the update banner above, it is created from JS on any page,
+   and the CSP (style-src 'self') forbids injected styles — so its look lives
+   here, in the one stylesheet every page loads. */
+.app-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000; /* above page overlays (≤1000), below #sw-update-host (9999) */
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: app-fade-in .12s ease-out;
+}
+.app-dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: var(--shadow);
+  animation: app-dialog-in .16s ease-out;
+}
+.app-dialog-title {
+  margin: 0 0 8px;
+  font-family: var(--font-round);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+/* pre-line: dialog text is set with textContent (CSP-safe, no HTML), so a
+   blank line between a warning and its question only shows if newlines survive. */
+.app-dialog-msg {
+  margin: 0 0 18px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-line;
+}
+.app-dialog-actions { display: flex; gap: 10px; }
+.app-dialog-btn {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .06s ease;
+}
+.app-dialog-btn:active { transform: scale(.97); }
+.app-dialog-btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.app-dialog-btn-ghost { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); }
+.app-dialog-btn-solid { background: var(--brand); border: 0; color: var(--on-brand); }
+.app-dialog-btn-danger { background: var(--danger); border: 0; color: #fff; }
+
+@keyframes app-fade-in { from { opacity: 0; } }
+@keyframes app-dialog-in { from { opacity: 0; transform: scale(.96); } }
+
+/* ── Motion kill-switch — app-wide ───────────────────────────────────────
+   Near-zero durations rather than 'none' so end-states still apply and
+   transitionend/animationend events still fire. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
