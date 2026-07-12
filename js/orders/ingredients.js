@@ -24,7 +24,7 @@ export function buildIngredientList(supplier, ingredients, suggest, entries, hoo
   // stuck at 0 of 0 (the old "Loading…" bug: nothing ever replaced the placeholder).
   if (!ingredients.length) {
     return el('div', { class: 'ingredient-list' }, [
-      el('p', { class: 'ing-empty', text: 'No ingredients yet — add them in Settings ⚙.' }),
+      el('p', { class: 'ing-empty', text: 'No ingredients yet — add them in Settings.' }),
     ]);
   }
 

@@ -12,6 +12,7 @@
 // the history is never truncated.
 
 import { el } from './calculator-render.js';
+import { icon } from './calculator-icons.js';
 import { getConfig } from './calculator-config-store.js';
 import { getTabProducts, getDivisorIncluded, getRecipes, getRecipeById } from './calculator-config.js';
 import { logTimestamp } from './log-time.js';
@@ -191,7 +192,7 @@ function renderHistoryList() {
         el('span', { class: 'loghist-kind' }, 'v' + (i + 1) + ' · ' + kindLabel(v, i) + (last ? ' · current' : '')),
         el('span', { class: 'loghist-meta' }, (at.date ? at.date + ' — ' + at.time : '') + (v.calculatedBy ? ' · ' + v.calculatedBy : '')),
       ]),
-      el('span', { class: 'drill-chevron' }, '→'),
+      el('span', { class: 'drill-chevron' }, icon('chevronRight', 18)),
     ]);
     box.addEventListener('click', () => openHistoryVersion(i));
     c.appendChild(box);
@@ -206,7 +207,7 @@ function openHistoryVersion(i) {
   if (!v) return;
   const c = document.getElementById('loghistory-content');
   c.textContent = '';
-  const back = el('button', { class: 'loghist-tolist', type: 'button' }, '← All versions');
+  const back = el('button', { class: 'loghist-tolist', type: 'button' }, [icon('chevronLeft', 16), ' All versions']);
   back.addEventListener('click', renderHistoryList);
   c.appendChild(back);
   c.appendChild(renderVersion(v, log));

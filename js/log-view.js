@@ -6,6 +6,7 @@
 // CSP-safe: built with the el() DOM helper (no innerHTML, no inline styles).
 
 import { el } from './calculator-render.js';
+import { icon } from './calculator-icons.js';
 import { dayLabel } from './log-model.js';
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
@@ -127,7 +128,7 @@ export function renderVersion(version, log) {
     el('span', { class: 'logday-badge ' + day.tone }, day.text),
   ]));
   const at = v.at || {};
-  frag.appendChild(el('div', { class: 'log-timestamp' }, '📅 ' + (at.date || '') + ' — ' + (at.time || '')));
+  frag.appendChild(el('div', { class: 'log-timestamp' }, [icon('calendar', 14), ' ' + (at.date || '') + ' — ' + (at.time || '')]));
   if (v.calculatedBy) frag.appendChild(el('div', { class: 'logview-by' }, 'Calculated by: ' + v.calculatedBy));
 
   frag.appendChild(renderOrder(v));

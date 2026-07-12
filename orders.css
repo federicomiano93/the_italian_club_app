@@ -430,6 +430,8 @@ input.ing-stock {
 .notif-desc { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text2); }
 .notif-note { margin: 0; font-size: 13px; color: var(--text3); }
 .notif-status { margin: 0; padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; line-height: 1.4; }
+.notif-status.on, .enable-notifs { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.notif-status.on { justify-content: flex-start; }
 .notif-status.on { background: var(--accent-light); color: var(--accent); }
 .notif-status.off { background: var(--error-bg); color: var(--error); }
 

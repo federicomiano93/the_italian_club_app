@@ -15,6 +15,7 @@
 import { getConfig } from './calculator-config-store.js';
 import { getWhatsappLists, getWhatsappClients, resolveListClients, resolveDirectClient } from './calculator-config.js';
 import { el } from './calculator-render.js';
+import { icon } from './calculator-icons.js';
 import { alertDialog } from './confirm-dialog.js';
 
 // The resolved client entries we are sending: [{ client, products }]. The order
@@ -93,7 +94,7 @@ function openSendPicker(config, lists, directs) {
 function pickerItem(label, onPick) {
   const btn = el('button', { class: 'drill-item', type: 'button' }, [
     el('span', {}, label),
-    el('span', { class: 'drill-chevron' }, '→'),
+    el('span', { class: 'drill-chevron' }, icon('chevronRight', 18)),
   ]);
   btn.addEventListener('click', () => { closeListPicker(); onPick(); });
   return btn;

@@ -27,6 +27,7 @@
 import { getConfig, saveConfig } from './calculator-config-store.js';
 import { cloneConfig, getClients, getClientById, getProductById, getAllProducts } from './calculator-config.js';
 import { el } from './calculator-render.js';
+import { icon } from './calculator-icons.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
 
 let working = null;          // deep copy being edited (re-synced from live at the top)
@@ -155,7 +156,7 @@ function saveBottomButton() {
 }
 
 function deleteIcon(label, onDelete) {
-  const btn = el('button', { class: 'cp-del-icon', type: 'button', 'aria-label': label }, '🗑');
+  const btn = el('button', { class: 'cp-del-icon', type: 'button', 'aria-label': label }, icon('trash', 17));
   btn.addEventListener('click', onDelete);
   return btn;
 }
@@ -245,7 +246,7 @@ function renderTopScreen() {
 function topRow(label, onOpen, delLabel, onDelete) {
   const box = el('button', { class: 'drill-item wa-entry-open', type: 'button' }, [
     el('span', {}, label),
-    el('span', { class: 'drill-chevron' }, '→'),
+    el('span', { class: 'drill-chevron' }, icon('chevronRight', 18)),
   ]);
   box.addEventListener('click', onOpen);
   return el('div', { class: 'wa-entry-card' }, [box, deleteIcon(delLabel, onDelete)]);
@@ -311,7 +312,7 @@ function entryCard(list, entry, ei) {
       el('span', { class: 'wa-entry-name' }, name),
       el('span', { class: 'wa-entry-sub' }, summary),
     ]),
-    el('span', { class: 'drill-chevron' }, '→'),
+    el('span', { class: 'drill-chevron' }, icon('chevronRight', 18)),
   ]);
   open.addEventListener('click', () => { activeEntry = ei; addingProduct = false; renderEditor(); });
 
@@ -350,7 +351,7 @@ function renderClientChooser() {
   available.forEach(client => {
     const box = el('button', { class: 'drill-item', type: 'button' }, [
       el('span', {}, client.name || 'Unnamed client'),
-      el('span', { class: 'drill-chevron' }, '→'),
+      el('span', { class: 'drill-chevron' }, icon('chevronRight', 18)),
     ]);
     box.addEventListener('click', () => {
       list.clients.push({ clientId: client.id, products: [] });

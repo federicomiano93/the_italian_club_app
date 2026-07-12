@@ -15,6 +15,11 @@
 import { el } from './dom.js';
 import { isBankHoliday } from './bank-holidays.js';
 
+// Static SVG (same 24×24 stroked convention as BACK_ICON in management.js) — an
+// emoji bell renders as a different picture on every OS and ignores currentColor.
+const BELL_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
+
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const CONFLICT_WINDOW_DAYS = 14;
 const notified = new Set(); // browser notifications already raised this session
@@ -181,7 +186,10 @@ export function renderNotificationSettings(container) {
 
   const perm = Notification.permission;
   if (perm === 'granted') {
-    container.appendChild(el('p', { class: 'notif-status on', text: '🔔 Notifications are on for this device.' }));
+    container.appendChild(el('p', { class: 'notif-status on' }, [
+      el('span', { icon: BELL_SVG, 'aria-hidden': 'true' }),
+      ' Notifications are on for this device.',
+    ]));
   } else if (perm === 'denied') {
     container.appendChild(el('p', { class: 'notif-status off', text:
       'Notifications are blocked. Turn them on for this app in your browser/site settings, then reload.' }));
@@ -189,6 +197,9 @@ export function renderNotificationSettings(container) {
     container.appendChild(el('button', { type: 'button', class: 'enable-notifs', onClick: async () => {
       try { await Notification.requestPermission(); } catch (err) { console.warn('Permission request failed:', err); }
       renderNotificationSettings(container);
-    } }, '🔔 Enable notifications'));
+    } }, [
+      el('span', { icon: BELL_SVG, 'aria-hidden': 'true' }),
+      ' Enable notifications',
+    ]));
   }
 }

@@ -523,7 +523,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   cursor: pointer;
 }
 .drill-item:active { background: var(--surface2); }
-.drill-chevron { color: var(--accent); opacity: 0.6; font-size: 20px; flex-shrink: 0; }
+.drill-chevron { color: var(--accent); opacity: 0.6; font-size: 20px; flex-shrink: 0; display: inline-flex; align-items: center; }
 
 /* Recipe form footer: prominent Save (.cp-save-bottom) + a low-key Reset below it. */
 .recipe-reset-btn {
@@ -660,10 +660,12 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 17px;
   line-height: 1;
   padding: 6px 8px;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  color: var(--text2);
   opacity: 0.5;            /* low-key: deleting should not compete with Save */
 }
 .cp-del-icon:active { opacity: 0.9; }
@@ -1022,6 +1024,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .confirm-btn-primary:disabled { opacity: 0.6; cursor: default; }
 /* "Edit" mode (tab locked): a distinct slate look so it never reads as a fresh Confirm */
 .confirm-btn-primary.is-edit { background: #5a6b7a; box-shadow: 0 2px 8px rgba(40,55,70,0.25); }
+.confirm-btn-primary.is-edit.visible { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .confirm-btn-primary.is-edit:active { background: #44525e; }
 /* Today/Tomorrow buttons inside the day picker modal (opened by a tab's Confirm). */
 .day-row { display: flex; gap: 10px; }
@@ -1122,6 +1125,10 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   font-weight: 600;
   color: #fff;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
 }
 
 /* Log tab */
@@ -1174,7 +1181,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   cursor: pointer;
 }
 .log-edit-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text2); }
-.log-delete-btn { background: var(--surface); border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border)); color: var(--danger); }
+.log-delete-btn { background: var(--surface); border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border)); color: var(--danger); display: inline-flex; align-items: center; justify-content: center; }
 
 .log-empty {
   text-align: center;
@@ -1189,6 +1196,9 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   font-family: 'DM Mono', monospace;
   margin-bottom: 8px;
   padding-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 .log-pre {
   font-family: monospace;
@@ -1234,6 +1244,7 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   background: var(--surface); border: 1px solid var(--border); color: var(--text2);
   border-radius: var(--radius-sm); padding: 9px 14px; font-size: 13px; cursor: pointer;
   font-family: 'Manrope', sans-serif;
+  display: inline-flex; align-items: center; gap: 5px;
 }
 
 /* Today/Tomorrow choice buttons — used by the "+ Add log" screen. */
@@ -1287,4 +1298,5 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 .loghist-tolist {
   background: none; border: none; color: var(--accent); font-size: 14px; cursor: pointer;
   padding: 4px 0 12px; font-family: 'Manrope', sans-serif;
+  display: inline-flex; align-items: center; gap: 4px;
 }
