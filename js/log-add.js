@@ -29,8 +29,8 @@ function isDirty() {
   return !!(state.recipeId || state.forDay || num(state.totalInput) > 0 || state.items.some(it => num(it.qty) > 0));
 }
 
-function close(saved) {
-  if (!saved && !confirmDiscard(isDirty())) return;
+async function close(saved) {
+  if (!saved && !(await confirmDiscard(isDirty()))) return;
   document.getElementById('logadd-overlay').classList.remove('visible');
   state = null;
 }

@@ -81,15 +81,15 @@ function saveAll() {
   hide('logsettings-overlay');
 }
 
-function closeLogSettings() {
-  if (!confirmDiscard(dirty)) return;
+async function closeLogSettings() {
+  if (!(await confirmDiscard(dirty))) return;
   dirty = false;
   hide('logsettings-overlay');
 }
 
 document.getElementById('open-logsettings-btn').addEventListener('click', openLogSettings);
 document.querySelector('.logsettings-back-btn').addEventListener('click', closeLogSettings);
-document.getElementById('logsettings-home-btn').addEventListener('click', () => {
-  if (!confirmDiscard(dirty)) return;
+document.getElementById('logsettings-home-btn').addEventListener('click', async () => {
+  if (!(await confirmDiscard(dirty))) return;
   window.location.href = 'index.html';
 });

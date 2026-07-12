@@ -68,7 +68,7 @@ function isEmptyRecipe(r) {
   return !r || (isBlank(r.name) && (!r.ingredients || r.ingredients.length === 0));
 }
 
-export function closeRecipes() {
+export async function closeRecipes() {
   if (activeRecipe !== null) {
     const r = recipes()[activeRecipe];
     if (freshlyAdded && isEmptyRecipe(r)) {
@@ -80,12 +80,12 @@ export function closeRecipes() {
     renderEditor();
     return;
   }
-  if (!confirmDiscard(dirty)) return;
+  if (!(await confirmDiscard(dirty))) return;
   document.getElementById('recipe-overlay').classList.remove('visible');
 }
 
-export function goHomeFromRecipes() {
-  if (!confirmDiscard(dirty)) return;
+export async function goHomeFromRecipes() {
+  if (!(await confirmDiscard(dirty))) return;
   window.location.href = 'index.html';
 }
 

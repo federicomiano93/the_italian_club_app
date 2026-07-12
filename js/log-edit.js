@@ -151,8 +151,8 @@ function save() {
   closeEdit(true);
 }
 
-function closeEdit(saved) {
-  if (!saved && !confirmDiscard(dirty)) return; // "continue editing" on cancel
+async function closeEdit(saved) {
+  if (!saved && !(await confirmDiscard(dirty))) return; // "continue editing" on cancel
   document.getElementById('logedit-overlay').classList.remove('visible');
   working = null;
   dirty = false;
