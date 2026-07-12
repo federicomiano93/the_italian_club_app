@@ -11,7 +11,7 @@ import {
 } from './calculator-config.js';
 import { logTimestamp } from './log-time.js';
 import { el } from './calculator-render.js';
-import { buildSheet, buildLogText, latestVersion, filterVisibleLogs, confirmTarget } from './log-model.js';
+import { buildSheet, buildLogText, latestVersion, filterVisibleLogs, confirmTarget, dayLabel } from './log-model.js';
 import { getLogs, getLogById, createAndSave, appendAndSave, genLogId, deleteLog } from './log-store.js';
 import { renderOrder, renderVersion } from './log-view.js';
 import { openLogEdit, openLogHistory } from './log-edit.js';
@@ -176,9 +176,10 @@ function logCard(log) {
 
   // Tappable body → read-only full sheet (D).
   const body = el('button', { class: 'log-card-body', type: 'button', 'data-id': log.id });
+  const day = dayLabel(log, Date.now());
   body.appendChild(el('div', { class: 'log-card-top' }, [
     el('span', { class: 'card-title log-card-dough' }, log.dough),
-    el('span', { class: 'logday-badge' + (log.forDay === 'tomorrow' ? ' tomorrow' : '') }, log.forDay === 'tomorrow' ? 'Tomorrow' : 'Today'),
+    el('span', { class: 'logday-badge ' + day.tone }, day.text),
   ]));
   const at = v.at || {};
   body.appendChild(el('div', { class: 'log-timestamp' }, '📅 ' + (at.date || '') + ' — ' + (at.time || '')));

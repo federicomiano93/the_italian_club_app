@@ -6,6 +6,7 @@
 // CSP-safe: built with the el() DOM helper (no innerHTML, no inline styles).
 
 import { el } from './calculator-render.js';
+import { dayLabel } from './log-model.js';
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
@@ -119,11 +120,11 @@ export function renderSheetCard(sheet) {
 export function renderVersion(version, log) {
   const frag = document.createDocumentFragment();
   const v = version || {};
-  const day = log && log.forDay === 'tomorrow' ? 'Tomorrow' : 'Today';
+  const day = dayLabel(log, Date.now());
 
   frag.appendChild(el('div', { class: 'logview-head' }, [
     el('span', { class: 'logview-dough' }, log ? log.dough : (v.sheet ? v.sheet.dough : 'Log')),
-    el('span', { class: 'logday-badge' + (day === 'Tomorrow' ? ' tomorrow' : '') }, day),
+    el('span', { class: 'logday-badge ' + day.tone }, day.text),
   ]));
   const at = v.at || {};
   frag.appendChild(el('div', { class: 'log-timestamp' }, '📅 ' + (at.date || '') + ' — ' + (at.time || '')));

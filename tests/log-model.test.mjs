@@ -8,7 +8,7 @@ import {
   FOR_DAYS,
   buildSheet, buildLogText,
   createLog, latestVersion, addVersion, restoreVersion,
-  migrateOldRecord, migrateOldLogs, sortLogs, filterVisibleLogs,
+  migrateOldRecord, migrateOldLogs, sortLogs, filterVisibleLogs, dayLabel,
 } from '../js/log-model.js';
 import { computeTarget, DEFAULT_CONFIG, getRecipeById, pairId } from '../js/calculator-config.js';
 
@@ -209,4 +209,50 @@ test('filterVisibleLogs: keyed by recipeId, falling back to the dough name', () 
 
 test('exports: the day constants', () => {
   assert.deepEqual(FOR_DAYS, ['today', 'tomorrow']);
+});
+
+// ── dayLabel: the badge is relative to the day the log is READ ────────────────
+// The bug this fixes: the badge was rendered straight from the stored forDay, so a
+// log made for today still said "Today" days later. The label must age with the
+// calendar — a log made FOR today reads "Yesterday" tomorrow.
+
+// Local wall-clock timestamp, so these tests read as calendar days in any timezone.
+const at = (y, m, d, h = 12, min = 0) => new Date(y, m - 1, d, h, min).getTime();
+const madeOn = (ms, forDay) => createLog({ id: 'x', dough: 'Focaccia', forDay, version: mkVersion(), createdAtMs: ms });
+
+test('dayLabel: a log made FOR today reads Today on the day it was made', () => {
+  const log = madeOn(at(2026, 7, 12), 'today');
+  assert.deepEqual(dayLabel(log, at(2026, 7, 12, 18)), { text: 'Today', tone: 'today' });
+});
+
+test('dayLabel: THE BUG — the same "today" log reads Yesterday the next day', () => {
+  const log = madeOn(at(2026, 7, 12), 'today');
+  assert.deepEqual(dayLabel(log, at(2026, 7, 13, 9)), { text: 'Yesterday', tone: 'past' });
+});
+
+test('dayLabel: a "tomorrow" log walks Tomorrow → Today → Yesterday', () => {
+  const log = madeOn(at(2026, 7, 12), 'tomorrow');
+  assert.equal(dayLabel(log, at(2026, 7, 12, 20)).text, 'Tomorrow');
+  assert.equal(dayLabel(log, at(2026, 7, 13, 8)).text, 'Today');
+  assert.equal(dayLabel(log, at(2026, 7, 14, 8)).text, 'Yesterday');
+});
+
+test('dayLabel: further in the past it says how many days ago, never a wrong "Today"', () => {
+  const log = madeOn(at(2026, 7, 12), 'today');
+  assert.deepEqual(dayLabel(log, at(2026, 7, 15, 9)), { text: '3 days ago', tone: 'past' });
+});
+
+test('dayLabel: it counts CALENDAR days, not elapsed hours', () => {
+  // Made at 23:30, read one hour later — a new calendar day, so already "Yesterday".
+  const late = madeOn(at(2026, 7, 12, 23, 30), 'today');
+  assert.equal(dayLabel(late, at(2026, 7, 13, 0, 30)).text, 'Yesterday');
+  // Made at 00:30, read 23 hours later — still the same calendar day, so "Today".
+  const early = madeOn(at(2026, 7, 12, 0, 30), 'today');
+  assert.equal(dayLabel(early, at(2026, 7, 12, 23, 30)).text, 'Today');
+});
+
+test('dayLabel: a log with no usable creation time falls back to the stored choice', () => {
+  const broken = { forDay: 'tomorrow', createdAtMs: 0 };
+  assert.deepEqual(dayLabel(broken, at(2026, 7, 12)), { text: 'Tomorrow', tone: 'tomorrow' });
+  assert.deepEqual(dayLabel({}, at(2026, 7, 12)), { text: 'Today', tone: 'today' });
 });
