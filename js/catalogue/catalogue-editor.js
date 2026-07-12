@@ -7,7 +7,12 @@
 // to recipes/{id} via the store (not into config).
 
 import { el } from './dom.js';
-import { findInvalidRecipe, unitOf, CATALOGUE_UNITS } from './catalogue-model.js';
+import {
+  findInvalidRecipe, unitOf, CATALOGUE_UNITS, isWeighableUnit, weighableTotalGrams,
+} from './catalogue-model.js';
+
+// Whole grams, no thousands separator — the same reading as the recipe view.
+const nf = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0, useGrouping: false });
 
 const TRASH_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>';
@@ -35,12 +40,41 @@ export function renderEditor({ recipe, allRecipes, app }) {
     [...names].sort((a, b) => a.localeCompare(b)).map(n => el('option', { value: n })));
 
   const nameInput = el('input', {
+    id: 'catRecipeName',
     class: 'cat-name-input', type: 'text', placeholder: 'Recipe name', value: working.name,
     'aria-label': 'Recipe name',
     oninput: (e) => { working.name = e.target.value; markDirty(); if (showErrors) validateUI(); },
   });
 
+  // One ingredient = ONE row (name · amount · unit · remove), inside a single framed
+  // list closed by a live Total — the same shape as the read-only recipe, so there is
+  // one way to read a recipe, not two. It replaces a layout that gave each ingredient
+  // two full-width boxes: 8 ingredients became 16 identical white cards with nothing
+  // tying a name to its amount.
   const rowsContainer = el('div', { class: 'cat-ing-editrows' });
+  const countEl = el('span', { class: 'cat-ing-count' });
+  const totalEl = el('span', { class: 'cat-edit-total-num' });
+  const totalNote = el('span', { class: 'cat-edit-total-note' });
+
+  const totalRow = el('div', { class: 'cat-ing-editrow cat-edit-total' }, [
+    el('span', { class: 'cat-edit-total-label', text: 'Total' }),
+    totalEl,
+    el('span', { class: 'cat-edit-total-unit', text: 'g' }),
+  ]);
+
+  // The weight the recipe actually adds up to, live as it is typed. Its absence is
+  // what let a "Croissant (4 x 3500gr.)" quietly weigh 14153 g instead of 14000.
+  // Pieces / to-taste rows carry no weight, so they are excluded — and said to be.
+  function updateTotal() {
+    totalEl.textContent = nf.format(weighableTotalGrams(working));
+    const skipped = working.ingredients
+      .filter(i => String(i.label || '').trim() && !isWeighableUnit(unitOf(i))).length;
+    totalNote.textContent = skipped
+      ? `${skipped} ${skipped === 1 ? 'ingredient is' : 'ingredients are'} not weighed (pieces / to taste) — not in the total`
+      : '';
+    totalNote.hidden = !skipped;
+    countEl.textContent = String(working.ingredients.length);
+  }
 
   function renderIngredientRows() {
     rowsContainer.replaceChildren();
@@ -48,19 +82,19 @@ export function renderEditor({ recipe, allRecipes, app }) {
       const labelInput = el('input', {
         class: 'cat-lbl', type: 'text', placeholder: 'Ingredient', value: ing.label,
         list: 'cat-ingredient-names', 'aria-label': 'Ingredient name',
-        oninput: (e) => { ing.label = e.target.value; markDirty(); if (showErrors) validateUI(); },
+        oninput: (e) => { ing.label = e.target.value; markDirty(); updateTotal(); if (showErrors) validateUI(); },
       });
       const gramsInput = el('input', {
         class: 'cat-grm', type: 'number', min: '0', step: 'any', inputmode: 'decimal',
         placeholder: '0', value: ing.grams === '' || ing.grams === undefined ? '' : ing.grams,
         'aria-label': 'Amount',
-        oninput: (e) => { ing.grams = e.target.value; markDirty(); },
+        oninput: (e) => { ing.grams = e.target.value; markDirty(); updateTotal(); },
       });
       // Per-ingredient unit (g by default). Reuses the model's whitelist so the
       // editor and the scaling/import logic can never drift apart.
       const unitSelect = el('select', {
         class: 'cat-unit', 'aria-label': 'Unit',
-        onchange: (e) => { ing.unit = e.target.value; markDirty(); },
+        onchange: (e) => { ing.unit = e.target.value; markDirty(); updateTotal(); },
       }, CATALOGUE_UNITS.map(u => el('option', { value: u }, u)));
       unitSelect.value = unitOf(ing);
       const delIcon = el('button', {
@@ -75,6 +109,8 @@ export function renderEditor({ recipe, allRecipes, app }) {
       });
       rowsContainer.appendChild(el('div', { class: 'cat-ing-editrow' }, [labelInput, gramsInput, unitSelect, delIcon]));
     });
+    rowsContainer.appendChild(totalRow);
+    updateTotal();
   }
 
   // Highlight the empty required fields (name, and every ingredient missing a label).
@@ -159,10 +195,14 @@ export function renderEditor({ recipe, allRecipes, app }) {
 
   return el('div', { class: 'cat-view cat-editor' }, [
     datalist,
-    el('label', { text: 'Recipe name' }),
+    el('label', { for: 'catRecipeName', text: 'Recipe name' }),
     nameInput,
-    el('label', { text: 'Ingredients' }),
+    el('div', { class: 'cat-ing-head' }, [
+      el('label', { class: 'cat-ing-head-label', text: 'Ingredients' }),
+      countEl,
+    ]),
     rowsContainer,
+    totalNote,
     addRowBtn,
     actions,
   ]);

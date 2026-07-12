@@ -193,18 +193,53 @@ body.cat-zoom-lock { overflow: hidden; }
 .cat-editor label { display: block; font-size: .78rem; color: var(--cat-text-2); text-transform: uppercase; letter-spacing: .06em; margin: 0 2px 6px; }
 .cat-editor .cat-name-input { width: 100%; padding: 12px 14px; font-size: 1.05rem; font-family: var(--cat-font-round); font-weight: 600; color: var(--cat-text); background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: 12px; outline: none; margin-bottom: 18px; }
 .cat-editor .cat-name-input:focus { border-color: var(--cat-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cat-accent) 22%, transparent); }
-/* Each ingredient is a two-line block so the NAME gets the full width (long names
-   like "Candied orange paste" fit) and the amount + unit + delete sit on line two. */
-.cat-ing-editrows { display: flex; flex-direction: column; gap: 14px; }
-.cat-ing-editrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.cat-ing-editrow .cat-lbl { flex: 1 1 100%; min-width: 0; padding: 10px 12px; font-size: .98rem; font-family: var(--cat-font); color: var(--cat-text); background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: 10px; outline: none; }
-.cat-ing-editrow .cat-grm { flex: 1 1 70px; min-width: 0; padding: 10px 10px; font-size: .98rem; font-family: var(--cat-font-mono); text-align: right; font-variant-numeric: tabular-nums; color: var(--cat-text); background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: 10px; outline: none; }
-.cat-ing-editrow .cat-unit { flex: 0 0 108px; min-width: 0; padding: 10px 8px; font-size: .95rem; font-family: var(--cat-font); color: var(--cat-text); background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: 10px; outline: none; cursor: pointer; }
-.cat-ing-editrow input:focus, .cat-ing-editrow .cat-unit:focus { border-color: var(--cat-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cat-accent) 22%, transparent); }
-.cat-ing-editrow input.cat-invalid { border-color: var(--cat-danger); }
+/* Ingredients: ONE framed list, one row per ingredient, closed by a live Total —
+   the same shape as the read-only recipe (.cat-ing-list), so a recipe reads the
+   same way whether you are looking at it or editing it. It replaces a two-line-per
+   -ingredient layout in which 8 ingredients became 16 identical white boxes with
+   nothing tying a name to its amount. The inputs are borderless INSIDE the frame:
+   the row itself is the field, and focus is shown by tinting the whole row. */
+.cat-ing-head { display: flex; align-items: baseline; justify-content: space-between; }
+.cat-editor .cat-ing-head-label { margin-bottom: 6px; }
+.cat-ing-count { font-family: var(--cat-font-mono); font-size: .78rem; color: var(--cat-text-2); font-variant-numeric: tabular-nums; }
+.cat-ing-editrows { background: var(--cat-surface); border: 1px solid var(--cat-border); border-radius: var(--cat-radius); overflow: hidden; }
+.cat-ing-editrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 4rem 4.6rem 1.8rem;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px 10px;
+  border-top: 1px solid var(--cat-border);
+}
+.cat-ing-editrow:first-child { border-top: 0; }
+.cat-ing-editrow:focus-within { background: var(--cat-surface-2); }
+.cat-ing-editrow .cat-lbl,
+.cat-ing-editrow .cat-grm,
+.cat-ing-editrow .cat-unit {
+  min-width: 0; width: 100%; padding: 11px 4px; border: 0; background: transparent;
+  outline: none; color: var(--cat-text); font-size: .98rem;
+}
+.cat-ing-editrow .cat-lbl { font-family: var(--cat-font); text-overflow: ellipsis; }
+.cat-ing-editrow .cat-grm { font-family: var(--cat-font-mono); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+/* .9rem, not the row's .98rem: the longest option ("to taste") must fit the column
+   without the native select clipping it — measured, not assumed. */
+.cat-ing-editrow .cat-unit { font-family: var(--cat-font); font-size: .9rem; color: var(--cat-text-2); cursor: pointer; padding-left: 0; padding-right: 0; }
+/* The focus ring goes on the ROW, not on each borderless field, so a focused cell
+   never draws a stray box inside the frame. */
+.cat-ing-editrow:focus-within { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--cat-accent) 45%, transparent); }
+.cat-ing-editrow input.cat-invalid { background: color-mix(in srgb, var(--cat-danger) 10%, transparent); border-radius: 6px; }
 .cat-name-input.cat-invalid { border-color: var(--cat-danger); }
-.cat-del-icon { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--cat-border); background: var(--cat-surface); color: var(--cat-text-2); cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.cat-del-icon:hover { color: var(--cat-danger); border-color: var(--cat-danger); }
+/* Total: the weight the recipe actually adds up to, live as it is typed. */
+.cat-ing-editrow.cat-edit-total {
+  grid-template-columns: minmax(0, 1fr) 4rem 4.6rem 1.8rem;
+  background: var(--cat-surface-2); border-top: 2px solid var(--cat-border); padding: 13px 8px 13px 14px;
+}
+.cat-edit-total-label { font-weight: 700; font-size: .98rem; }
+.cat-edit-total-num { font-family: var(--cat-font-mono); font-weight: 700; font-size: .98rem; text-align: right; color: var(--cat-brand-2); font-variant-numeric: tabular-nums; padding-right: 4px; }
+.cat-edit-total-unit { font-family: var(--cat-font); font-weight: 700; font-size: .98rem; color: var(--cat-brand-2); }
+.cat-edit-total-note { display: block; margin: 8px 2px 0; font-size: .75rem; color: var(--cat-text-2); }
+.cat-del-icon { width: 1.9rem; height: 1.9rem; border-radius: 50%; border: 0; background: transparent; color: var(--cat-text-2); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.cat-del-icon:hover { color: var(--cat-danger); background: var(--cat-surface-2); }
 .cat-add-row { margin-top: 12px; padding: 10px; width: 100%; background: var(--cat-surface-2); border: 1px dashed var(--cat-border); color: var(--cat-text-2); border-radius: 10px; font-family: var(--cat-font); font-size: .92rem; cursor: pointer; }
 .cat-add-row:hover { color: var(--cat-text); border-color: var(--cat-accent); }
 .cat-editor-actions { display: flex; gap: 10px; align-items: center; margin-top: 22px; }

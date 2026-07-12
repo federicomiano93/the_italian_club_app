@@ -304,19 +304,25 @@ test('findCalculatorImport is junk-safe (null config / missing recipes -> null)'
 // silently produced a 17.5-tonne batch — 9,100,543 g of flour. The field now takes
 // grams, and a total outside any real batch must be flagged, not quietly scaled.
 
-// The croissant recipe from the incident: 4 x 3500 g = 14000 g of dough.
+// The REAL recipe from the incident, read off the editor screen. Note it sums to
+// 14153 g — NOT the 14000 g (4 x 3500) its own name promises. That 153 g gap is the
+// recipe's, not a bug, and it is exactly what an editor with no visible total hides.
 const CROISSANT = normalizeCatalogueRecipe({
   id: 'croissant', name: 'Croissant (4 x 3500gr.)',
   ingredients: [
-    { label: 'Flour T45', grams: 7280.43, unit: 'g' },
-    { label: 'Caster sugar', grams: 944.68, unit: 'g' },
-    { label: 'Salt', grams: 146.4, unit: 'g' },
-    { label: 'Fresh yeast', grams: 291.81, unit: 'g' },
-    { label: 'Fresh milk', grams: 1454.11, unit: 'g' },
-    { label: 'Water', grams: 1928.92, unit: 'g' },
-    { label: 'Butter', grams: 499.54, unit: 'g' },
-    { label: 'Croissant scraps', grams: 1454.11, unit: 'g' },
+    { label: 'Flour T45', grams: 7360, unit: 'g' },
+    { label: 'Caster sugar', grams: 955, unit: 'g' },
+    { label: 'Salt', grams: 148, unit: 'g' },
+    { label: 'Fresh yeast', grams: 295, unit: 'g' },
+    { label: 'Fresh milk', grams: 1470, unit: 'g' },
+    { label: 'Water', grams: 1950, unit: 'g' },
+    { label: 'Butter', grams: 505, unit: 'g' },
+    { label: 'Croissant scraps', grams: 1470, unit: 'g' },
   ],
+});
+
+test('the croissant weighs what its ingredients say (14153 g), not what its name says', () => {
+  assert.equal(weighableTotalGrams(CROISSANT), 14153);
 });
 
 test('formatWeight: names a weight the way a person would say it', () => {
@@ -330,8 +336,7 @@ test('formatWeight: names a weight the way a person would say it', () => {
 
 test('batchWarning: a normal batch passes without a warning', () => {
   const base = weighableTotalGrams(CROISSANT);
-  assert.equal(Math.round(base), 14000);
-  // What Federico actually meant to ask for: 17500 g = 17.5 kg, 1.25x the recipe.
+  // What Federico actually meant to ask for: 17500 g = 17.5 kg, ~1.2x the recipe.
   assert.equal(batchWarning(17500, base), null);
   assert.equal(batchWarning(base, base), null);
   assert.equal(batchWarning(0, base), null);        // empty field is not a warning
@@ -342,8 +347,8 @@ test('batchWarning: THE INCIDENT — a tonne-scale total is flagged, not scaled 
   const w = batchWarning(17500000, base); // what "17500 kg" used to mean
   assert.ok(w, 'a 17.5-tonne batch must warn');
   assert.match(w, /17\.5 tonnes/);
-  assert.match(w, /1250×/);
-  assert.match(w, /14 kg/);               // compared against the recipe as written
+  assert.match(w, /1236\.49×/);           // 17500000 / 14153
+  assert.match(w, /14\.15 kg/);           // compared against the recipe as written
 });
 
 test('batchWarning: one extra zero (175 kg instead of 17.5 kg) is caught too', () => {
@@ -362,15 +367,21 @@ test('batchWarning: flags on absolute weight OR on the multiple of the recipe', 
   assert.equal(batchWarning(MAX_SANE_MULTIPLE * 100, 100), null);
 });
 
-test('scaleCatalogue: the scaling itself was never wrong — it sums to the target', () => {
-  // The reported amounts were arithmetically right; only the UNIT was the trap. The
-  // rows above are the real ones recovered from the screenshot ÷ 1250 and rounded to
-  // 2 decimals, so they are a hair coarser than the stored recipe — hence the tolerance
-  // on the individual row. The invariant that matters (rows sum EXACTLY to the target)
-  // is asserted strictly.
+test('scaleCatalogue: the scaling itself was never wrong — it reproduces the screenshot', () => {
+  // Golden check against the amounts the app actually displayed. They were right to
+  // the gram; only the UNIT of the input was the trap.
   const rows = scaleCatalogue(CROISSANT, 17500000);
-  assert.equal(rows.reduce((a, b) => a + b, 0), 17500000);
-  assert.ok(Math.abs(rows[0] - 9100543) < 50, `Flour T45 ≈ the 9100543 g shown, got ${rows[0]}`);
+  assert.deepEqual(rows, [
+    9100543,  // Flour T45
+    1180845,  // Caster sugar
+    183000,   // Salt
+    364764,   // Fresh yeast
+    1817636,  // Fresh milk
+    2411150,  // Water
+    624426,   // Butter
+    1817636,  // Croissant scraps
+  ]);
+  assert.equal(rows.reduce((a, b) => a + b, 0), 17500000); // and they sum EXACTLY
   // And the amount actually intended scales cleanly too.
   assert.equal(scaleCatalogue(CROISSANT, 17500).reduce((a, b) => a + b, 0), 17500);
 });
