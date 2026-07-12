@@ -19,6 +19,7 @@ import {
   cloneConfig, getRecipes, getIngredients, getProducts, LOGICS, MAX_VISIBLE_RECIPES,
 } from './calculator-config.js';
 import { el } from './calculator-render.js';
+import { icon } from './calculator-icons.js';
 
 // recipeTotal is re-exported so any importer keeps its path unchanged.
 export { recipeTotal };
@@ -96,7 +97,7 @@ function renderEditor() {
 }
 
 function deleteIcon(label, onDelete) {
-  const btn = el('button', { class: 'cp-del-icon', type: 'button', 'aria-label': label }, '🗑');
+  const btn = el('button', { class: 'cp-del-icon', type: 'button', 'aria-label': label }, icon('trash', 17));
   btn.addEventListener('click', onDelete);
   return btn;
 }
@@ -155,7 +156,7 @@ function renderRecipeList() {
         el('span', { class: 'wa-entry-name' }, r.name || 'Unnamed recipe'),
         el('span', { class: 'wa-entry-sub' }, sub),
       ]),
-      el('span', { class: 'drill-chevron' }, '→'),
+      el('span', { class: 'drill-chevron' }, icon('chevronRight', 18)),
     ]);
     open.addEventListener('click', () => { freshlyAdded = false; activeRecipe = ri; renderEditor(); });
     const del = deleteIcon('Delete recipe', () => deleteRecipe(ri));

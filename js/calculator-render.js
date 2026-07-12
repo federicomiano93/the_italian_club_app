@@ -12,6 +12,7 @@
 // attributes), matching the page's strict Content-Security-Policy.
 
 import { getTabProducts, showsLeaveningKnob } from './calculator-config.js';
+import { icon } from './calculator-icons.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -153,7 +154,7 @@ export function buildRecipePanel(recipe) {
   }
 
   content.appendChild(el('button', { class: 'confirm-btn-primary', id: id + '-day-confirm', type: 'button', 'data-confirm-tab': id }, 'Confirm'));
-  content.appendChild(el('button', { class: 'confirm-btn-primary is-edit', id: id + '-edit-btn', type: 'button' }, '✎ Edit'));
+  content.appendChild(el('button', { class: 'confirm-btn-primary is-edit', id: id + '-edit-btn', type: 'button' }, [icon('pencil', 16), ' Edit']));
 
   content.appendChild(el('div', { class: 'result-block', id: id + '-result' }, [
     el('div', { class: 'result-card' }, [

@@ -27,6 +27,7 @@ import {
   getRecipes, getRecipeById, getIngredients,
 } from './calculator-config.js';
 import { el } from './calculator-render.js';
+import { icon } from './calculator-icons.js';
 import { openRecipes } from './recipes.js';
 import { openWhatsapp } from './calculator-whatsapp-settings.js';
 import { confirmDiscard } from './calculator-confirm.js';
@@ -174,7 +175,7 @@ function saveBottomButton(onSave) {
 }
 
 function deleteIcon(label, onDelete) {
-  const btn = el('button', { class: 'cp-del-icon', type: 'button', 'aria-label': label }, '🗑');
+  const btn = el('button', { class: 'cp-del-icon', type: 'button', 'aria-label': label }, icon('trash', 17));
   btn.addEventListener('click', onDelete);
   return btn;
 }
@@ -220,7 +221,7 @@ function renderClientList() {
 function clientBox(client, ci) {
   const box = el('button', { class: 'drill-item drill-reorder', type: 'button', 'data-cid': client.id }, [
     el('span', {}, client.name || 'Unnamed client'),
-    el('span', { class: 'drill-chevron' }, '→'),
+    el('span', { class: 'drill-chevron' }, icon('chevronRight', 18)),
   ]);
   box.addEventListener('click', () => {
     const idx = clients().findIndex(c => c.id === client.id);
@@ -500,7 +501,7 @@ function productListBox(product) {
       el('span', { class: 'wa-entry-name' }, product.name || 'Unnamed product'),
       el('span', { class: 'wa-entry-sub' }, sub),
     ]),
-    el('span', { class: 'drill-chevron' }, '→'),
+    el('span', { class: 'drill-chevron' }, icon('chevronRight', 18)),
   ]);
   box.addEventListener('click', () => {
     const idx = pcProducts().findIndex(p => p.id === product.id);
@@ -741,7 +742,7 @@ function renderDivisorTabChooser() {
   for (const recipe of getRecipes(getConfig())) {
     const box = el('button', { class: 'drill-item', type: 'button' }, [
       el('span', {}, recipe.name),
-      el('span', { class: 'drill-chevron' }, '→'),
+      el('span', { class: 'drill-chevron' }, icon('chevronRight', 18)),
     ]);
     box.addEventListener('click', () => { divisorTab = recipe.id; renderDivisorSettings(); });
     content.appendChild(box);

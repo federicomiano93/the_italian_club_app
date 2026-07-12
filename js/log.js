@@ -11,6 +11,7 @@ import {
 } from './calculator-config.js';
 import { logTimestamp } from './log-time.js';
 import { el } from './calculator-render.js';
+import { icon } from './calculator-icons.js';
 import { buildSheet, buildLogText, latestVersion, filterVisibleLogs, confirmTarget, dayLabel } from './log-model.js';
 import { getLogs, getLogById, createAndSave, appendAndSave, genLogId, deleteLog } from './log-store.js';
 import { renderOrder, renderVersion } from './log-view.js';
@@ -183,7 +184,7 @@ function logCard(log) {
     el('span', { class: 'logday-badge ' + day.tone }, day.text),
   ]));
   const at = v.at || {};
-  body.appendChild(el('div', { class: 'log-timestamp' }, '📅 ' + (at.date || '') + ' — ' + (at.time || '')));
+  body.appendChild(el('div', { class: 'log-timestamp' }, [icon('calendar', 14), ' ' + (at.date || '') + ' — ' + (at.time || '')]));
   if (v.calculatedBy) body.appendChild(el('div', { class: 'logview-by' }, 'by ' + v.calculatedBy));
   if ((log.versions || []).length > 1) body.appendChild(el('div', { class: 'log-ver-count' }, 'v' + log.versions.length + ' (edited)'));
   body.appendChild(renderOrder(v));
@@ -193,8 +194,8 @@ function logCard(log) {
   // log is edited from the calculator (Edit → Confirm), never here, so its Edit button
   // is omitted; only a hand-entered log ("+ Add log") shows it.
   const actions = el('div', { class: 'log-actions' });
-  const hist = el('button', { class: 'log-hist-btn', type: 'button', 'data-id': log.id, 'aria-label': 'Version history' }, '🕘 History');
-  const del = el('button', { class: 'log-delete-btn', type: 'button', 'data-id': log.id, 'aria-label': 'Delete log' }, '🗑');
+  const hist = el('button', { class: 'log-hist-btn', type: 'button', 'data-id': log.id, 'aria-label': 'Version history' }, [icon('clock', 16), ' History']);
+  const del = el('button', { class: 'log-delete-btn', type: 'button', 'data-id': log.id, 'aria-label': 'Delete log' }, icon('trash', 16));
   actions.appendChild(hist);
   if (log.origin === 'manual') {
     actions.appendChild(el('button', { class: 'log-edit-btn', type: 'button', 'data-id': log.id }, 'Edit'));

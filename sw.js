@@ -1,4 +1,4 @@
-const CACHE_NAME = 'theitalianclub-v175';
+const CACHE_NAME = 'theitalianclub-v176';
 // Firebase SDK modules (loaded from gstatic) are cached SEPARATELY from CACHE_NAME
 // so they survive the cache-version bump that happens on every deploy — otherwise
 // the offline SDK would be wiped each release until the next online load. The name
@@ -24,6 +24,7 @@ const ASSETS = [
   './fonts/dm-mono-500-latin-ext.woff2',
   './js/app.js',
   './js/confirm-dialog.js',
+  './js/calculator-icons.js',
   './js/hold-to-zoom.js',
   './js/sw-update.js',
   './js/idle-reset.js',
