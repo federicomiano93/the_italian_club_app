@@ -5,7 +5,9 @@
 // Calculator.
 
 import { el } from './dom.js';
-import { scaleCatalogue, baseAmounts, weighableTotalGrams, unitOf } from './catalogue-model.js';
+import {
+  scaleCatalogue, baseAmounts, weighableTotalGrams, unitOf, batchWarning, formatWeight,
+} from './catalogue-model.js';
 import { getScaledTarget, setScaledTarget, clearScaledTarget } from './catalogue-store.js';
 
 const IMPORT_SVG =
@@ -71,16 +73,19 @@ export function renderDetail({ recipe, app }) {
     if (on) { try { ingList.focus({ preventScroll: true }); } catch (e) { /* best-effort */ } }
   }
 
-  const kgInput = el('input', {
-    id: 'catKg', type: 'number', min: '0', step: '0.1',
-    value: displayTarget > 0 ? String(displayTarget / 1000) : '', placeholder: '0',
-    inputmode: 'decimal', 'aria-label': 'Total dough weight in kilograms',
+  // GRAMS, like the recipe rows and the Total right above it — type 17500 and you get
+  // 17500 g. The field used to take kilograms while everything around it read in grams,
+  // so "17500" was taken as 17500 kg and quietly produced a 17.5-tonne batch.
+  const gramsInput = el('input', {
+    id: 'catGrams', type: 'number', min: '0', step: '1',
+    value: displayTarget > 0 ? String(Math.round(displayTarget)) : '', placeholder: '0',
+    inputmode: 'numeric', 'aria-label': 'Total dough weight in grams',
   });
 
   const clearBtn = el('button', {
     class: 'cat-clear-btn', type: 'button', hidden: 'hidden',
     text: 'Clear — back to base recipe',
-    onclick: () => { displayTarget = 0; kgInput.value = ''; clearScaledTarget(recipe.id); renderRows(); },
+    onclick: () => { displayTarget = 0; gramsInput.value = ''; clearScaledTarget(recipe.id); renderRows(); },
   });
 
   const calcBtn = el('button', {
@@ -109,28 +114,35 @@ export function renderDetail({ recipe, app }) {
   }
 
   async function onCalculate() {
-    const kg = parseFloat(kgInput.value);
-    if (!isFinite(kg) || kg <= 0) { // empty / 0 → base recipe
+    const grams = parseFloat(gramsInput.value);
+    if (!isFinite(grams) || grams <= 0) { // empty / 0 → base recipe
       displayTarget = 0;
       clearScaledTarget(recipe.id);
       renderRows();
       return;
     }
+    // The confirm always spells the amount out BOTH ways (17500 g / 17.5 kg), so a
+    // wrong order of magnitude is caught by eye before anything is scaled. A batch
+    // outside any plausible size gets a louder title and an explicit warning line.
+    const warning = batchWarning(grams, weighableTotalGrams(recipe));
+    const readable = `${nf.format(grams)} g (${formatWeight(grams)})`;
     const ok = await app.confirm({
-      title: 'Calculate recipe?',
-      message: `Calculate ${recipe.name} for ${kg} kg?`,
+      title: warning ? 'That is a very large batch' : 'Calculate recipe?',
+      message: warning
+        ? `${warning}\n\nCalculate ${recipe.name} for ${readable}?`
+        : `Calculate ${recipe.name} for ${readable}?`,
       okLabel: 'Calculate',
     });
     if (!ok) return;
-    displayTarget = kg * 1000;
+    displayTarget = grams;
     setScaledTarget(recipe.id, displayTarget); // keep this batch until Clear / 12h
     renderRows();
   }
 
   const weightPanel = el('div', { class: 'cat-weight-panel' }, [
-    el('label', { for: 'catKg', text: 'Total dough weight' }),
+    el('label', { for: 'catGrams', text: 'Total dough weight' }),
     el('div', { class: 'cat-weight-input' }, [
-      el('div', { class: 'cat-field' }, [kgInput, el('span', { class: 'unit', text: 'kg' })]),
+      el('div', { class: 'cat-field' }, [gramsInput, el('span', { class: 'unit', text: 'g' })]),
       calcBtn,
     ]),
     clearBtn,
