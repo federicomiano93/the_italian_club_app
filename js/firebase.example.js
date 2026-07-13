@@ -217,11 +217,23 @@ export function saveCalculatorConfig(config) {
 // which reuses THIS app + anonymous auth (it imports firebaseConfig from here).
 // It adds NO export here. Firestore collections it uses, every document carrying
 // bakery: "main" (validated in firestore.rules):
-//   - suppliers/{id}          { name, category, deliveryDays[], phone, email,
-//                               notifyHoursBefore, active }
+//   - suppliers/{id}          { name, category, deliveryDays[], orderDays[], phone,
+//                               email, active }
 //   - ingredients/{id}        { name, supplierId, category, unit, active }
-//   - drafts/current          { weekId, entries:{ id:{ qty, stock } }, updatedAt }
-//   - orders-history/{weekId} { weekStart, createdAt, quantities:{id:qty}, stock:{id:qty} }
+//   - drafts/current          { entries:{ id:{ qty, stock } },
+//                               days:{ supplierId: 'YYYY-MM-DD' }, updatedAt }
+//   - orders-history/{YYYY-MM-DD}_{supplierId}
+//                             { date, supplierId, supplierName, quantities:{id:qty},
+//                               stock:{id:qty}, createdAt, updatedAt }
+//
+// An order is ONE DAY and ONE SUPPLIER: suppliers are not ordered on the same days
+// (Salvo on Mondays, Caterite almost daily), so a single weekly document could not
+// say what was ordered, or when. `days` on the draft records which day each
+// supplier's rows were typed on, so an order left unmarked overnight is filed
+// under the day it was written rather than the day it was finally recorded.
+// Documents written by the earlier model (one per ISO week, id "2026-W28", field
+// weekStart, every supplier merged) are still read and still counted — nothing was
+// migrated.
 //
 // ── Push notifications (Firebase Cloud Messaging) — FUTURE / server step ──────
 // Client-side alerts (js/orders/notifications.js) already work while the app is

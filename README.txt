@@ -106,10 +106,13 @@ Calculator:
 - `daily-logs/{YYYY-MM-DD}` — daily production log, keyed by dough type.
 
 Orders (every document carries `bakery: "main"`):
-- `suppliers/{id}` — name, category, deliveryDays, phone, email, notifyHoursBefore, active.
+- `suppliers/{id}` — name, category, deliveryDays, orderDays, phone, email, active.
 - `ingredients/{id}` — name, supplierId, category, unit, active.
-- `drafts/current` — current week's order (autosaved, real-time).
-- `orders-history/{weekId}` — archived weeks (ordered quantities + stock on hand).
+- `drafts/current` — the order in progress (autosaved, real-time), plus the day each
+  supplier's rows were typed on.
+- `orders-history/{YYYY-MM-DD}_{supplierId}` — one record per DAY per SUPPLIER
+  (ordered quantities + stock on hand). Records from the earlier weekly model
+  (`orders-history/{weekId}`) are still read; nothing was migrated.
 
 All collections are currently shared across authenticated clients (Anonymous Auth).
 

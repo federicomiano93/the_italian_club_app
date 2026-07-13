@@ -173,6 +173,28 @@
 .supplier-chevron.open { transform: rotate(90deg); }
 .supplier-body { border-top: 1px solid var(--border); padding: 12px 14px 14px; }
 
+/* A supplier with quantities typed but not yet placed. The collapsed head is
+   otherwise deliberately quiet, but an unfinished order must be visible without
+   opening every card. */
+.supplier-waiting {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+/* The one action that belongs to a supplier. Icon + label must be a flex row on
+   BOTH the button and the icon's own span: an SVG inside a plain <span> is an
+   inline box and would sit on the text baseline, ~2px low. */
+.supplier-place-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.supplier-place-icon { display: flex; align-items: center; }
+
 /* ── Progress bar ─────────────────────────────────────────────────────────── */
 .progress { margin-bottom: 14px; }
 .progress-track { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
@@ -308,6 +330,71 @@ input.ing-stock {
 /* ── History tab ──────────────────────────────────────────────────────────── */
 .history-empty { text-align: center; color: var(--text3); font-size: 14px; padding: 40px 20px; }
 .history-body { border-top: 1px solid var(--border); padding: 10px 14px 12px; }
+
+/* One section per day, one card per supplier inside it. */
+.history-day-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 18px 0 8px;
+}
+.history-day-label:first-child { margin-top: 0; }
+
+/* Editing a recorded order: a quiet link at the foot of the card, not a control
+   that competes with reading it. Flex on the button AND on the icon's span — an
+   SVG in an inline span sits on the text baseline, ~2px low. */
+.history-edit-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 6px 0 0;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--border);
+  width: 100%;
+  color: var(--text3);
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.history-edit-icon { display: flex; align-items: center; }
+
+/* ── History editor overlay ───────────────────────────────────────────────── */
+.hist-edit-save { width: auto; padding: 0 10px; font-size: 15px; font-weight: 600; }
+.hist-edit-what {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--text3);
+  margin-bottom: 14px;
+}
+.hist-edit-list { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 14px; }
+.hist-edit-hint { font-size: 12px; color: var(--text3); margin-top: 10px; line-height: 1.5; }
+
+/* The only action in Orders that destroys data for good. Kept deliberately
+   low-key so it never competes with Save (P20). */
+.hist-edit-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 28px;
+  padding: 12px;
+  background: transparent;
+  border: 1px solid var(--error-border);
+  border-radius: var(--radius-sm);
+  color: var(--error);
+  font-family: 'Manrope', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.hist-edit-delete-icon { display: flex; align-items: center; }
 .history-supplier {
   font-size: 11px;
   font-weight: 700;
@@ -443,6 +530,98 @@ input.ing-stock {
 .notif-status.on > span, .enable-notifs > span { display: flex; align-items: center; }
 .notif-status.on { background: var(--accent-light); color: var(--accent); }
 .notif-status.off { background: var(--error-bg); color: var(--error); }
+
+/* ── "Order today" reminder (reminder-view.js) ────────────────────────────────
+   The first thing the screen says. Small on purpose: a label and a row of
+   supplier chips, not a numbered list. A supplier still to order is a button
+   (tap → its card opens); one already placed is a quiet, ticked-off span.
+   The containers collapse when empty so a day with nothing to order leaves no gap. */
+#orders-today:empty, #orders-pending:empty { display: none; }
+
+.today-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-light);
+  border: 1px solid var(--accent-light);
+  color: var(--accent);
+  font-size: 13px;
+}
+.today-banner.all-done { color: var(--text3); background: var(--surface2); border-color: var(--border); }
+.today-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+.today-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.today-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: var(--surface);
+  color: var(--accent);
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .06s ease;
+}
+.today-chip:active { transform: scale(.97); }
+.today-chip.placed {
+  border-color: var(--border);
+  background: transparent;
+  color: var(--text3);
+  font-weight: 500;
+  cursor: default;
+}
+/* The SVG's wrapper span is an inline box: without flex the tick sits on the text
+   baseline, ~2px low. Same trap as .notif-status above. */
+.today-check { display: flex; align-items: center; }
+
+/* ── "Order not placed" banner (an order typed on an earlier day) ─────────────
+   The only banner that asks for a decision, so it sits above everything else and
+   is allowed to be louder — but it is still a banner, not a modal: several can be
+   waiting at once, and a queue of dialogs on app open would be hostile. */
+.pending-banner {
+  padding: 12px;
+  margin-bottom: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  color: var(--warn);
+}
+.pending-main { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+.pending-title { font-size: 14px; font-weight: 700; }
+.pending-sub { font-size: 12px; font-family: 'DM Mono', monospace; opacity: 0.85; }
+.pending-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.pending-btn {
+  flex: 1 1 auto;
+  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--warn-border);
+  background: var(--surface);
+  color: var(--text2);
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .06s ease;
+}
+.pending-btn:active { transform: scale(.97); }
+.pending-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+/* Destructive, so it stays quiet and never competes with the other two. */
+.pending-btn.danger { flex: 0 0 auto; background: transparent; border-color: transparent; color: var(--error); font-weight: 500; }
 
 .alert-banner {
   padding: 10px 12px;

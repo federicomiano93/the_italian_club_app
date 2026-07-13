@@ -160,9 +160,12 @@ export function renderAlerts(container, suppliers, now = new Date()) {
   if (!container) return;
   container.textContent = '';
 
-  // The "place the order" reminder now lives on the Home (shown once a day, see
-  // js/home-orders-badge.js). The Orders page shows only the informational
-  // holiday / delivery-clash alerts, so it never re-nags on every open.
+  // The "place the order" alert is not rendered here. On the Home it is the
+  // once-a-day badge (js/home-orders-badge.js); on the Orders screen itself it is
+  // the compact chip row at the top (reminder-view.js renderTodayOrders), which
+  // also knows which of today's orders are already placed and ticks them off —
+  // something this function cannot do, as it never sees the history. What is left
+  // here is the informational holiday / delivery-clash alerts.
   const alerts = computeAlerts(suppliers, now).filter(a => a.kind !== 'order');
   alerts.forEach(a => container.appendChild(renderAlert(a)));
   maybeNotify(alerts);
