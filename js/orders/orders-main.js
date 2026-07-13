@@ -10,15 +10,18 @@
 // not under today.
 
 import {
-  watchCollection, watchCollectionBounded, saveDoc, createDoc, removeDoc, COLLECTIONS,
+  watchCollection, watchCollectionBounded, getCollectionPage,
+  saveDoc, createDoc, removeDoc, COLLECTIONS,
 } from './firebase-orders.js';
 import { el, groupBy } from './dom.js';
 import { renderSuppliers, refreshSupplierDerived } from './suppliers.js';
 import {
   scheduleDraftSave, saveDraftNow, flushDraftSave, watchDraft, archiveSupplier, clearSupplier,
+  saveHistoryRecord, deleteHistoryRecord,
 } from './draft.js';
 import { buildSendScreen } from './preview.js';
 import { renderHistory as renderHistoryView } from './history.js';
+import { buildHistoryEditor } from './history-edit.js';
 import { buildManagement, isAdmin } from './management.js';
 import { computeSuggestion } from './suggestions.js';
 import { refreshBankHolidays } from './bank-holidays.js';
@@ -42,6 +45,8 @@ const state = {
   entries: {},                  // { ingredientId: { qty, stock } } — shared object, mutated in place
   days: {},                     // { supplierId: 'YYYY-MM-DD' } — the day those rows were typed
   draftUpdatedAt: '',           // fallback day for a draft written before `days` existed
+  older: [],                    // history pages loaded on demand, behind the live window
+  hasMore: false,               // ...and whether there might be more behind those
   pending: [],                  // orders typed on an earlier day and never placed
   expanded: new Set(),
   loaded: { suppliers: false, ingredients: false, draft: false },
@@ -131,12 +136,74 @@ function renderEmptyState(container) {
 // ── Rendering: history tab ────────────────────────────────────────────────────
 function applyHistory(list) {
   state.history = list;
+  // A full window means there is probably more behind it. Older records stay
+  // reachable through "Show older orders", one page at a time.
+  if (state.older.length === 0) state.hasMore = list.length >= HISTORY_WINDOW;
   renderHistory();
   render(); // refresh order-tab suggestions now that history is available
 }
 
+// The live window plus every older page loaded on demand, newest first, with the
+// live window winning on id (it is the one being kept up to date).
+function visibleHistory() {
+  const seen = new Set(state.history.map(r => r.id));
+  return [...state.history, ...state.older.filter(r => !seen.has(r.id))];
+}
+
 function renderHistory() {
-  renderHistoryView(document.getElementById('history-list'), state.history, state.suppliers, state.ingredients);
+  renderHistoryView(
+    document.getElementById('history-list'),
+    visibleHistory(),
+    state.suppliers,
+    state.ingredients,
+    { onEdit: openHistoryEditor, onShowOlder: loadOlderHistory, hasMore: state.hasMore },
+  );
+}
+
+// One page further back, continuing after the oldest record on screen.
+async function loadOlderHistory() {
+  const all = visibleHistory();
+  const oldest = all.map(r => r.id).sort()[0]; // ids sort by day, so this is the cursor
+  try {
+    const page = await getCollectionPage(COLLECTIONS.history, HISTORY_WINDOW, oldest);
+    state.older = [...state.older, ...page];
+    state.hasMore = page.length >= HISTORY_WINDOW;
+    renderHistory();
+    if (!page.length) setStatus('No older orders.', 'warn', 3000);
+  } catch (err) {
+    console.error('Loading older history failed:', err);
+    setStatus('Could not load older orders — check your network.', 'error');
+  }
+}
+
+// ── Correcting a recorded order ───────────────────────────────────────────────
+function openHistoryEditor(record) {
+  const overlay = buildHistoryEditor(record, state.ingredients, {
+    onClose: () => overlay.remove(),
+    onSave: async (id, next) => {
+      try {
+        await saveHistoryRecord(id, next);
+        overlay.remove();
+        setStatus('Order updated ✓', 'ok', 4000);
+      } catch (err) {
+        console.error('Updating the order failed:', err);
+        setStatus('Could not update the order — check your network and try again.', 'error');
+      }
+    },
+    onDelete: async id => {
+      try {
+        await deleteHistoryRecord(id);
+        state.older = state.older.filter(r => r.id !== id);
+        overlay.remove();
+        renderHistory();
+        setStatus('Order deleted', 'warn', 4000);
+      } catch (err) {
+        console.error('Deleting the order failed:', err);
+        setStatus('Could not delete the order — check your network and try again.', 'error');
+      }
+    },
+  });
+  document.body.appendChild(overlay);
 }
 
 function showAlerts() {

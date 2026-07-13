@@ -50,16 +50,22 @@ export function weekdayOf(iso) {
   return WEEKDAY_LONG[parseISODate(iso).getDay()];
 }
 
+// A day spelled out: "Mon 6 Jul 2026". Formatted by hand rather than with
+// toLocaleDateString, so the output is identical on every device and locale (and
+// assertable in a test).
+export function spellDay(iso) {
+  if (!iso) return '';
+  const d = parseISODate(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${WEEKDAY_SHORT[d.getDay()]} ${d.getDate()} ${MONTH_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 // Human label for a day section: "Today" / "Yesterday" / "Mon 6 Jul 2026".
-// Formatted by hand rather than with toLocaleDateString, so the output is
-// identical on every device and locale (and assertable in a test).
 export function dayLabel(iso, now = new Date()) {
   if (!iso) return '';
   if (iso === toISODate(now)) return 'Today';
   if (iso === toISODate(addDays(now, -1))) return 'Yesterday';
-  const d = parseISODate(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${WEEKDAY_SHORT[d.getDay()]} ${d.getDate()} ${MONTH_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+  return spellDay(iso);
 }
 
 // The local day an ISO TIMESTAMP (e.g. draft.updatedAt, "2026-07-12T21:04:00Z")

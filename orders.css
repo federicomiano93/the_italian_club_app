@@ -330,6 +330,73 @@ input.ing-stock {
 /* ── History tab ──────────────────────────────────────────────────────────── */
 .history-empty { text-align: center; color: var(--text3); font-size: 14px; padding: 40px 20px; }
 .history-body { border-top: 1px solid var(--border); padding: 10px 14px 12px; }
+
+/* One section per day, one card per supplier inside it. */
+.history-day-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 18px 0 8px;
+}
+.history-day-label:first-child { margin-top: 0; }
+
+/* Editing a recorded order: a quiet link at the foot of the card, not a control
+   that competes with reading it. Flex on the button AND on the icon's span — an
+   SVG in an inline span sits on the text baseline, ~2px low. */
+.history-edit-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 6px 0 0;
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--border);
+  width: 100%;
+  color: var(--text3);
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.history-edit-icon { display: flex; align-items: center; }
+
+.history-more { width: 100%; margin-top: 16px; }
+
+/* ── History editor overlay ───────────────────────────────────────────────── */
+.hist-edit-save { width: auto; padding: 0 10px; font-size: 15px; font-weight: 600; }
+.hist-edit-what {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--text3);
+  margin-bottom: 14px;
+}
+.hist-edit-list { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 14px; }
+.hist-edit-hint { font-size: 12px; color: var(--text3); margin-top: 10px; line-height: 1.5; }
+
+/* The only action in Orders that destroys data for good. Kept deliberately
+   low-key so it never competes with Save (P20). */
+.hist-edit-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 28px;
+  padding: 12px;
+  background: transparent;
+  border: 1px solid var(--error-border);
+  border-radius: var(--radius-sm);
+  color: var(--error);
+  font-family: 'Manrope', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.hist-edit-delete-icon { display: flex; align-items: center; }
 .history-supplier {
   font-size: 11px;
   font-weight: 700;
