@@ -145,8 +145,55 @@ function showAlerts() {
 function openSendScreen() {
   const overlay = buildSendScreen(activeSuppliers(), ingredientsBySupplier(), state.entries, {
     onBack: () => overlay.remove(),
+    onSent: supplierIds => {
+      overlay.remove();
+      offerToRecordSent(supplierIds);
+    },
   });
   document.body.appendChild(overlay);
+}
+
+// "A", "A and B", "A, B and C".
+function listNames(names) {
+  if (names.length <= 1) return names[0] || '';
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+// Sending is the moment the order actually leaves, so it is the moment to ask —
+// forgetting to tap "Order placed" afterwards is exactly what left orders
+// unrecorded. Only the suppliers that were actually ticked and sent are offered.
+async function offerToRecordSent(supplierIds) {
+  const suppliers = supplierIds
+    .map(id => state.suppliers.find(s => s.id === id))
+    .filter(s => s && supplierHasItems(s.id, state.ingredients, state.entries));
+  if (!suppliers.length) return;
+
+  const names = listNames(suppliers.map(s => s.name));
+  const alreadyRecorded = suppliers.filter(s =>
+    state.history.some(h => h.id === historyDocId(dayForSupplier(s.id), s.id)));
+
+  let message = `Mark ${names} as placed? The order goes to History and the rows are cleared.`;
+  if (alreadyRecorded.length) {
+    const already = listNames(alreadyRecorded.map(s => s.name));
+    message += `\n\n${already} already has an order recorded for that day — these items will be ADDED to it.`;
+  }
+
+  const ok = await confirmDialog({
+    title: 'Order sent',
+    message,
+    okLabel: 'Mark as placed',
+    cancelLabel: 'Not yet',
+  });
+  if (!ok) return;
+
+  // Sequentially: each archive writes and then clears its own rows, and the draft
+  // is one shared document — overlapping writes would race on it.
+  const saved = [];
+  for (const supplier of suppliers) {
+    const done = await placeOrder(supplier.id, { confirm: false });
+    if (done) saved.push(supplier.name);
+  }
+  if (saved.length) setStatus(`${listNames(saved)} — order saved to history ✓`, 'ok', 5000);
 }
 
 // ── Order placed (one supplier at a time) ─────────────────────────────────────
@@ -174,23 +221,25 @@ function forgetSupplierLocally(supplierId) {
   delete state.days[supplierId];
 }
 
-async function placeOrder(supplierId) {
+// Record one supplier's order. Returns true when it was written.
+// `confirm: false` is used right after a WhatsApp send, where the operator has
+// just answered the same question for every supplier that was sent.
+async function placeOrder(supplierId, { confirm = true } = {}) {
   const supplier = state.suppliers.find(s => s.id === supplierId);
-  if (!supplier) return;
+  if (!supplier) return false;
 
   if (!supplierHasItems(supplierId, state.ingredients, state.entries)) {
     setStatus('Nothing to record for this supplier — add quantities first.', 'warn', 4000);
-    return;
+    return false;
   }
   // Firestore has no offline persistence here, so the write would simply never
   // resolve and the tap would hang. Say so instead.
   if (!navigator.onLine) {
     setStatus("You're offline — reconnect to record this order.", 'error', 6000);
-    return;
+    return false;
   }
 
-  const ok = await confirmPlacement(supplier);
-  if (!ok) return;
+  if (confirm && !await confirmPlacement(supplier)) return false;
 
   const date = dayForSupplier(supplierId);
   try {
@@ -206,9 +255,11 @@ async function placeOrder(supplierId) {
     syncInputsFromState();
     renderReminders();
     setStatus(`${supplier.name} — order saved to history ✓`, 'ok', 5000);
+    return true;
   } catch (err) {
     console.error('Archiving order failed:', err);
     setStatus('Could not save the order — check your network and try again.', 'error');
+    return false;
   }
 }
 

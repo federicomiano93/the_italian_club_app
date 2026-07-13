@@ -4,8 +4,12 @@
 // items in the current order (all ticked by default) plus a "Select all" master
 // checkbox, then builds ONE combined message grouped by supplier and opens
 // WhatsApp with NO recipient — so the operator picks the chat himself (mirrors the
-// Calculator's WhatsApp share, js/whatsapp.js). Sending does NOT archive the order;
-// archiving is the separate "Orders placed" button on the Order screen.
+// Calculator's WhatsApp share, js/whatsapp.js).
+//
+// Sending still does not archive anything by itself, but it now reports WHICH
+// suppliers were sent (onSent), and the caller offers to mark exactly those as
+// placed. Sending is the moment the order actually leaves, so it is the moment to
+// ask — forgetting to record it afterwards was the whole problem.
 
 import { el } from './dom.js';
 
@@ -23,7 +27,7 @@ function buildCombinedMessage(selected) {
 }
 
 // suppliers: array; ingredientsBySupplier: { supplierId: [ingredient] };
-// entries: { ingredientId: { qty, stock } }; callbacks: { onBack }.
+// entries: { ingredientId: { qty, stock } }; callbacks: { onBack, onSent }.
 export function buildSendScreen(suppliers, ingredientsBySupplier, entries, callbacks) {
   // Only suppliers with at least one ordered item can be sent.
   const withItems = suppliers.map(supplier => {
@@ -78,6 +82,7 @@ export function buildSendScreen(suppliers, ingredientsBySupplier, entries, callb
     if (!selected.length) return;
     const text = buildCombinedMessage(selected);
     window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+    callbacks.onSent?.(selected.map(c => c.supplier.id));
   });
 
   const backBtn = el('button', { type: 'button', class: 'orders-icon-btn', 'aria-label': 'Back', icon: BACK_ICON,
