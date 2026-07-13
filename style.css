@@ -778,7 +778,30 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 
 /* WhatsApp lists editor: a list/client/entry row pairs a drill-in with a low-key
    remove icon beside it (the top screen deletes lists & direct clients there). */
-.wa-entry-card { display: flex; align-items: stretch; gap: 8px; }
+/* A list row with a delete icon. The frame belongs to the ROW, not to the tappable
+   part inside it: the delete has to be its OWN button (a button cannot be nested in
+   a button), and when it sat outside the frame the white card ended 41px short of
+   the full-width buttons below it — the right margin visibly zig-zagged. Now the row
+   itself is the card, and the delete lives inside it, so every right edge lines up. */
+.wa-entry-card {
+  display: flex;
+  align-items: stretch;
+  margin-bottom: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.wa-entry-card .wa-entry-open {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+.wa-entry-card .wa-entry-open:active { background: var(--surface2); }
+.wa-entry-card .cp-del-icon { padding: 0 16px; }
 .wa-entry-open { flex: 1; margin-bottom: 12px; }
 .wa-entry-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; text-align: left; }
 .wa-entry-name { font-size: 16px; font-weight: 700; color: var(--text); }
@@ -836,18 +859,31 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
 }
 .extra-toggle-row input { width: 22px; height: 22px; accent-color: var(--accent); flex-shrink: 0; }
 
+/* The overlay header follows the app-wide spec, like the main headers do: Back on
+   the LEFT, the title CENTRED, actions on the RIGHT.
+   It used to be a plain row, so the title simply sat next to the Back button — up
+   to 116px off-centre, and the title visibly jumped when moving between a main
+   screen and a Settings screen. The title is taken out of the flow and centred on
+   the header itself, which keeps it centred no matter what the right side holds
+   (Home, Home + Save, or — when Home is hidden on a detail screen — Save alone).
+   Back takes margin-right:auto, so whatever remains groups at the right edge; that
+   also fixes Save being stranded next to the title when Home is hidden. */
 .recipe-overlay-header {
+  position: relative;
   background: var(--accent);
   padding: calc(14px + var(--safe-top)) 16px 14px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 12px;
 }
 .recipe-back-btn,
 .settings-back-btn, .extra-back-btn, .divisor-back-btn, .logsettings-back-btn,
 .wa-back-btn, .cp-back-btn,
-.logview-back-btn, .logedit-back-btn, .logadd-back-btn, .loghistory-back-btn {
+.logview-back-btn, .logedit-back-btn, .logadd-back-btn, .loghistory-back-btn,
+.products-back-btn, .ingredients-back-btn {
+  margin-right: auto;   /* everything after it groups at the right edge */
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -862,7 +898,18 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
   justify-content: center;
   padding: 0;
 }
+/* Centred on the header, out of the flow, so the side buttons cannot push it off.
+   pointer-events:none so it can never swallow a tap meant for a button under it. */
 .recipe-overlay-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 52%;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
   font-size: 18px;
   font-weight: 600;
   color: #fff;
@@ -873,7 +920,6 @@ select.qty-select:focus { outline: none; border-color: var(--accent); background
    jump straight to the home screen instead of stepping back. When a Save button
    follows, it sits just to the right of Home (header gap handles the spacing). */
 .overlay-home-btn {
-  margin-left: auto;
   width: 36px;
   height: 36px;
   border-radius: 50%;
