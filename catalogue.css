@@ -192,6 +192,13 @@ body.cat-zoom-lock { overflow: hidden; }
 
 /* Import — de-emphasised (quiet, secondary), not a loud brand button anymore. */
 .cat-import-btn { width: 100%; padding: 11px; border: 1px solid var(--cat-border); border-radius: 12px; background: var(--cat-surface-2); color: var(--cat-text-2); font-size: .92rem; font-weight: 600; font-family: var(--cat-font-round); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+/* An icon wrapped in a <span> is an INLINE box, so the SVG inside sits on the text
+   BASELINE — about 2px below the centre line, which is exactly what reads as "the
+   icon is a bit high". Making the wrapper a flex box centres the glyph in its own
+   box, and the button's align-items:center then centres that against the label. */
+.cat-import-btn > span,
+.cat-detail-del > span,
+.cat-del-btn > span { display: flex; align-items: center; }
 .cat-import-btn:hover { color: var(--cat-text); background: var(--cat-surface); border-color: var(--cat-accent); }
 .cat-import-btn:focus-visible { outline: 2px solid var(--cat-accent); outline-offset: 2px; }
 .cat-import-hint { text-align: center; font-size: .76rem; color: var(--cat-text-2); margin: 8px 2px 0; }

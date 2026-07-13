@@ -438,6 +438,9 @@ input.ing-stock {
 .notif-status { margin: 0; padding: 10px 12px; border-radius: var(--radius-sm); font-size: 13px; line-height: 1.4; }
 .notif-status.on, .enable-notifs { display: flex; align-items: center; justify-content: center; gap: 6px; }
 .notif-status.on { justify-content: flex-start; }
+/* The icon lives in a <span>, which is an inline box — the SVG inside would sit on
+   the text BASELINE, ~2px below the centre line. Flex the wrapper so it is centred. */
+.notif-status.on > span, .enable-notifs > span { display: flex; align-items: center; }
 .notif-status.on { background: var(--accent-light); color: var(--accent); }
 .notif-status.off { background: var(--error-bg); color: var(--error); }
 
