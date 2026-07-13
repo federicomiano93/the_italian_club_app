@@ -466,6 +466,63 @@ input.ing-stock {
 .notif-status.on { background: var(--accent-light); color: var(--accent); }
 .notif-status.off { background: var(--error-bg); color: var(--error); }
 
+/* ── "Order today" reminder (reminder-view.js) ────────────────────────────────
+   The first thing the screen says. Small on purpose: a label and a row of
+   supplier chips, not a numbered list. A supplier still to order is a button
+   (tap → its card opens); one already placed is a quiet, ticked-off span.
+   The containers collapse when empty so a day with nothing to order leaves no gap. */
+#orders-today:empty, #orders-pending:empty { display: none; }
+
+.today-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-light);
+  border: 1px solid var(--accent-light);
+  color: var(--accent);
+  font-size: 13px;
+}
+.today-banner.all-done { color: var(--text3); background: var(--surface2); border-color: var(--border); }
+.today-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+.today-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.today-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: var(--surface);
+  color: var(--accent);
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .06s ease;
+}
+.today-chip:active { transform: scale(.97); }
+.today-chip.placed {
+  border-color: var(--border);
+  background: transparent;
+  color: var(--text3);
+  font-weight: 500;
+  cursor: default;
+}
+/* The SVG's wrapper span is an inline box: without flex the tick sits on the text
+   baseline, ~2px low. Same trap as .notif-status above. */
+.today-check { display: flex; align-items: center; }
+
 .alert-banner {
   padding: 10px 12px;
   border-radius: var(--radius-sm);

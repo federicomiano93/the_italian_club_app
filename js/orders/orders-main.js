@@ -26,6 +26,8 @@ import { renderAlerts } from './notifications.js';
 import { confirmDialog } from './confirm-dialog.js';
 import { todayISO, dayLabel, localDayOf } from './day.js';
 import { historyDocId, ingredientsOf, supplierHasItems } from './archive.js';
+import { todayOrders } from './reminders.js';
+import { renderTodayOrders } from './reminder-view.js';
 
 // The newest history records to keep live. One document per day per supplier adds
 // up fast (some suppliers are ordered almost daily), and the whole collection was
@@ -227,9 +229,27 @@ function confirmPlacement(supplier) {
 }
 
 // ── Reminders (today's orders / an order left from an earlier day) ────────────
+
+// One call site for both banners, invoked from every path that changes the draft,
+// the history or the supplier list.
 function renderReminders() {
-  // Filled in by the reminder banners (next commits). Kept as one call site so
-  // every path that changes the draft or the history refreshes them.
+  if (!state.loaded.suppliers) return;
+
+  renderTodayOrders(
+    document.getElementById('orders-today'),
+    todayOrders({ suppliers: state.suppliers, history: state.history, today: todayISO() }),
+    { onPick: expandSupplier },
+  );
+}
+
+// Open one supplier's card and bring it into view — what tapping its name in the
+// "order today" reminder does.
+function expandSupplier(supplierId) {
+  state.expanded.add(supplierId);
+  render();
+  document
+    .querySelector(`.supplier-card[data-supplier="${supplierId}"]`)
+    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ── Management panel ──────────────────────────────────────────────────────────
