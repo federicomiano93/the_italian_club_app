@@ -10,7 +10,7 @@
 // order is a button — tapping it opens that supplier's card.
 
 import { el } from './dom.js';
-import { dayLabel } from './day.js';
+import { daySpoken, dayWhen } from './day.js';
 
 const CHECK_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
@@ -67,19 +67,18 @@ export function renderPending(container, list, { onPlaced, onToday, onDiscard, n
   if (!list.length) return;
 
   list.forEach(({ supplier, day, itemCount }) => {
-    const when = dayLabel(day, now);
     const items = itemCount === 1 ? '1 item' : `${itemCount} items`;
 
     container.appendChild(el('div', { class: 'pending-banner' }, [
       el('div', { class: 'pending-main' }, [
         el('span', { class: 'pending-title', text: `${supplier.name} — order not placed` }),
-        el('span', { class: 'pending-sub', text: `${items} typed ${when.toLowerCase()}` }),
+        el('span', { class: 'pending-sub', text: `${items} typed ${dayWhen(day, now)}` }),
       ]),
       el('div', { class: 'pending-actions' }, [
         el('button', {
           type: 'button', class: 'pending-btn primary',
           onClick: () => onPlaced?.(supplier.id, day),
-        }, `Placed ${when.toLowerCase()}`),
+        }, `Placed ${daySpoken(day, now)}`),
         el('button', {
           type: 'button', class: 'pending-btn',
           onClick: () => onToday?.(supplier.id),
