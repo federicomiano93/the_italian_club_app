@@ -43,6 +43,7 @@ const state = {
 
 let mgmt = null;                // open management panel handle, or null
 let pendingChecked = false;     // the unfinished-order check runs once per page load
+const placing = new Set();      // suppliers whose order is being written right now
 
 // Replace state.entries contents WITHOUT changing the reference (row closures keep working).
 function setEntries(next) {
@@ -245,11 +246,21 @@ function forgetSupplierLocally(supplierId) {
 }
 
 // Record one supplier's order. Returns true when it was written.
+//
 // `confirm: false` is used right after a WhatsApp send, where the operator has
 // just answered the same question for every supplier that was sent.
-async function placeOrder(supplierId, { confirm = true } = {}) {
+// `date` PINS the day. The unfinished-order banner passes the day it is showing,
+// because state.days[supplierId] is restamped to today by any keystroke on that
+// supplier's rows — so reading it here would file a "Placed yesterday" order under
+// TODAY, which is precisely the mistake this whole feature exists to prevent.
+async function placeOrder(supplierId, { confirm = true, date: pinnedDate } = {}) {
   const supplier = state.suppliers.find(s => s.id === supplierId);
   if (!supplier) return false;
+
+  // An order takes a second to write. Without this, a second tap in that second
+  // passes every check, archives the same rows again, and mergeArchives — which
+  // ADDS by design — doubles the quantities.
+  if (placing.has(supplierId)) return false;
 
   if (!supplierHasItems(supplierId, state.ingredients, state.entries)) {
     setStatus('Nothing to record for this supplier — add quantities first.', 'warn', 4000);
@@ -262,9 +273,13 @@ async function placeOrder(supplierId, { confirm = true } = {}) {
     return false;
   }
 
-  if (confirm && !await confirmPlacement(supplier)) return false;
+  const date = pinnedDate || dayForSupplier(supplierId);
+  if (confirm && !await confirmPlacement(supplier, date)) return false;
+  if (placing.has(supplierId)) return false; // the dialog was open a while — re-check
 
-  const date = dayForSupplier(supplierId);
+  placing.add(supplierId);
+  disablePlaceButton(supplierId);
+
   try {
     // Any keystroke from the last 800ms is still sitting in the debounce timer —
     // possibly for ANOTHER supplier. Write it before the surgical clear, or it is
@@ -273,21 +288,49 @@ async function placeOrder(supplierId, { confirm = true } = {}) {
     await archiveSupplier({
       supplier, ingredients: state.ingredients, entries: state.entries, date,
     });
-    await clearSupplier(supplierId, state.ingredients);
-    forgetSupplierLocally(supplierId);
-    syncInputsFromState();
-    renderReminders();
-    setStatus(`${supplier.name} — order saved to history ✓`, 'ok', 5000);
-    return true;
   } catch (err) {
     console.error('Archiving order failed:', err);
     setStatus('Could not save the order — check your network and try again.', 'error');
+    placing.delete(supplierId);
+    refreshAllSuppliers();          // restore the button to whatever the rows say
     return false;
   }
+
+  // PAST THE POINT OF NO RETURN: the order IS in History now. Everything below is
+  // tidying up, and none of it may ever report "could not save" — the operator
+  // would retry, and the retry would ADD the same items to the record all over
+  // again (mergeArchives adds by design).
+  //
+  // Forget the rows LOCALLY first: a keystroke during the archive above may have
+  // queued a draft save, and that save holds state.entries BY REFERENCE. Dropping
+  // the keys before it fires is what stops it writing them back after the clear.
+  forgetSupplierLocally(supplierId);
+  syncInputsFromState();            // also re-derives every button's enabled state
+  renderReminders();
+
+  try {
+    await clearSupplier(supplierId, state.ingredients);
+    setStatus(`${supplier.name} — order saved to history ✓`, 'ok', 5000);
+  } catch (err) {
+    console.error('Clearing the draft after archiving failed:', err);
+    setStatus(
+      `${supplier.name} — order saved to History, but the rows could not be cleared. Reload the page; do NOT record it again.`,
+      'warn',
+    );
+  }
+  placing.delete(supplierId);
+  return true;
 }
 
-function confirmPlacement(supplier) {
-  const date = dayForSupplier(supplier.id);
+// Grey the button out while its order is being written, so what the operator sees
+// matches the guard above. Re-enabling is never done by hand: refreshAllSuppliers
+// derives it from the rows, so a cleared supplier's button stays correctly dead.
+function disablePlaceButton(supplierId) {
+  const btn = document.getElementById(`place-btn-${supplierId}`);
+  if (btn) btn.disabled = true;
+}
+
+function confirmPlacement(supplier, date) {
   const when = dayPhrase(date);
   const already = state.history.some(h => h.id === historyDocId(date, supplier.id));
 
@@ -350,22 +393,32 @@ function dismissPending(supplierId) {
   renderReminders();
 }
 
-// "Placed <day>" — it went out that day and the tap was forgotten. placeOrder
-// files it under the draft's own stamp, so it lands on the right day, and its
-// confirm names that day out loud.
-async function recordPending(supplierId) {
-  const done = await placeOrder(supplierId);
+// "Placed <day>" — it went out that day and the tap was forgotten.
+//
+// The day is the one the BANNER is showing, pinned when the unfinished order was
+// found, and it is passed through explicitly. It must not be re-read from
+// state.days here: touching any row of that supplier restamps that to today
+// (hooks.afterChange), so the record would land under today while the button
+// still said "Placed yesterday".
+async function recordPending(supplierId, day) {
+  const done = await placeOrder(supplierId, { date: day });
   if (done) dismissPending(supplierId);
 }
 
 // "It's today's" — it was never actually ordered. Keep the rows, restamp to today.
+// The banner only goes away once the new stamp is actually saved: dismissing first
+// and swallowing a failure would leave the draft still stamped with the old day and
+// nothing on screen to say so.
 async function keepAsToday(supplierId) {
+  const previous = state.days[supplierId];
   state.days[supplierId] = todayISO();
-  dismissPending(supplierId);
   try {
     await saveDraftNow(state.entries, state.days);
+    dismissPending(supplierId);
   } catch (err) {
     console.error('Restamping the draft failed:', err);
+    if (previous) state.days[supplierId] = previous; else delete state.days[supplierId];
+    setStatus("Could not update the order's day — check your network and try again.", 'error');
   }
 }
 
