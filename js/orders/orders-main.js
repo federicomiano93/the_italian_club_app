@@ -9,10 +9,7 @@
 // on, so an order left unmarked overnight is filed under the day it was written,
 // not under today.
 
-import {
-  watchCollection, watchCollectionBounded, getCollectionPage,
-  saveDoc, createDoc, removeDoc, COLLECTIONS,
-} from './firebase-orders.js';
+import { watchCollection, saveDoc, createDoc, removeDoc, COLLECTIONS } from './firebase-orders.js';
 import { el, groupBy } from './dom.js';
 import { renderSuppliers, refreshSupplierDerived } from './suppliers.js';
 import {
@@ -27,16 +24,10 @@ import { computeSuggestion } from './suggestions.js';
 import { refreshBankHolidays } from './bank-holidays.js';
 import { renderAlerts } from './notifications.js';
 import { confirmDialog } from './confirm-dialog.js';
-import { todayISO, dayLabel, localDayOf } from './day.js';
+import { todayISO, dayPhrase, localDayOf } from './day.js';
 import { historyDocId, ingredientsOf, supplierHasItems } from './archive.js';
 import { todayOrders, pendingSuppliers } from './reminders.js';
 import { renderTodayOrders, renderPending } from './reminder-view.js';
-
-// The newest history records to keep live. One document per day per supplier adds
-// up fast (some suppliers are ordered almost daily), and the whole collection was
-// being re-read on every app open — a cost that grew for ever (P14). Older records
-// are still reachable: History loads them a page at a time.
-const HISTORY_WINDOW = 200;
 
 const state = {
   suppliers: [],
@@ -45,8 +36,6 @@ const state = {
   entries: {},                  // { ingredientId: { qty, stock } } — shared object, mutated in place
   days: {},                     // { supplierId: 'YYYY-MM-DD' } — the day those rows were typed
   draftUpdatedAt: '',           // fallback day for a draft written before `days` existed
-  older: [],                    // history pages loaded on demand, behind the live window
-  hasMore: false,               // ...and whether there might be more behind those
   pending: [],                  // orders typed on an earlier day and never placed
   expanded: new Set(),
   loaded: { suppliers: false, ingredients: false, draft: false },
@@ -136,44 +125,18 @@ function renderEmptyState(container) {
 // ── Rendering: history tab ────────────────────────────────────────────────────
 function applyHistory(list) {
   state.history = list;
-  // A full window means there is probably more behind it. Older records stay
-  // reachable through "Show older orders", one page at a time.
-  if (state.older.length === 0) state.hasMore = list.length >= HISTORY_WINDOW;
   renderHistory();
   render(); // refresh order-tab suggestions now that history is available
-}
-
-// The live window plus every older page loaded on demand, newest first, with the
-// live window winning on id (it is the one being kept up to date).
-function visibleHistory() {
-  const seen = new Set(state.history.map(r => r.id));
-  return [...state.history, ...state.older.filter(r => !seen.has(r.id))];
 }
 
 function renderHistory() {
   renderHistoryView(
     document.getElementById('history-list'),
-    visibleHistory(),
+    state.history,
     state.suppliers,
     state.ingredients,
-    { onEdit: openHistoryEditor, onShowOlder: loadOlderHistory, hasMore: state.hasMore },
+    { onEdit: openHistoryEditor },
   );
-}
-
-// One page further back, continuing after the oldest record on screen.
-async function loadOlderHistory() {
-  const all = visibleHistory();
-  const oldest = all.map(r => r.id).sort()[0]; // ids sort by day, so this is the cursor
-  try {
-    const page = await getCollectionPage(COLLECTIONS.history, HISTORY_WINDOW, oldest);
-    state.older = [...state.older, ...page];
-    state.hasMore = page.length >= HISTORY_WINDOW;
-    renderHistory();
-    if (!page.length) setStatus('No older orders.', 'warn', 3000);
-  } catch (err) {
-    console.error('Loading older history failed:', err);
-    setStatus('Could not load older orders — check your network.', 'error');
-  }
 }
 
 // ── Correcting a recorded order ───────────────────────────────────────────────
@@ -193,9 +156,7 @@ function openHistoryEditor(record) {
     onDelete: async id => {
       try {
         await deleteHistoryRecord(id);
-        state.older = state.older.filter(r => r.id !== id);
         overlay.remove();
-        renderHistory();
         setStatus('Order deleted', 'warn', 4000);
       } catch (err) {
         console.error('Deleting the order failed:', err);
@@ -272,13 +233,6 @@ async function offerToRecordSent(supplierIds) {
 // today when there is nothing at all to go on.
 function dayForSupplier(supplierId) {
   return state.days[supplierId] || localDayOf(state.draftUpdatedAt) || todayISO();
-}
-
-// "today" / "yesterday" / "on Mon 6 Jul 2026" — the confirm dialog always names
-// the day, so recording a forgotten order under an older date is never a surprise.
-function dayPhrase(date) {
-  const label = dayLabel(date);
-  return label === 'Today' || label === 'Yesterday' ? label.toLowerCase() : `on ${label}`;
 }
 
 // Drop a supplier's rows from the in-memory draft immediately, so the screen
@@ -551,7 +505,7 @@ async function init() {
     checkPendingOnce();
   });
 
-  watchCollectionBounded(COLLECTIONS.history, HISTORY_WINDOW, list => {
+  watchCollection(COLLECTIONS.history, list => {
     applyHistory(list);
     renderReminders();
   });

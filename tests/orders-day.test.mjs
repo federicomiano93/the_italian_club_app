@@ -9,7 +9,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  toISODate, parseISODate, todayISO, addDays, isBefore, weekdayOf, dayLabel, localDayOf,
+  toISODate, parseISODate, todayISO, addDays, isBefore, weekdayOf, dayLabel, dayPhrase,
+  spellDay, localDayOf,
 } from '../js/orders/day.js';
 
 test('toISODate reads a Date with local getters', () => {
@@ -74,6 +75,21 @@ test('dayLabel spells out any other day, identically on every device', () => {
 test('dayLabel handles a missing or unreadable day without throwing', () => {
   assert.equal(dayLabel('', new Date(2026, 6, 13)), '');
   assert.equal(dayLabel('not-a-date', new Date(2026, 6, 13)), 'not-a-date');
+});
+
+test('spellDay always spells the date out, never "Today"', () => {
+  // The legacy weekly card names its week, where "Today" would be meaningless.
+  assert.equal(spellDay('2026-07-13'), 'Mon 13 Jul 2026');
+  assert.equal(spellDay(''), '');
+});
+
+test('dayPhrase reads inside a sentence, and every confirm uses it', () => {
+  const now = new Date(2026, 6, 13);
+  // "Record Salvo's order for yesterday?" — not "...order yesterday?".
+  assert.equal(dayPhrase('2026-07-13', now), 'for today');
+  assert.equal(dayPhrase('2026-07-12', now), 'for yesterday');
+  assert.equal(dayPhrase('2026-07-06', now), 'for Mon 6 Jul 2026');
+  assert.equal(dayPhrase('', now), '');
 });
 
 test('localDayOf reads the local day of a draft timestamp', () => {

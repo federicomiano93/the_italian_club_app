@@ -68,6 +68,18 @@ export function dayLabel(iso, now = new Date()) {
   return spellDay(iso);
 }
 
+// The day as it reads inside a sentence: "for today" / "for yesterday" /
+// "for Mon 6 Jul 2026". Every confirmation that records or removes an order names
+// its day out loud, so filing a forgotten order under an older date can never be
+// a surprise — and there is exactly one place that decides how it is worded.
+export function dayPhrase(iso, now = new Date()) {
+  const label = dayLabel(iso, now);
+  if (!label) return '';
+  // "Today"/"Yesterday" are words mid-sentence; a spelled-out date keeps its caps.
+  const relative = label === 'Today' || label === 'Yesterday';
+  return `for ${relative ? label.toLowerCase() : label}`;
+}
+
 // The local day an ISO TIMESTAMP (e.g. draft.updatedAt, "2026-07-12T21:04:00Z")
 // happened on. Used as the fallback stamp for a draft written before the app
 // started recording a per-supplier day. Returns '' when there is nothing to read.

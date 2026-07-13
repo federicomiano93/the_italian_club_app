@@ -24,7 +24,7 @@ function indexById(items) {
   return (items || []).reduce((acc, it) => { acc[it.id] = it; return acc; }, {});
 }
 
-// callbacks: { onEdit(record), onShowOlder(), hasMore }
+// callbacks: { onEdit(record) }
 export function renderHistory(container, history, suppliers, ingredients, callbacks = {}) {
   if (!container) return;
   container.textContent = '';
@@ -47,14 +47,6 @@ export function renderHistory(container, history, suppliers, ingredients, callba
         : buildOrderCard(record, ingById, callbacks),
     ));
   });
-
-  if (callbacks.hasMore) {
-    container.appendChild(el('button', {
-      type: 'button',
-      class: 'btn-secondary history-more',
-      onClick: () => callbacks.onShowOlder?.(),
-    }, 'Show older orders'));
-  }
 }
 
 // The rows of one record: "name … qty unit", by name.

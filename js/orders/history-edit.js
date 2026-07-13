@@ -13,7 +13,7 @@
 
 import { el } from './dom.js';
 import { confirmDialog, alertDialog } from './confirm-dialog.js';
-import { dayLabel, spellDay } from './day.js';
+import { dayLabel, dayPhrase, spellDay } from './day.js';
 import { isLegacyRecord, recordDate } from './archive.js';
 
 const BACK_ICON =
@@ -143,7 +143,7 @@ export function buildHistoryEditor(record, ingredients, actions) {
 
     const ok = await confirmDialog({
       title: 'Save changes',
-      message: `Update ${recordTitle(record)}'s order of ${dayLabel(recordDate(record)).toLowerCase()}?`,
+      message: `Update ${recordTitle(record)}'s order ${dayPhrase(recordDate(record))}?`,
       okLabel: 'Save',
     });
     if (!ok) return;
@@ -159,7 +159,7 @@ export function buildHistoryEditor(record, ingredients, actions) {
   async function remove() {
     const ok = await confirmDialog({
       title: 'Delete this order',
-      message: `Delete ${recordTitle(record)}'s order of ${dayLabel(recordDate(record)).toLowerCase()}?\n\nIt is removed from History for good and cannot be recovered. The suggested order quantities learn from these records, so they will change.`,
+      message: `Delete ${recordTitle(record)}'s order ${dayPhrase(recordDate(record))}?\n\nIt is removed from History for good and cannot be recovered. The suggested order quantities learn from these records, so they will change.`,
       okLabel: 'Delete',
       danger: true,
     });

@@ -23,7 +23,6 @@ import {
   getFirestore,
   collection,
   doc,
-  documentId,
   getDoc,
   getDocs,
   setDoc,
@@ -32,10 +31,6 @@ import {
   deleteDoc,
   deleteField,
   onSnapshot,
-  query,
-  orderBy,
-  limit,
-  startAfter,
   runTransaction,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
@@ -83,33 +78,22 @@ export async function watchCollection(name, onChange) {
   );
 }
 
-// Subscribe to the NEWEST `max` documents of a collection, by document id,
-// descending. Same live behaviour as watchCollection, but the cost stops growing:
-// orders-history now gets one document per day PER SUPPLIER, so reading the whole
-// collection on every app open would creep from tens of reads to thousands (P14).
-// Ordering by id needs no composite index (__name__ is always indexed).
-export async function watchCollectionBounded(name, max, onChange) {
-  await authReady;
-  const q = query(collection(db, name), orderBy(documentId(), 'desc'), limit(max));
-  return onSnapshot(
-    q,
-    snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-    err => console.error(`watchCollectionBounded(${name}) failed:`, err),
-  );
-}
-
-// The next page of older documents, continuing after `afterId` in that same
-// descending-by-id order. This is what keeps records reachable once they fall out
-// of the live window above — nothing is ever unreachable, only unloaded.
-export async function getCollectionPage(name, max, afterId) {
-  await authReady;
-  const base = [collection(db, name), orderBy(documentId(), 'desc')];
-  const q = afterId
-    ? query(...base, startAfter(doc(db, name, afterId)), limit(max))
-    : query(...base, limit(max));
-  const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
+// COST NOTE (P14) — orders-history is read WHOLE on every app open, and with one
+// document per day per supplier it now grows by roughly 500-1000 documents a year
+// (it used to grow by 52). That is fine at today's size and stays well inside the
+// free tier for a long time, but it does not stay fine for ever.
+//
+// The obvious fix — read only the newest N by document id — does NOT work:
+// Firestore refuses a descending scan by key ("does not support descending key
+// scans"), and limitToLast on an ascending key order is rewritten into exactly
+// that same descending scan, so it fails too. Bounding the read means ordering by
+// a FIELD (`date`, descending, which is fully supported) — and the one legacy
+// weekly document has no `date` field, so it would silently drop out of History.
+//
+// So: revisit when orders-history passes ~1000 documents. Then add `date` to the
+// legacy record (one additive write) and switch this listener to
+// orderBy('date','desc') + limit. Not before — today the collection holds two
+// documents, and a production data change to speed that up would be absurd.
 
 // One-off read of a collection. Returns an array of { id, ...data }.
 export async function getCollection(name) {
