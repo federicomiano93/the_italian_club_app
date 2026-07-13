@@ -15,7 +15,7 @@ import {
 import { el, groupBy } from './dom.js';
 import { renderSuppliers, refreshSupplierDerived } from './suppliers.js';
 import {
-  scheduleDraftSave, flushDraftSave, watchDraft, archiveSupplier, clearSupplier,
+  scheduleDraftSave, saveDraftNow, flushDraftSave, watchDraft, archiveSupplier, clearSupplier,
 } from './draft.js';
 import { buildSendScreen } from './preview.js';
 import { renderHistory as renderHistoryView } from './history.js';
@@ -26,8 +26,8 @@ import { renderAlerts } from './notifications.js';
 import { confirmDialog } from './confirm-dialog.js';
 import { todayISO, dayLabel, localDayOf } from './day.js';
 import { historyDocId, ingredientsOf, supplierHasItems } from './archive.js';
-import { todayOrders } from './reminders.js';
-import { renderTodayOrders } from './reminder-view.js';
+import { todayOrders, pendingSuppliers } from './reminders.js';
+import { renderTodayOrders, renderPending } from './reminder-view.js';
 
 // The newest history records to keep live. One document per day per supplier adds
 // up fast (some suppliers are ordered almost daily), and the whole collection was
@@ -42,11 +42,13 @@ const state = {
   entries: {},                  // { ingredientId: { qty, stock } } — shared object, mutated in place
   days: {},                     // { supplierId: 'YYYY-MM-DD' } — the day those rows were typed
   draftUpdatedAt: '',           // fallback day for a draft written before `days` existed
+  pending: [],                  // orders typed on an earlier day and never placed
   expanded: new Set(),
   loaded: { suppliers: false, ingredients: false, draft: false },
 };
 
 let mgmt = null;                // open management panel handle, or null
+let pendingChecked = false;     // the unfinished-order check runs once per page load
 
 // Replace state.entries contents WITHOUT changing the reference (row closures keep working).
 function setEntries(next) {
@@ -291,6 +293,84 @@ function renderReminders() {
     todayOrders({ suppliers: state.suppliers, history: state.history, today: todayISO() }),
     { onPick: expandSupplier },
   );
+
+  renderPending(document.getElementById('orders-pending'), state.pending, {
+    onPlaced: recordPending,
+    onToday: keepAsToday,
+    onDiscard: discardPending,
+  });
+}
+
+// Look for an order typed on an earlier day and never placed — ONCE per page
+// load, and only once the draft, the suppliers and the ingredients have all
+// arrived (any of them missing would make every supplier look empty).
+//
+// Latched on purpose: the draft listener fires on every keystroke, including
+// another phone's, and recomputing would rebuild these buttons under the
+// operator's finger — or bring the banner back after it had been answered.
+function checkPendingOnce() {
+  if (pendingChecked) return;
+  if (!state.loaded.suppliers || !state.loaded.ingredients || !state.loaded.draft) return;
+  pendingChecked = true;
+
+  state.pending = pendingSuppliers({
+    suppliers: state.suppliers,
+    ingredients: state.ingredients,
+    entries: state.entries,
+    days: state.days,
+    fallbackDay: localDayOf(state.draftUpdatedAt),
+    today: todayISO(),
+  });
+  renderReminders();
+}
+
+function dismissPending(supplierId) {
+  state.pending = state.pending.filter(p => p.supplier.id !== supplierId);
+  renderReminders();
+}
+
+// "Placed <day>" — it went out that day and the tap was forgotten. placeOrder
+// files it under the draft's own stamp, so it lands on the right day, and its
+// confirm names that day out loud.
+async function recordPending(supplierId) {
+  const done = await placeOrder(supplierId);
+  if (done) dismissPending(supplierId);
+}
+
+// "It's today's" — it was never actually ordered. Keep the rows, restamp to today.
+async function keepAsToday(supplierId) {
+  state.days[supplierId] = todayISO();
+  dismissPending(supplierId);
+  try {
+    await saveDraftNow(state.entries, state.days);
+  } catch (err) {
+    console.error('Restamping the draft failed:', err);
+  }
+}
+
+// "Discard" — not wanted at all. Destructive, so it goes behind a red confirm.
+async function discardPending(supplierId) {
+  const supplier = state.suppliers.find(s => s.id === supplierId);
+  if (!supplier) return;
+
+  const ok = await confirmDialog({
+    title: `Discard ${supplier.name}'s order`,
+    message: `Delete the quantities typed for ${supplier.name}? They are not saved anywhere and cannot be recovered.`,
+    okLabel: 'Discard',
+    danger: true,
+  });
+  if (!ok) return;
+
+  try {
+    await clearSupplier(supplierId, state.ingredients);
+    forgetSupplierLocally(supplierId);
+    syncInputsFromState();
+    dismissPending(supplierId);
+    setStatus(`${supplier.name} — order discarded`, 'warn', 4000);
+  } catch (err) {
+    console.error('Discarding the order failed:', err);
+    setStatus('Could not discard the order — check your network and try again.', 'error');
+  }
 }
 
 // Open one supplier's card and bring it into view — what tapping its name in the
@@ -401,6 +481,7 @@ async function init() {
     state.loaded.draft = true;
     syncInputsFromState();
     renderReminders();
+    checkPendingOnce();
   });
 
   watchCollectionBounded(COLLECTIONS.history, HISTORY_WINDOW, list => {
@@ -417,6 +498,7 @@ async function init() {
     renderHistory();
     showAlerts();
     renderReminders();
+    checkPendingOnce();
     mgmt?.refresh();
   });
   watchCollection(COLLECTIONS.ingredients, list => {
@@ -425,6 +507,7 @@ async function init() {
     render();
     renderHistory();
     renderReminders();
+    checkPendingOnce();
     mgmt?.refresh();
   });
 }

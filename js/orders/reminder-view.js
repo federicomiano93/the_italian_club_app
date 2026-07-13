@@ -10,6 +10,7 @@
 // order is a button — tapping it opens that supplier's card.
 
 import { el } from './dom.js';
+import { dayLabel } from './day.js';
 
 const CHECK_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
@@ -45,4 +46,49 @@ export function renderTodayOrders(container, list, { onPick } = {}) {
     el('span', { class: 'today-label', text: 'Order today' }),
     el('div', { class: 'today-chips' }, chips),
   ]));
+}
+
+// An order typed on an earlier day and never marked as placed.
+//
+// A banner, not a dialog: several suppliers can be waiting at once, and a queue
+// of modals on app open would be hostile (confirm-dialog is single-instance
+// anyway — a second one raised while the first is open resolves false silently).
+//
+// Three answers, because there are genuinely three cases. It was ordered that day
+// and the tap was forgotten (Placed) — the record must be filed under THAT day,
+// not today, which is the whole reason the draft carries the day. It was never
+// actually ordered and is still wanted (It's today's) — the rows stay, restamped
+// to today. It is not wanted at all (Discard) — the rows go, behind a red confirm.
+//
+// list: [{ supplier, day, itemCount }] from reminders.pendingSuppliers
+export function renderPending(container, list, { onPlaced, onToday, onDiscard, now } = {}) {
+  if (!container) return;
+  container.textContent = '';
+  if (!list.length) return;
+
+  list.forEach(({ supplier, day, itemCount }) => {
+    const when = dayLabel(day, now);
+    const items = itemCount === 1 ? '1 item' : `${itemCount} items`;
+
+    container.appendChild(el('div', { class: 'pending-banner' }, [
+      el('div', { class: 'pending-main' }, [
+        el('span', { class: 'pending-title', text: `${supplier.name} — order not placed` }),
+        el('span', { class: 'pending-sub', text: `${items} typed ${when.toLowerCase()}` }),
+      ]),
+      el('div', { class: 'pending-actions' }, [
+        el('button', {
+          type: 'button', class: 'pending-btn primary',
+          onClick: () => onPlaced?.(supplier.id, day),
+        }, `Placed ${when.toLowerCase()}`),
+        el('button', {
+          type: 'button', class: 'pending-btn',
+          onClick: () => onToday?.(supplier.id),
+        }, "It's today's"),
+        el('button', {
+          type: 'button', class: 'pending-btn danger',
+          onClick: () => onDiscard?.(supplier.id),
+        }, 'Discard'),
+      ]),
+    ]));
+  });
 }

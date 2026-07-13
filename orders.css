@@ -523,6 +523,41 @@ input.ing-stock {
    baseline, ~2px low. Same trap as .notif-status above. */
 .today-check { display: flex; align-items: center; }
 
+/* ── "Order not placed" banner (an order typed on an earlier day) ─────────────
+   The only banner that asks for a decision, so it sits above everything else and
+   is allowed to be louder — but it is still a banner, not a modal: several can be
+   waiting at once, and a queue of dialogs on app open would be hostile. */
+.pending-banner {
+  padding: 12px;
+  margin-bottom: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  color: var(--warn);
+}
+.pending-main { display: flex; flex-direction: column; gap: 2px; margin-bottom: 10px; }
+.pending-title { font-size: 14px; font-weight: 700; }
+.pending-sub { font-size: 12px; font-family: 'DM Mono', monospace; opacity: 0.85; }
+.pending-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.pending-btn {
+  flex: 1 1 auto;
+  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--warn-border);
+  background: var(--surface);
+  color: var(--text2);
+  font-family: 'Manrope', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .06s ease;
+}
+.pending-btn:active { transform: scale(.97); }
+.pending-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+/* Destructive, so it stays quiet and never competes with the other two. */
+.pending-btn.danger { flex: 0 0 auto; background: transparent; border-color: transparent; color: var(--error); font-weight: 500; }
+
 .alert-banner {
   padding: 10px 12px;
   border-radius: var(--radius-sm);
