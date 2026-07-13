@@ -211,6 +211,23 @@
   font-family: 'DM Mono', monospace;
   margin: 14px 0 6px;
 }
+/* .ing-row is a class name the Calculator and Orders BOTH use, for two different
+   things, and both stylesheets are loaded on both pages.
+     - The Calculator's (style.css) is `display: flex; justify-content:
+       space-between` — a "name ..... value" line in a recipe. It is declared
+       FIRST, and this file never said otherwise, so it leaked into Orders and
+       laid the product name and the Stock/Order fields SIDE BY SIDE, though
+       .ing-top's margin-bottom below shows they were always meant to stack. It
+       squeezed the name onto three lines on a 390px phone and pushed the Order
+       box 21px off the card on a 320px one, where it could not be reached.
+     - So the fix must be SCOPED. A bare `.ing-row { display: block }` here would
+       ALSO hit calculator.html — which loads orders.css too, AFTER style.css —
+       and stack every recipe row. The two selectors below are the only places
+       Orders builds a row (ingredients.js and history-edit.js), and they beat the
+       Calculator's plain class on specificity without ever reaching its rows.
+   The real cure is to rename one of the two; until then, this keeps them apart. */
+#suppliers-list .ing-row,
+.hist-edit-list .ing-row { display: block; }
 .ing-row { padding: 12px 0; border-bottom: 1px solid var(--border); }
 .ing-row:last-child { border-bottom: none; }
 .ing-top { display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px; }
