@@ -4,36 +4,48 @@
 // how much to order so that, after the stock on hand, you reach that level —
 // always topping up to your usual amount.
 //
-//   par         = average over recent weeks of (stock on hand + quantity ordered)
+//   par         = average, over the recent ORDERS of that ingredient, of
+//                 (stock on hand + quantity ordered)
 //   suggestion  = round( par − current stock ), floored at 0
 //
-// Hidden until 4 weeks of history exist for that ingredient; weeks 1-3 show a
-// countdown. The average uses only the most recent weeks so it tracks current
-// conditions (busy periods, menu changes) rather than the whole history.
+// The window counts ORDERS, not weeks. An order is now one day and one supplier
+// (archive.js), and suppliers are not all weekly: Salvo is ordered on Mondays,
+// Caterite almost daily. Averaging "the last 8 weeks" would silently mean
+// something different for each supplier. "The last 8 times you ordered this
+// ingredient" means the same thing for all of them — and for a weekly supplier it
+// is the same window as before.
 //
-// Bank holidays do NOT change the suggestion — they are alert-only (Phase 6:
-// a week-before notice and a delivery-day-conflict notice).
+// Records that predate the per-day model (one document per ISO week, every
+// supplier merged) still count as one order each: they carry the same
+// quantities/stock maps and sort on weekStart instead of date.
+//
+// Bank holidays do NOT change the suggestion — they are alert-only (a week-before
+// notice and a delivery-day-conflict notice).
 
-const MIN_WEEKS = 4;        // weeks of history before suggestions activate
-const WINDOW_WEEKS = 8;     // average over at most this many recent weeks
+const MIN_ORDERS = 4;       // orders of this ingredient before suggestions activate
+const WINDOW_ORDERS = 8;    // average over at most this many recent orders
 
-// history: array of { weekStart, quantities:{id:qty}, stock:{id:qty} }
+// history: array of { date | weekStart, quantities:{id:qty}, stock:{id:qty} }
 // Returns one of:
-//   { active: false, weeksRemaining: N }      — not enough history yet
+//   { active: false, ordersRemaining: N }     — not enough history yet
 //   { active: true, suggestion, par }         — ready
+//
+// Only records that actually ORDERED this ingredient count: `quantities` holds
+// ordered rows only, so a day the shelf was full and nothing was ordered is
+// absent, and correctly does not drag the par level around.
 export function computeSuggestion(ingredientId, currentStock, history) {
-  const weeks = (history || [])
-    .filter(w => w.quantities && Object.prototype.hasOwnProperty.call(w.quantities, ingredientId))
-    .sort((a, b) => String(b.weekStart || '').localeCompare(String(a.weekStart || '')));
+  const orders = (history || [])
+    .filter(r => r.quantities && Object.prototype.hasOwnProperty.call(r.quantities, ingredientId))
+    .sort((a, b) => String(b.date || b.weekStart || '').localeCompare(String(a.date || a.weekStart || '')));
 
-  if (weeks.length < MIN_WEEKS) {
-    return { active: false, weeksRemaining: MIN_WEEKS - weeks.length };
+  if (orders.length < MIN_ORDERS) {
+    return { active: false, ordersRemaining: MIN_ORDERS - orders.length };
   }
 
-  const recent = weeks.slice(0, WINDOW_WEEKS);
-  const levels = recent.map(w => {
-    const qty = w.quantities[ingredientId] || 0;
-    const stock = (w.stock && w.stock[ingredientId]) || 0;
+  const recent = orders.slice(0, WINDOW_ORDERS);
+  const levels = recent.map(r => {
+    const qty = r.quantities[ingredientId] || 0;
+    const stock = (r.stock && r.stock[ingredientId]) || 0;
     return qty + stock;
   });
   const par = levels.reduce((sum, v) => sum + v, 0) / levels.length;
