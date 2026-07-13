@@ -19,6 +19,18 @@ function countFilled(ingredients, entries) {
   return ingredients.filter(i => (entries[i.id]?.qty || 0) > 0).length;
 }
 
+// The row's slice of the shared draft, re-created if it is gone.
+//
+// It CAN be gone while the row is still on screen: archiving a supplier deletes
+// its keys out of `entries`, and so does the same clear arriving from another
+// phone — neither rebuilds the rows (they only reset the input values, so the
+// operator never loses focus mid-typing). Reaching straight for entries[id].qty
+// in a keystroke handler would then throw on a live screen. Always go through
+// this.
+function entryFor(entries, id) {
+  return entries[id] || (entries[id] = { qty: 0, stock: 0 });
+}
+
 export function buildIngredientList(supplier, ingredients, suggest, entries, hooks) {
   // A supplier with no ingredients shows a clear empty state, not a progress bar
   // stuck at 0 of 0 (the old "Loading…" bug: nothing ever replaced the placeholder).
@@ -52,7 +64,7 @@ export function buildIngredientList(supplier, ingredients, suggest, entries, hoo
 }
 
 function buildRow(ing, supplier, suggest, entries, hooks) {
-  const entry = entries[ing.id] || (entries[ing.id] = { qty: 0, stock: 0 });
+  const entry = entryFor(entries, ing.id);
 
   const stockInput = el('input', {
     type: 'number', class: 'ing-stock', min: '0', inputmode: 'numeric',
@@ -66,15 +78,15 @@ function buildRow(ing, supplier, suggest, entries, hooks) {
 
   function setQty(value, fromInput) {
     const qty = Math.max(0, Math.round(Number(value) || 0));
-    entries[ing.id].qty = qty;
+    entryFor(entries, ing.id).qty = qty;
     if (!fromInput) qtyInput.value = qty || '';
     hooks.afterChange(supplier.id);
   }
 
   // Show the "Suggested: X" hint only when history has produced an active
-  // suggestion; otherwise leave the line empty (no "available in N weeks" noise).
+  // suggestion; otherwise leave the line empty (no "available in N orders" noise).
   function updateHint() {
-    const result = suggest(ing.id, entries[ing.id].stock || 0);
+    const result = suggest(ing.id, entryFor(entries, ing.id).stock || 0);
     if (result.active) {
       hint.textContent = `Suggested: ${result.suggestion}`;
       hint.className = 'ing-suggestion active';
@@ -86,7 +98,7 @@ function buildRow(ing, supplier, suggest, entries, hooks) {
   }
 
   stockInput.addEventListener('input', () => {
-    entries[ing.id].stock = Math.max(0, Math.round(Number(stockInput.value) || 0));
+    entryFor(entries, ing.id).stock = Math.max(0, Math.round(Number(stockInput.value) || 0));
     const result = updateHint();
     if (result.active) setQty(result.suggestion); // auto-fill the suggested order (also autosaves)
     else hooks.afterChange(supplier.id);           // still autosave the stock value
