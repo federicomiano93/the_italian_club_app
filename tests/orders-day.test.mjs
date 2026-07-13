@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   toISODate, parseISODate, todayISO, addDays, isBefore, weekdayOf, dayLabel, dayPhrase,
-  spellDay, localDayOf,
+  daySpoken, dayWhen, spellDay, localDayOf,
 } from '../js/orders/day.js';
 
 test('toISODate reads a Date with local getters', () => {
@@ -90,6 +90,23 @@ test('dayPhrase reads inside a sentence, and every confirm uses it', () => {
   assert.equal(dayPhrase('2026-07-12', now), 'for yesterday');
   assert.equal(dayPhrase('2026-07-06', now), 'for Mon 6 Jul 2026');
   assert.equal(dayPhrase('', now), '');
+});
+
+test('a spoken day keeps a real date\'s capitals — "sat 11 jul 2026" reads like a typo', () => {
+  const now = new Date(2026, 6, 13);
+  assert.equal(daySpoken('2026-07-13', now), 'today');
+  assert.equal(daySpoken('2026-07-12', now), 'yesterday');
+  assert.equal(daySpoken('2026-07-11', now), 'Sat 11 Jul 2026');
+  assert.equal(daySpoken('', now), '');
+});
+
+test('dayWhen adds the preposition a date needs, and a relative day does not', () => {
+  const now = new Date(2026, 6, 13);
+  // "3 items typed yesterday" — but "3 items typed ON Sat 11 Jul 2026".
+  assert.equal(dayWhen('2026-07-12', now), 'yesterday');
+  assert.equal(dayWhen('2026-07-13', now), 'today');
+  assert.equal(dayWhen('2026-07-11', now), 'on Sat 11 Jul 2026');
+  assert.equal(dayWhen('', now), '');
 });
 
 test('localDayOf reads the local day of a draft timestamp', () => {

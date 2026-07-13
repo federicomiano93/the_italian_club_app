@@ -68,16 +68,31 @@ export function dayLabel(iso, now = new Date()) {
   return spellDay(iso);
 }
 
-// The day as it reads inside a sentence: "for today" / "for yesterday" /
+// The day as it is SPOKEN mid-sentence: "today" / "yesterday" / "Sat 11 Jul 2026".
+// "Today" and "Yesterday" are ordinary words there and lose their capital; a
+// spelled-out date is a name and keeps its own — lowercasing the lot gives
+// "sat 11 jul 2026", which reads like a typo.
+export function daySpoken(iso, now = new Date()) {
+  const label = dayLabel(iso, now);
+  if (!label) return '';
+  return label === 'Today' || label === 'Yesterday' ? label.toLowerCase() : label;
+}
+
+// The day with the preposition a sentence needs: "today" / "yesterday" /
+// "on Sat 11 Jul 2026". You order something "yesterday", but "ON Saturday".
+export function dayWhen(iso, now = new Date()) {
+  const spoken = daySpoken(iso, now);
+  if (!spoken) return '';
+  return spoken === 'today' || spoken === 'yesterday' ? spoken : `on ${spoken}`;
+}
+
+// The day as it reads after "an order": "for today" / "for yesterday" /
 // "for Mon 6 Jul 2026". Every confirmation that records or removes an order names
 // its day out loud, so filing a forgotten order under an older date can never be
 // a surprise — and there is exactly one place that decides how it is worded.
 export function dayPhrase(iso, now = new Date()) {
-  const label = dayLabel(iso, now);
-  if (!label) return '';
-  // "Today"/"Yesterday" are words mid-sentence; a spelled-out date keeps its caps.
-  const relative = label === 'Today' || label === 'Yesterday';
-  return `for ${relative ? label.toLowerCase() : label}`;
+  const spoken = daySpoken(iso, now);
+  return spoken ? `for ${spoken}` : '';
 }
 
 // The local day an ISO TIMESTAMP (e.g. draft.updatedAt, "2026-07-12T21:04:00Z")
