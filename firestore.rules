@@ -68,8 +68,8 @@ service cloud.firestore {
       allow delete: if request.auth != null;
     }
 
-    // Drafts are overwritten on every change and cleared once an order is sent,
-    // so delete is permitted here (unlike the other collections).
+    // The draft is the order in progress: rewritten on every keystroke, and one
+    // supplier's rows are removed from it once that supplier's order is placed.
     match /drafts/{id} {
       allow read: if request.auth != null;
       allow create, update: if request.auth != null
@@ -77,11 +77,18 @@ service cloud.firestore {
       allow delete: if request.auth != null;
     }
 
+    // One document per DAY per SUPPLIER (id "YYYY-MM-DD_<supplierId>"). Delete is
+    // now allowed: a second order to the same supplier on the same day ADDS to the
+    // first, which is only safe if a mistaken record can be corrected or removed
+    // (the History editor). The trade-off is deliberate — a deleted order is gone
+    // for good, so the UI gates it behind a named, red confirmation.
+    // Documents written before this model (one per ISO week, all suppliers merged)
+    // are still readable and still counted; nothing was migrated.
     match /orders-history/{id} {
       allow read: if request.auth != null;
       allow create, update: if request.auth != null
         && request.resource.data.bakery == 'main';
-      allow delete: if false;
+      allow delete: if request.auth != null;
     }
 
     // Calculator configuration: a single shared document (config/calculator)

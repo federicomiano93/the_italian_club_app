@@ -1,14 +1,22 @@
 // orders-main.js — entry point for orders.html.
 //
-// Phase 1: tab navigation + Firebase connectivity.
-// Phase 2: render suppliers/ingredients with stock + order fields.
-// Phase 3: persistent autosaving draft, real-time sync, preview + send/archive.
-// Phase 4: order history view + management panel (suppliers & ingredients).
+// Tabs + Firebase connectivity; the supplier list with stock + order fields; the
+// autosaving real-time draft; preview/send; history; the management panel.
+//
+// The unit of an order is one DAY and one SUPPLIER. Everything here follows from
+// that: "Order placed" lives on each supplier card and touches only that
+// supplier's rows; the draft remembers which day each supplier's rows were typed
+// on, so an order left unmarked overnight is filed under the day it was written,
+// not under today.
 
-import { watchCollection, saveDoc, createDoc, removeDoc, COLLECTIONS } from './firebase-orders.js';
+import {
+  watchCollection, watchCollectionBounded, saveDoc, createDoc, removeDoc, COLLECTIONS,
+} from './firebase-orders.js';
 import { el, groupBy } from './dom.js';
 import { renderSuppliers, refreshSupplierDerived } from './suppliers.js';
-import { scheduleDraftSave, watchDraft, archiveOrder, clearDraft } from './draft.js';
+import {
+  scheduleDraftSave, flushDraftSave, watchDraft, archiveSupplier, clearSupplier,
+} from './draft.js';
 import { buildSendScreen } from './preview.js';
 import { renderHistory as renderHistoryView } from './history.js';
 import { buildManagement, isAdmin } from './management.js';
@@ -16,14 +24,24 @@ import { computeSuggestion } from './suggestions.js';
 import { refreshBankHolidays } from './bank-holidays.js';
 import { renderAlerts } from './notifications.js';
 import { confirmDialog } from './confirm-dialog.js';
+import { todayISO, dayLabel, localDayOf } from './day.js';
+import { historyDocId, ingredientsOf, supplierHasItems } from './archive.js';
+
+// The newest history records to keep live. One document per day per supplier adds
+// up fast (some suppliers are ordered almost daily), and the whole collection was
+// being re-read on every app open — a cost that grew for ever (P14). Older records
+// are still reachable: History loads them a page at a time.
+const HISTORY_WINDOW = 200;
 
 const state = {
   suppliers: [],
   ingredients: [],
   history: [],
   entries: {},                  // { ingredientId: { qty, stock } } — shared object, mutated in place
+  days: {},                     // { supplierId: 'YYYY-MM-DD' } — the day those rows were typed
+  draftUpdatedAt: '',           // fallback day for a draft written before `days` existed
   expanded: new Set(),
-  loaded: { suppliers: false, ingredients: false },
+  loaded: { suppliers: false, ingredients: false, draft: false },
 };
 
 let mgmt = null;                // open management panel handle, or null
@@ -40,7 +58,14 @@ const hooks = {
     if (supplier) {
       refreshSupplierDerived(supplier, ingredientsBySupplier()[supplierId] || [], state.entries);
     }
-    scheduleDraftSave(state.entries);
+    // Stamp the day these rows were touched. This is what lets the app offer an
+    // order typed yesterday under YESTERDAY's date instead of quietly filing it
+    // under today.
+    state.days[supplierId] = todayISO();
+    scheduleDraftSave(state.entries, state.days);
+  },
+  onPlaced(supplierId) {
+    placeOrder(supplierId);
   },
 };
 
@@ -77,10 +102,8 @@ function render() {
   if (!state.loaded.suppliers || !state.loaded.ingredients) return;
 
   const suppliers = activeSuppliers();
-  const placedBtn = document.getElementById('orders-placed-btn');
 
   if (!suppliers.length) {
-    if (placedBtn) placedBtn.hidden = true;
     renderEmptyState(container);
     return;
   }
@@ -91,7 +114,6 @@ function render() {
     expanded: state.expanded,
     hooks,
   });
-  if (placedBtn) placedBtn.hidden = false;
 }
 
 function renderEmptyState(container) {
@@ -125,28 +147,89 @@ function openSendScreen() {
   document.body.appendChild(overlay);
 }
 
-// ── Orders placed (confirm → archive to history + clear the current order) ────
-async function ordersPlaced() {
-  const hasItems = Object.values(state.entries).some(e => (e?.qty || 0) > 0);
-  if (!hasItems) {
-    setStatus('Nothing to archive yet — add quantities first.', 'warn');
+// ── Order placed (one supplier at a time) ─────────────────────────────────────
+
+// The day a supplier's rows belong to: the day they were typed. Falls back to the
+// draft's own timestamp for rows written before the app recorded that, and to
+// today when there is nothing at all to go on.
+function dayForSupplier(supplierId) {
+  return state.days[supplierId] || localDayOf(state.draftUpdatedAt) || todayISO();
+}
+
+// "today" / "yesterday" / "on Mon 6 Jul 2026" — the confirm dialog always names
+// the day, so recording a forgotten order under an older date is never a surprise.
+function dayPhrase(date) {
+  const label = dayLabel(date);
+  return label === 'Today' || label === 'Yesterday' ? label.toLowerCase() : `on ${label}`;
+}
+
+// Drop a supplier's rows from the in-memory draft immediately, so the screen
+// clears without waiting for the write to come back (and so a debounced save
+// already in flight cannot resurrect them).
+function forgetSupplierLocally(supplierId) {
+  ingredientsOf(supplierId, state.ingredients, { activeOnly: false })
+    .forEach(ing => { delete state.entries[ing.id]; });
+  delete state.days[supplierId];
+}
+
+async function placeOrder(supplierId) {
+  const supplier = state.suppliers.find(s => s.id === supplierId);
+  if (!supplier) return;
+
+  if (!supplierHasItems(supplierId, state.ingredients, state.entries)) {
+    setStatus('Nothing to record for this supplier — add quantities first.', 'warn', 4000);
     return;
   }
-  const ok = await confirmDialog({
-    message: 'Mark this order as placed? It will be saved to History and the current order cleared.',
-    okLabel: 'Orders placed',
-  });
+  // Firestore has no offline persistence here, so the write would simply never
+  // resolve and the tap would hang. Say so instead.
+  if (!navigator.onLine) {
+    setStatus("You're offline — reconnect to record this order.", 'error', 6000);
+    return;
+  }
+
+  const ok = await confirmPlacement(supplier);
   if (!ok) return;
+
+  const date = dayForSupplier(supplierId);
   try {
-    await archiveOrder(state.entries);
-    await clearDraft();
-    setEntries({});
+    // Any keystroke from the last 800ms is still sitting in the debounce timer —
+    // possibly for ANOTHER supplier. Write it before the surgical clear, or it is
+    // lost when the next snapshot arrives.
+    await flushDraftSave();
+    await archiveSupplier({
+      supplier, ingredients: state.ingredients, entries: state.entries, date,
+    });
+    await clearSupplier(supplierId, state.ingredients);
+    forgetSupplierLocally(supplierId);
     syncInputsFromState();
-    setStatus('Order saved to history ✓', 'ok');
+    renderReminders();
+    setStatus(`${supplier.name} — order saved to history ✓`, 'ok', 5000);
   } catch (err) {
     console.error('Archiving order failed:', err);
     setStatus('Could not save the order — check your network and try again.', 'error');
   }
+}
+
+function confirmPlacement(supplier) {
+  const date = dayForSupplier(supplier.id);
+  const when = dayPhrase(date);
+  const already = state.history.some(h => h.id === historyDocId(date, supplier.id));
+
+  const message = already
+    ? `An order for ${supplier.name} is already recorded ${when}. These items will be ADDED to it.\n\nSend the order on WhatsApp first — recording it clears the rows.`
+    : `Record ${supplier.name}'s order ${when}?\n\nSend the order on WhatsApp first — recording it clears the rows.`;
+
+  return confirmDialog({
+    title: already ? `Add to ${supplier.name}'s order` : `${supplier.name} — order placed`,
+    message,
+    okLabel: already ? 'Add to it' : 'Order placed',
+  });
+}
+
+// ── Reminders (today's orders / an order left from an earlier day) ────────────
+function renderReminders() {
+  // Filled in by the reminder banners (next commits). Kept as one call site so
+  // every path that changes the draft or the history refreshes them.
 }
 
 // ── Management panel ──────────────────────────────────────────────────────────
@@ -190,7 +273,7 @@ function setupTabs() {
 let statusTimer = null;
 // Set the status line. With autoHideMs, the line hides itself after that delay,
 // but ONLY if its text is still the same — so a later error / "order saved"
-// message set in the meantime is never wiped. Used to make "Connected ✓" fade.
+// message set in the meantime is never wiped.
 function setStatus(text, kind, autoHideMs) {
   const elStatus = document.getElementById('orders-status');
   if (!elStatus) return;
@@ -221,7 +304,6 @@ function setupOfflineIndicator() {
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
   setupTabs();
-  document.getElementById('orders-placed-btn')?.addEventListener('click', ordersPlaced);
   document.getElementById('orders-wa-btn')?.addEventListener('click', openSendScreen);
 
   const settingsBtn = document.getElementById('settings-footer-btn');
@@ -237,23 +319,33 @@ async function init() {
   // ready and then stream live. init never blocks, so the page never sits waiting.
 
   // Refresh the official UK bank-holiday calendar (cached for offline; used by
-  // the Phase 6 alerts). Fire-and-forget — failure falls back to the cached list.
+  // the alerts). Fire-and-forget — failure falls back to the cached list.
   refreshBankHolidays().then(list => { console.log(`Bank holidays loaded: ${list.length} dates`); showAlerts(); });
 
   // Real-time draft: restores exact state on open and keeps staff in sync.
-  watchDraft(entries => {
-    setEntries(entries);
+  watchDraft(draft => {
+    setEntries(draft.entries);
+    state.days = draft.days || {};
+    state.draftUpdatedAt = draft.updatedAt;
+    state.loaded.draft = true;
     syncInputsFromState();
+    renderReminders();
   });
 
-  watchCollection(COLLECTIONS.history, applyHistory);
+  watchCollectionBounded(COLLECTIONS.history, HISTORY_WINDOW, list => {
+    applyHistory(list);
+    renderReminders();
+  });
 
+  // Suppliers and ingredients stay unbounded: they are a handful of documents and
+  // every one of them is needed to draw the screen. Only history grows without end.
   watchCollection(COLLECTIONS.suppliers, list => {
     state.suppliers = list;
     state.loaded.suppliers = true;
     render();
     renderHistory();
     showAlerts();
+    renderReminders();
     mgmt?.refresh();
   });
   watchCollection(COLLECTIONS.ingredients, list => {
@@ -261,6 +353,7 @@ async function init() {
     state.loaded.ingredients = true;
     render();
     renderHistory();
+    renderReminders();
     mgmt?.refresh();
   });
 }

@@ -23,12 +23,20 @@ import {
   getFirestore,
   collection,
   doc,
+  documentId,
   getDoc,
   getDocs,
   setDoc,
   addDoc,
+  updateDoc,
   deleteDoc,
+  deleteField,
   onSnapshot,
+  query,
+  orderBy,
+  limit,
+  startAfter,
+  runTransaction,
 } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 // Reuse the default app if firebase.js already created it; otherwise create it.
@@ -75,6 +83,34 @@ export async function watchCollection(name, onChange) {
   );
 }
 
+// Subscribe to the NEWEST `max` documents of a collection, by document id,
+// descending. Same live behaviour as watchCollection, but the cost stops growing:
+// orders-history now gets one document per day PER SUPPLIER, so reading the whole
+// collection on every app open would creep from tens of reads to thousands (P14).
+// Ordering by id needs no composite index (__name__ is always indexed).
+export async function watchCollectionBounded(name, max, onChange) {
+  await authReady;
+  const q = query(collection(db, name), orderBy(documentId(), 'desc'), limit(max));
+  return onSnapshot(
+    q,
+    snap => onChange(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+    err => console.error(`watchCollectionBounded(${name}) failed:`, err),
+  );
+}
+
+// The next page of older documents, continuing after `afterId` in that same
+// descending-by-id order. This is what keeps records reachable once they fall out
+// of the live window above — nothing is ever unreachable, only unloaded.
+export async function getCollectionPage(name, max, afterId) {
+  await authReady;
+  const base = [collection(db, name), orderBy(documentId(), 'desc')];
+  const q = afterId
+    ? query(...base, startAfter(doc(db, name, afterId)), limit(max))
+    : query(...base, limit(max));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
 // One-off read of a collection. Returns an array of { id, ...data }.
 export async function getCollection(name) {
   await authReady;
@@ -89,6 +125,46 @@ export async function saveDoc(name, id, data) {
   return setDoc(doc(db, name, id), withBakery(data), { merge: true });
 }
 
+// Overwrite a document WHOLE — no merge. saveDoc's { merge: true } deep-merges
+// maps, so a key removed from `quantities` would survive in Firestore; when the
+// caller has already computed the exact final document (a history record), that
+// is wrong. Use saveDoc when you are patching, this when you are replacing.
+export async function replaceDoc(name, id, data) {
+  await authReady;
+  return setDoc(doc(db, name, id), withBakery(data));
+}
+
+// Remove specific fields — including keys inside a map ('entries.<ingredientId>')
+// — and patch the rest, leaving every other key untouched.
+//
+// This is how one supplier's rows leave the shared draft. Rewriting the whole
+// draft document instead would wipe whatever another phone typed for a DIFFERENT
+// supplier in the second before this write landed; deleteField touches only the
+// named keys, so concurrent edits elsewhere in the document survive.
+export async function clearFields(name, id, paths, patch = {}) {
+  await authReady;
+  const update = { ...patch, bakery: BAKERY };
+  paths.forEach(path => { update[path] = deleteField(); });
+  return updateDoc(doc(db, name, id), update);
+}
+
+// Read-modify-write a single document atomically. `updater` receives the current
+// document ({ id, ...data }) or null, and returns the FULL new document — or null
+// to leave it alone. Used so that two orders to the same supplier on the same day
+// add up correctly even if two people tap at once.
+export async function transactDoc(name, id, updater) {
+  await authReady;
+  const ref = doc(db, name, id);
+  return runTransaction(db, async tx => {
+    const snap = await tx.get(ref);
+    const existing = snap.exists() ? { id: snap.id, ...snap.data() } : null;
+    const next = updater(existing);
+    if (!next) return null;
+    tx.set(ref, withBakery(next));
+    return next;
+  });
+}
+
 // Create a document with an auto-generated id. Returns the new id.
 export async function createDoc(name, data) {
   await authReady;
@@ -96,7 +172,8 @@ export async function createDoc(name, data) {
   return ref.id;
 }
 
-// Delete a document (only permitted by the rules for drafts).
+// Delete a document. The rules permit this for drafts, suppliers, ingredients
+// and — since orders became correctable — orders-history.
 export async function removeDoc(name, id) {
   await authReady;
   return deleteDoc(doc(db, name, id));

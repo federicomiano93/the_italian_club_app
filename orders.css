@@ -173,6 +173,28 @@
 .supplier-chevron.open { transform: rotate(90deg); }
 .supplier-body { border-top: 1px solid var(--border); padding: 12px 14px 14px; }
 
+/* A supplier with quantities typed but not yet placed. The collapsed head is
+   otherwise deliberately quiet, but an unfinished order must be visible without
+   opening every card. */
+.supplier-waiting {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+/* The one action that belongs to a supplier. Icon + label must be a flex row on
+   BOTH the button and the icon's own span: an SVG inside a plain <span> is an
+   inline box and would sit on the text baseline, ~2px low. */
+.supplier-place-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.supplier-place-icon { display: flex; align-items: center; }
+
 /* ── Progress bar ─────────────────────────────────────────────────────────── */
 .progress { margin-bottom: 14px; }
 .progress-track { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
