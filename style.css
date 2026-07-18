@@ -115,8 +115,12 @@ header p { font-size: 11px; color: rgba(255,255,255,0.72); margin-top: 1px; font
 /* Scroll area */
 .scroll-area {
   flex: 1;
+  /* min-height:0 lets this flex child actually shrink below its content height, so
+     iOS scrolls it cleanly instead of miscomputing its height and jumping to top.
+     -webkit-overflow-scrolling:touch is dropped on purpose: deprecated, and on modern
+     iOS it is a cause of the momentum-scroll stutter, not a fix for it. */
+  min-height: 0;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
   padding-bottom: calc(24px + var(--safe-bot));
 }
 
