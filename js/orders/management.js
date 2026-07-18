@@ -21,10 +21,12 @@ export const isAdmin = true; // placeholder until real auth/roles exist
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const BACK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
+const SEARCH_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>';
 
 export function buildManagement(data, actions) {
   let tab = 'suppliers';
   let view = { type: 'list' };
+  let listQuery = ''; // search text for the current list (Suppliers / Ingredients)
 
   const content = el('div', { class: 'mgmt-scroll' });
   const tabBar = el('nav', { class: 'tab-bar' }, [
@@ -56,7 +58,8 @@ export function buildManagement(data, actions) {
 
   function tabButton(label, key) {
     return el('button', { type: 'button', class: 'tab', dataset: { tab: key },
-      onClick: () => { tab = key; view = { type: 'list' }; render(); } }, label);
+      // Clear the search when switching tab, so one list's query never filters another.
+      onClick: () => { tab = key; view = { type: 'list' }; listQuery = ''; render(); } }, label);
   }
 
   function render() {
@@ -76,37 +79,78 @@ export function buildManagement(data, actions) {
   }
 
   // ── Lists ─────────────────────────────────────────────────────────────────
-  function renderSupplierList() {
-    content.appendChild(el('button', { type: 'button', class: 'mgmt-add',
-      onClick: () => { view = { type: 'supplierForm', item: null }; render(); } }, '+ Add supplier'));
-
-    const list = el('div', { class: 'mgmt-list' });
-    data.suppliers().slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
-      const meta = [s.category, (s.deliveryDays || []).join(', ')].filter(Boolean).join(' · ');
-      list.appendChild(mgmtRow(s.name, meta, s.active !== false,
-        () => { view = { type: 'supplierForm', item: s }; render(); },
-        () => actions.setSupplierActive(s.id, s.active === false),
-        () => actions.deleteSupplier(s.id)));
+  // Search box + Add button + a filtered list, shared by both lists. Only the list
+  // is repainted per keystroke (never the search box), so the input keeps focus
+  // while typing; the query lives in listQuery so an external refresh() keeps it.
+  function renderSearchableList({ items, addLabel, placeholder, onAdd, rowFor, emptyText, noMatchText }) {
+    const input = el('input', {
+      type: 'search', class: 'mgmt-search-input', placeholder,
+      'aria-label': placeholder, autocomplete: 'off', value: listQuery,
     });
-    content.appendChild(list);
+    let debounce = null;
+    input.addEventListener('input', () => {
+      listQuery = input.value;
+      clearTimeout(debounce);
+      debounce = setTimeout(paint, 140);
+    });
+    const search = el('div', { class: 'mgmt-search' }, [
+      el('span', { class: 'mgmt-search-icon', icon: SEARCH_ICON, 'aria-hidden': 'true' }),
+      input,
+    ]);
+    const listEl = el('div', { class: 'mgmt-list' });
+
+    function paint() {
+      const q = listQuery.trim().toLowerCase();
+      const all = items().slice().sort((a, b) => a.name.localeCompare(b.name));
+      const visible = q ? all.filter(it => (it.name || '').toLowerCase().includes(q)) : all;
+      listEl.replaceChildren();
+      if (!all.length) listEl.appendChild(el('p', { class: 'mgmt-empty', text: emptyText }));
+      else if (!visible.length) listEl.appendChild(el('p', { class: 'mgmt-empty', text: noMatchText }));
+      else visible.forEach(it => listEl.appendChild(rowFor(it)));
+    }
+
+    paint();
+    content.appendChild(search);
+    content.appendChild(el('button', { type: 'button', class: 'mgmt-add', onClick: onAdd }, addLabel));
+    content.appendChild(listEl);
+  }
+
+  function renderSupplierList() {
+    renderSearchableList({
+      items: () => data.suppliers(),
+      addLabel: '+ Add supplier',
+      placeholder: 'Search a supplier…',
+      onAdd: () => { view = { type: 'supplierForm', item: null }; render(); },
+      emptyText: 'No suppliers yet.',
+      noMatchText: 'No supplier matches your search.',
+      rowFor: (s) => {
+        const meta = [s.category, (s.deliveryDays || []).join(', ')].filter(Boolean).join(' · ');
+        return mgmtRow(s.name, meta, s.active !== false,
+          () => { view = { type: 'supplierForm', item: s }; render(); },
+          () => actions.setSupplierActive(s.id, s.active === false),
+          () => actions.deleteSupplier(s.id));
+      },
+    });
   }
 
   function renderIngredientList() {
-    content.appendChild(el('button', { type: 'button', class: 'mgmt-add',
-      onClick: () => { view = { type: 'ingredientForm', item: null }; render(); } }, '+ Add ingredient'));
-
     const supById = {};
     data.suppliers().forEach(s => { supById[s.id] = s.name; });
-
-    const list = el('div', { class: 'mgmt-list' });
-    data.ingredients().slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(i => {
-      const meta = [supById[i.supplierId] || 'No supplier', i.brand, i.weight].filter(Boolean).join(' · ');
-      list.appendChild(mgmtRow(i.name, meta, i.active !== false,
-        () => { view = { type: 'ingredientForm', item: i }; render(); },
-        () => actions.setIngredientActive(i.id, i.active === false),
-        () => actions.deleteIngredient(i.id)));
+    renderSearchableList({
+      items: () => data.ingredients(),
+      addLabel: '+ Add ingredient',
+      placeholder: 'Search an ingredient…',
+      onAdd: () => { view = { type: 'ingredientForm', item: null }; render(); },
+      emptyText: 'No ingredients yet.',
+      noMatchText: 'No ingredient matches your search.',
+      rowFor: (i) => {
+        const meta = [supById[i.supplierId] || 'No supplier', i.brand, i.weight].filter(Boolean).join(' · ');
+        return mgmtRow(i.name, meta, i.active !== false,
+          () => { view = { type: 'ingredientForm', item: i }; render(); },
+          () => actions.setIngredientActive(i.id, i.active === false),
+          () => actions.deleteIngredient(i.id));
+      },
     });
-    content.appendChild(list);
   }
 
   // A row with three actions: Edit, Deactivate/Activate (reversible), Delete

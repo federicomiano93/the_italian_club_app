@@ -443,6 +443,28 @@ input.ing-stock {
   -webkit-overflow-scrolling: touch;
   padding: 14px 16px calc(24px + var(--safe-bot));
 }
+
+/* Search box at the top of the Suppliers / Ingredients lists (same look as the
+   catalogue search, in the Orders tokens). */
+.mgmt-search { position: relative; margin-bottom: 12px; }
+.mgmt-search-icon {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--text3); display: flex; align-items: center; pointer-events: none;
+}
+.mgmt-search-input {
+  width: 100%;
+  padding: 11px 12px 11px 38px;
+  font-size: 15px;
+  font-family: 'Manrope', sans-serif;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+.mgmt-search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+.mgmt-empty { text-align: center; color: var(--text3); font-size: 14px; padding: 20px 12px; font-family: 'DM Mono', monospace; }
+
 .mgmt-add {
   width: 100%;
   padding: 12px;
