@@ -17,10 +17,15 @@ const BACK_ICON =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
 
 // Build the WhatsApp message: one section per selected supplier, bold name, then
-// "- item: qty unit" lines. Grouped and ready to paste into any chat.
+// "- name weight: qty" lines (no comma). The order unit (casse/box) is a private
+// reminder on the order screen only — the message to the supplier carries just the
+// number. Empty weight is skipped. Grouped and ready to paste into any chat.
 function buildCombinedMessage(selected) {
   const sections = selected.map(({ supplier, items }) => {
-    const lines = items.map(it => `- ${it.name}: ${it.qty} ${it.unit}`.trim());
+    const lines = items.map(it => {
+      const label = [it.name, it.weight].filter(Boolean).join(' ');
+      return `- ${label}: ${it.qty}`;
+    });
     return `*${supplier.name}*\n` + lines.join('\n');
   });
   return '*Order — The Italian Club*\n\n' + sections.join('\n\n');
@@ -33,7 +38,7 @@ export function buildSendScreen(suppliers, ingredientsBySupplier, entries, callb
   const withItems = suppliers.map(supplier => {
     const items = (ingredientsBySupplier[supplier.id] || [])
       .filter(ing => (entries[ing.id]?.qty || 0) > 0)
-      .map(ing => ({ name: ing.name, unit: ing.unit || '', qty: entries[ing.id].qty }));
+      .map(ing => ({ name: ing.name, weight: ing.weight || '', qty: entries[ing.id].qty }));
     return { supplier, items };
   }).filter(s => s.items.length);
 

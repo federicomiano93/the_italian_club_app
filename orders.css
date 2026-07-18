@@ -234,11 +234,15 @@
 .ing-name { font-size: 16px; font-weight: 500; color: var(--text); }
 .ing-unit { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; }
 
-/* Two plain inputs, Stock then Order — no +/- steppers (they overflowed on
-   phones). Equal width and grouped at the left so they read as a neat pair. */
-.ing-fields { display: flex; align-items: flex-start; gap: 16px; }
-.field { display: flex; flex-direction: column; gap: 5px; }
+/* Order on the LEFT, Stock on the RIGHT, pushed to the two edges of the row; each
+   column centres its label over its input. No +/- steppers (they overflowed on
+   phones). The order unit (e.g. "casse") sits next to the Order box — a fixed
+   per-ingredient label, not an input. */
+.ing-fields { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.field { display: flex; flex-direction: column; align-items: center; gap: 5px; }
 .field-label { font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; }
+.ing-order-input { display: flex; align-items: center; gap: 6px; }
+.ing-order-unit { font-size: 13px; color: var(--text3); font-family: 'DM Mono', monospace; white-space: nowrap; }
 
 input.ing-qty,
 input.ing-stock {

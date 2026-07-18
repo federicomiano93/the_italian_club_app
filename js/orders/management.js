@@ -100,7 +100,7 @@ export function buildManagement(data, actions) {
 
     const list = el('div', { class: 'mgmt-list' });
     data.ingredients().slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(i => {
-      const meta = [supById[i.supplierId] || 'No supplier', i.category, i.unit].filter(Boolean).join(' · ');
+      const meta = [supById[i.supplierId] || 'No supplier', i.brand, i.weight].filter(Boolean).join(' · ');
       list.appendChild(mgmtRow(i.name, meta, i.active !== false,
         () => { view = { type: 'ingredientForm', item: i }; render(); },
         () => actions.setIngredientActive(i.id, i.active === false),
@@ -207,8 +207,12 @@ export function buildManagement(data, actions) {
 
   function ingredientForm(item) {
     const name = el('input', { type: 'text', class: 'mgmt-input', value: item?.name || '' });
+    const brand = el('input', { type: 'text', class: 'mgmt-input', value: item?.brand || '', placeholder: 'e.g. Galbani' });
+    const weight = el('input', { type: 'text', class: 'mgmt-input', value: item?.weight || '', placeholder: 'e.g. 2.27kg' });
     const category = el('input', { type: 'text', class: 'mgmt-input', value: item?.category || '' });
-    const unit = el('input', { type: 'text', class: 'mgmt-input', value: item?.unit || '', placeholder: 'e.g. kg, L, trays' });
+    // "unit" is now the ORDER unit (how you count the order: casse, box), shown
+    // next to the quantity — not a unit of measure. Same field, new meaning.
+    const unit = el('input', { type: 'text', class: 'mgmt-input', value: item?.unit || '', placeholder: 'e.g. casse, box' });
 
     const supplierSelect = el('select', { class: 'mgmt-input' });
     data.suppliers().slice().sort((a, b) => a.name.localeCompare(b.name)).forEach(s => {
@@ -223,6 +227,8 @@ export function buildManagement(data, actions) {
       const payload = {
         name: name.value.trim(),
         supplierId: supplierSelect.value,
+        brand: brand.value.trim(),
+        weight: weight.value.trim(),
         category: category.value.trim() || 'Other',
         unit: unit.value.trim(),
         active: item ? item.active !== false : true,
@@ -235,8 +241,10 @@ export function buildManagement(data, actions) {
       el('h2', { class: 'mgmt-form-title', text: item ? 'Edit ingredient' : 'New ingredient' }),
       field('Name', name),
       field('Supplier', supplierSelect),
+      field('Brand', brand),
+      field('Weight', weight),
       field('Category', category),
-      field('Unit', unit),
+      field('Order unit', unit),
       formActions(save),
     ]);
   }

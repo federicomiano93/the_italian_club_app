@@ -43,7 +43,7 @@ export function buildHistoryEditor(record, ingredients, actions) {
   const rows = Object.keys(quantities)
     .map(id => ({
       id,
-      name: ingById[id]?.name || id,
+      name: [ingById[id]?.name || id, ingById[id]?.weight].filter(Boolean).join(' '),
       unit: ingById[id]?.unit || '',
       qty: num(quantities[id]),
       stock: num(stock[id]),
@@ -68,14 +68,17 @@ export function buildHistoryEditor(record, ingredients, actions) {
     return el('div', { class: 'ing-row' }, [
       el('div', { class: 'ing-top' }, [
         el('span', { class: 'ing-name', text: row.name }),
-        el('span', { class: 'ing-unit', text: row.unit }),
       ]),
       el('div', { class: 'ing-fields' }, [
+        el('label', { class: 'field order-field' }, [
+          el('span', { class: 'field-label', text: 'Order' }),
+          el('div', { class: 'ing-order-input' }, [
+            qtyInput,
+            row.unit ? el('span', { class: 'ing-order-unit', text: row.unit }) : null,
+          ]),
+        ]),
         el('label', { class: 'field stock-field' }, [
           el('span', { class: 'field-label', text: 'Stock' }), stockInput,
-        ]),
-        el('label', { class: 'field order-field' }, [
-          el('span', { class: 'field-label', text: 'Order' }), qtyInput,
         ]),
       ]),
     ]);
