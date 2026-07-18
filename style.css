@@ -74,18 +74,6 @@ header p { font-size: 11px; color: rgba(255,255,255,0.72); margin-top: 1px; font
   padding: 0;
 }
 
-/* Yeast reminder banner */
-#yeast-banner {
-  background: var(--warn);
-  color: #fff;
-  font-size: 13px;
-  padding: 10px 16px;
-  text-align: center;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-#yeast-banner.hidden { display: none; }
-
 /* Utility: hide an element from markup without an inline style="" attribute,
    which the page CSP (style-src 'self') blocks. Use this class instead. */
 .is-hidden { display: none !important; }

@@ -37,8 +37,6 @@ function switchTab(name) {
   // Footer "Log" is a no-op while the Log is open; hide it there (the tab-bar still leaves).
   const logFooterBtn = document.getElementById('log-footer-btn');
   if (logFooterBtn) logFooterBtn.style.display = name === 'log' ? 'none' : '';
-  const yeastBanner = document.getElementById('yeast-banner');
-  if (yeastBanner) yeastBanner.style.display = name === 'log' ? 'none' : '';
   if (name !== 'log') lastRecipeTab = name;
   currentTab = name;
   if (name === 'log') renderLog();
@@ -225,9 +223,6 @@ if (dayModal) {
 }
 
 // ── Static header / footer / modal wiring (elements exist in calculator.html) ──
-document.getElementById('yeast-banner').addEventListener('click', () => {
-  document.getElementById('yeast-banner').classList.add('hidden');
-});
 document.getElementById('header-wa-btn').addEventListener('click', shareMarketOrder);
 document.getElementById('header-back-btn').addEventListener('click', () => {
   // From the Log, Back returns to the last recipe; from a recipe it leaves to the app home.
