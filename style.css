@@ -25,6 +25,7 @@
 html, body {
   height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
@@ -33,6 +34,17 @@ body {
   color: var(--text);
   display: flex;
   flex-direction: column;
+  /* Pin the app shell to the VISIBLE viewport. height:100% resolves to the LARGE
+     mobile viewport (address bar hidden), so the body overflowed the visible area
+     and the whole page could be dragged — hiding the fixed header. dvh tracks the
+     browser's dynamic chrome (100vh is the fallback); position:fixed stops iOS from
+     bouncing the whole document. Only the .scroll-area inside still scrolls. */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100vh;
+  height: 100dvh;
 }
 
 /* Header */

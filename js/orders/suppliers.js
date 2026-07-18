@@ -42,9 +42,6 @@ export function refreshSupplierDerived(supplier, ingredients, entries) {
   const fill = document.getElementById(`progress-fill-${supplier.id}`);
   if (fill) fill.style.width = `${total ? Math.round((filled / total) * 100) : 0}%`;
 
-  const text = document.getElementById(`progress-text-${supplier.id}`);
-  if (text) text.textContent = `${filled} of ${total} filled`;
-
   const dot = document.getElementById(`waiting-${supplier.id}`);
   if (dot) dot.hidden = filled === 0;
 

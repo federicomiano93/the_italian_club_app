@@ -45,16 +45,21 @@ export function buildIngredientList(supplier, ingredients, suggest, entries, hoo
 
   const fill = el('div', { class: 'progress-fill', id: `progress-fill-${supplier.id}`,
     style: { width: `${Math.round((filled / total) * 100)}%` } });
+  // The bar stays (a quick "how full is this order" cue); the "X of Y filled" text
+  // was removed — the bar already says it.
   const progress = el('div', { class: 'progress' }, [
     el('div', { class: 'progress-track' }, [fill]),
-    el('span', { class: 'progress-text', id: `progress-text-${supplier.id}` }, `${filled} of ${total} filled`),
   ]);
 
   const body = el('div', { class: 'ingredient-list' }, [progress]);
 
   const byCategory = groupBy(ingredients, 'category');
   Object.keys(byCategory).sort().forEach(category => {
-    body.appendChild(el('div', { class: 'ing-category' }, category));
+    // "Other" is the default, no-information category — its header adds only noise,
+    // so show a category heading only for real categories.
+    if (category && category !== 'Other') {
+      body.appendChild(el('div', { class: 'ing-category' }, category));
+    }
     byCategory[category]
       .sort((a, b) => a.name.localeCompare(b.name))
       .forEach(ing => body.appendChild(buildRow(ing, supplier, suggest, entries, hooks)));
@@ -105,19 +110,25 @@ function buildRow(ing, supplier, suggest, entries, hooks) {
   });
   qtyInput.addEventListener('input', () => setQty(qtyInput.value, true));
 
+  // "name weight" (e.g. "Bacon 2.27kg"); the order unit (e.g. "casse") sits next
+  // to the Order box, not by the name. Both are skipped when empty.
+  const nameLabel = [ing.name, ing.weight].filter(Boolean).join(' ');
+
   const row = el('div', { class: 'ing-row', dataset: { ing: ing.id } }, [
     el('div', { class: 'ing-top' }, [
-      el('span', { class: 'ing-name', text: ing.name }),
-      el('span', { class: 'ing-unit', text: ing.unit }),
+      el('span', { class: 'ing-name', text: nameLabel }),
     ]),
     el('div', { class: 'ing-fields' }, [
+      el('label', { class: 'field order-field' }, [
+        el('span', { class: 'field-label', text: 'Order' }),
+        el('div', { class: 'ing-order-input' }, [
+          qtyInput,
+          ing.unit ? el('span', { class: 'ing-order-unit', text: ing.unit }) : null,
+        ]),
+      ]),
       el('label', { class: 'field stock-field' }, [
         el('span', { class: 'field-label', text: 'Stock' }),
         stockInput,
-      ]),
-      el('label', { class: 'field order-field' }, [
-        el('span', { class: 'field-label', text: 'Order' }),
-        qtyInput,
       ]),
     ]),
     hint,

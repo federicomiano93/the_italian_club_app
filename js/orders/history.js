@@ -49,11 +49,11 @@ export function renderHistory(container, history, suppliers, ingredients, callba
   });
 }
 
-// The rows of one record: "name … qty unit", by name.
+// The rows of one record: "name weight … qty unit", by name.
 function itemRows(quantities, ingById) {
   return Object.keys(quantities || {})
     .map(id => ({
-      name: ingById[id]?.name || id,
+      name: [ingById[id]?.name || id, ingById[id]?.weight].filter(Boolean).join(' '),
       unit: ingById[id]?.unit || '',
       qty: quantities[id],
     }))
@@ -96,7 +96,7 @@ function buildLegacyCard(record, supById, ingById, callbacks) {
   const bySupplier = groupBy(
     Object.keys(quantities).map(id => ({
       supplierId: ingById[id]?.supplierId || 'unknown',
-      name: ingById[id]?.name || id,
+      name: [ingById[id]?.name || id, ingById[id]?.weight].filter(Boolean).join(' '),
       unit: ingById[id]?.unit || '',
       qty: quantities[id],
     })),

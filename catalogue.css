@@ -47,7 +47,9 @@ body {
   flex: none;
   background: var(--cat-brand);
   color: var(--cat-brand-ink);
-  padding: 16px 16px;
+  /* viewport-fit=cover lets the green fill the status-bar area; the safe-area top
+     inset keeps the title/buttons below the clock. */
+  padding: calc(16px + env(safe-area-inset-top)) 16px 16px;
   display: grid;
   grid-template-columns: 36px 1fr 36px;
   align-items: center;
